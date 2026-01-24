@@ -1,0 +1,7 @@
+{
+  "name": "LocalShop 24 ",
+  "description": "aplicación de comercio electrónico que te conecta con piezas únicas de tiendas locales, promoviendo la moda sostenible y apoyando a los pequeños negocios de tu barrio.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
