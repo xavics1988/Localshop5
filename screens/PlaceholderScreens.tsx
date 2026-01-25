@@ -18,8 +18,8 @@ const Placeholder = ({ title }: { title: string }) => (
 );
 
 const Icon = ({ name, filled, className }: { name: string; filled?: boolean; className?: string; key?: React.Key }) => (
-    <span 
-        className={`material-symbols-outlined ${className}`} 
+    <span
+        className={`material-symbols-outlined ${className}`}
         style={{ fontVariationSettings: `'FILL' ${filled ? 1 : 0}, 'wght' 400, 'GRAD' 0, 'opsz' 24` }}
     >
         {name}
@@ -41,7 +41,7 @@ const Identicon: React.FC<{ seed: string, size?: number, className?: string }> =
     };
 
     const hash = hashString(seed);
-    
+
     // Generate 5x5 grid (3 columns unique, mirrored for symmetry)
     const grid = [];
     for (let row = 0; row < 5; row++) {
@@ -62,15 +62,15 @@ const Identicon: React.FC<{ seed: string, size?: number, className?: string }> =
     const color = `hsl(${hue}, 45%, 65%)`;
 
     return (
-        <svg 
-            viewBox="0 0 5 5" 
-            className={className} 
-            width={size} 
-            height={size} 
+        <svg
+            viewBox="0 0 5 5"
+            className={className}
+            width={size}
+            height={size}
             shapeRendering="crispEdges"
             style={{ backgroundColor: 'rgba(255,255,255,0.8)' }}
         >
-            {grid.map((row, y) => 
+            {grid.map((row, y) =>
                 row.map((filled, x) => (
                     filled && <rect key={`${x}-${y}`} x={x} y={y} width="1" height="1" fill={color} />
                 ))
@@ -84,7 +84,7 @@ export const ManageCatalogScreen: React.FC = () => {
     const { user } = useUser();
     const navigate = useNavigate();
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-    
+
     // Filtrar solo los productos que pertenecen a la tienda del colaborador actual
     const myProducts = useMemo(() => {
         return products.filter(p => p.storeId === user.storeId);
@@ -113,14 +113,14 @@ export const ManageCatalogScreen: React.FC = () => {
                             <div key={product.id} className="relative group">
                                 <ProductCard product={product} />
                                 <div className="mt-2 flex gap-2">
-                                    <button 
+                                    <button
                                         onClick={() => navigate(`/publish/${product.id}`)}
                                         className="flex-1 h-10 bg-primary/10 text-primary rounded-xl text-[10px] font-black uppercase tracking-widest border border-primary/20 flex items-center justify-center gap-1 active:scale-95 transition-transform"
                                     >
                                         <Icon name="edit" className="text-xs" />
                                         Editar / Reponer
                                     </button>
-                                    <button 
+                                    <button
                                         onClick={() => setConfirmDeleteId(product.id)}
                                         className="size-10 bg-red-500/10 text-red-500 rounded-xl border border-red-500/20 flex items-center justify-center active:scale-95 transition-transform"
                                         title="Eliminar artículo"
@@ -149,13 +149,13 @@ export const ManageCatalogScreen: React.FC = () => {
                             Esta acción es irreversible. El artículo dejará de aparecer en el escaparate para los clientes.
                         </p>
                         <div className="flex flex-col gap-3">
-                            <button 
+                            <button
                                 onClick={handleDelete}
                                 className="w-full h-14 bg-red-500 text-white rounded-2xl font-black uppercase tracking-widest shadow-lg shadow-red-500/20 active:scale-95 transition-all"
                             >
                                 Sí, eliminar definitivamente
                             </button>
-                            <button 
+                            <button
                                 onClick={() => setConfirmDeleteId(null)}
                                 className="w-full h-14 bg-accent-light dark:bg-background-dark border border-border-light dark:border-border-dark text-text-light dark:text-white rounded-2xl font-bold active:scale-95 transition-all"
                             >
@@ -167,7 +167,7 @@ export const ManageCatalogScreen: React.FC = () => {
             )}
 
             <div className="fixed bottom-6 right-6">
-                <button 
+                <button
                     onClick={() => navigate('/publish')}
                     className="size-14 bg-primary text-white rounded-full shadow-2xl flex items-center justify-center active:scale-90 transition-transform"
                 >
@@ -185,8 +185,8 @@ export const MyReviewsScreen: React.FC = () => {
     const isCollab = userRole === 'colaborador';
     const { stores } = useStores();
 
-    const myStoreId = user.storeId; 
-    
+    const myStoreId = user.storeId;
+
     const reviewsToShow = useMemo(() => {
         if (isCollab && myStoreId) {
             return getStoreReviews(myStoreId);
@@ -203,7 +203,7 @@ export const MyReviewsScreen: React.FC = () => {
         <div className="bg-background-light dark:bg-background-dark min-h-screen pb-20">
             <span className="sr-only">Reviews</span>
             <DetailHeader title={isCollab ? "Reseñas de Clientes" : "Mis Reseñas"} />
-            
+
             <main className="p-4 space-y-6 animate-fade-in">
                 {isCollab && (
                     <div className="bg-white dark:bg-accent-dark p-6 rounded-[32px] border border-border-light dark:border-border-dark shadow-sm flex items-center justify-between">
@@ -238,7 +238,7 @@ export const MyReviewsScreen: React.FC = () => {
                                     <div>
                                         <h3 className="font-black text-text-light dark:text-text-dark">{review.userName}</h3>
                                         <div className="flex gap-0.5 mt-0.5">
-                                            {[1,2,3,4,5].map(s => <Icon key={s} name="star" filled={s <= review.rating} className={`text-[10px] ${s <= review.rating ? 'text-primary' : 'text-text-subtle-light opacity-30'}`} />)}
+                                            {[1, 2, 3, 4, 5].map(s => <Icon key={s} name="star" filled={s <= review.rating} className={`text-[10px] ${s <= review.rating ? 'text-primary' : 'text-text-subtle-light opacity-30'}`} />)}
                                         </div>
                                     </div>
                                     <span className="text-[10px] font-bold text-text-subtle-light uppercase bg-accent-light dark:bg-background-dark px-2 py-1 rounded-full">{review.date}</span>
@@ -571,46 +571,46 @@ export const HelpScreen: React.FC = () => {
     const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
     const [activeTab, setActiveTab] = useState<'faq' | 'support'>('faq');
 
-    const WHATSAPP_PHONE_NUMBER = ""; 
+    const WHATSAPP_PHONE_NUMBER = "";
     const SUPPORT_EMAIL = "soporte@localshop.es";
 
     const faqs = isCollab ? [
-        { 
-            q: "¿Cómo puedo digitalizar mi tienda?", 
-            a: "El proceso es ágil: tras registrarte, puedes subir tu escaparate digital en cuestión de minutos a través de la app o la web." 
+        {
+            q: "¿Cómo puedo digitalizar mi tienda?",
+            a: "El proceso es ágil: tras registrarte, puedes subir tu escaparate digital en cuestión de minutos a través de la app o la web."
         },
-        { 
-            q: "¿Cómo gestiona LocalShop los cobros y qué comisiones se aplican?", 
-            a: "La plataforma cuenta con un sistema automatizado que gestiona íntegramente el catálogo, los pedidos y los pagos. El modelo de ingresos se divide en dos vías principales:\n\n• Suscripción para tiendas: Cada comercio colaborador abona una cuota mensual de 2,49 € por el uso de la plataforma.\n\n• Comisión por venta: Por cada artículo vendido, el sistema aplica automáticamente una comisión de 2,99 € por unidad.\n\n• Gestión de pagos: La aplicación procesa los pagos de forma automática, permitiendo que el consumidor compre o reserve artículos sin necesidad de intermediarios manuales." 
+        {
+            q: "¿Cómo gestiona LocalShop los cobros y qué comisiones se aplican?",
+            a: "La plataforma cuenta con un sistema automatizado que gestiona íntegramente el catálogo, los pedidos y los pagos. El modelo de ingresos se divide en dos vías principales:\n\n• Suscripción para tiendas: Cada comercio colaborador abona una cuota mensual de 2,49 € por el uso de la plataforma.\n\n• Comisión por venta: Por cada artículo vendido, el sistema aplica automáticamente una comisión de 2,99 € por unidad.\n\n• Gestión de pagos: La aplicación procesa los pagos de forma automática, permitiendo que el consumidor compre o reserve artículos sin necesidad de intermediarios manuales."
         },
-        { 
-            q: "¿LocalShop gestiona mi inventario?", 
-            a: "No, la plataforma funciona de forma descentralizada. No hay stock centralizado; tú sigues vendiendo como siempre, pero con visibilidad global." 
+        {
+            q: "¿LocalShop gestiona mi inventario?",
+            a: "No, la plataforma funciona de forma descentralizada. No hay stock centralizado; tú sigues vendiendo como siempre, pero con visibilidad global."
         },
-        { 
-            q: "¿Tengo que pagar el envío de las ventas?", 
-            a: "Solo en el caso de pedidos superiores a 79 €, donde la tienda asume el coste para ofrecer envío gratuito al cliente. En pedidos menores, el cliente paga el envío." 
+        {
+            q: "¿Tengo que pagar el envío de las ventas?",
+            a: "Solo en el caso de pedidos superiores a 79 €, donde la tienda asume el coste para ofrecer envío gratuito al cliente. En pedidos menores, el cliente paga el envío."
         }
     ] : [
-        { 
-            q: "¿Qué es LocalShop?", 
-            a: "Es una plataforma digital que conecta a los consumidores con el comercio local de moda y complementos, permitiendo comprar artículos de tiendas auténticas de forma online." 
+        {
+            q: "¿Qué es LocalShop?",
+            a: "Es una plataforma digital que conecta a los consumidores con el comercio local de moda y complementos, permitiendo comprar artículos de tiendas auténticas de forma online."
         },
-        { 
-            q: "¿Cómo recojo mi pedido?", 
-            a: "La plataforma utiliza un modelo híbrido para la entrega de artículos:\n\n• Envío a domicilio: El cliente recibe el pedido a través de un servicio de mensajería integrado.\n• Recogida en local: El cliente tiene la opción de acudir personalmente a la tienda física para recoger su compra." 
+        {
+            q: "¿Cómo recojo mi pedido?",
+            a: "La plataforma utiliza un modelo híbrido para la entrega de artículos:\n\n• Envío a domicilio: El cliente recibe el pedido a través de un servicio de mensajería integrado.\n• Recogida en local: El cliente tiene la opción de acudir personalmente a la tienda física para recoger su compra."
         },
-        { 
-            q: "¿Los precios online son más caros?", 
-            a: "No, el compromiso de la plataforma es que el cliente compre al mismo precio que encontraría físicamente en la tienda." 
+        {
+            q: "¿Los precios online son más caros?",
+            a: "No, el compromiso de la plataforma es que el cliente compre al mismo precio que encontraría físicamente en la tienda."
         },
-        { 
-            q: "¿Cuánto cuesta el envío?", 
-            a: "El coste medio del servicio de mensajería oscila entre 4,95 € y 6,95 € para pedidos de hasta 79 €. A partir de 79 €, el envío es gratuito para el cliente." 
+        {
+            q: "¿Cuánto cuesta el envío?",
+            a: "El coste medio del servicio de mensajería oscila entre 4,95 € y 6,95 € para pedidos de hasta 79 €. A partir de 79 €, el envío es gratuito para el cliente."
         },
-        { 
-            q: "¿Cómo funcionan las devoluciones?", 
-            a: "Al ser una plataforma que conecta con tiendas locales, puedes gestionar tu devolución de dos formas: acudiendo directamente a la tienda física donde realizaste la compra o solicitando la recogida a través de nuestro servicio de mensajería integrado en un plazo de 15 día." 
+        {
+            q: "¿Cómo funcionan las devoluciones?",
+            a: "Al ser una plataforma que conecta con tiendas locales, puedes gestionar tu devolución de dos formas: acudiendo directamente a la tienda física donde realizaste la compra o solicitando la recogida a través de nuestro servicio de mensajería integrado en un plazo de 15 día."
         }
     ];
 
@@ -631,16 +631,16 @@ export const HelpScreen: React.FC = () => {
         <div className="bg-background-light dark:bg-background-dark min-h-screen pb-10">
             <span className="sr-only">Help</span>
             <DetailHeader title={isCollab ? "Centro de Ayuda Partner" : "Ayuda y Soporte"} />
-            
+
             <div className="flex px-4 border-b border-border-light dark:border-border-dark bg-white dark:bg-background-dark sticky top-16 z-10">
-                <button 
-                    onClick={() => setActiveTab('faq')} 
+                <button
+                    onClick={() => setActiveTab('faq')}
                     className={`flex-1 py-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all ${activeTab === 'faq' ? 'border-primary text-primary' : 'border-transparent text-text-subtle-light'}`}
                 >
                     Preguntas Frecuentes
                 </button>
-                <button 
-                    onClick={() => setActiveTab('support')} 
+                <button
+                    onClick={() => setActiveTab('support')}
                     className={`flex-1 py-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all ${activeTab === 'support' ? 'border-primary text-primary' : 'border-transparent text-text-subtle-light'}`}
                 >
                     Atención al Cliente
@@ -655,7 +655,7 @@ export const HelpScreen: React.FC = () => {
                                 {isCollab ? "Soporte para Negocios" : "¿Cómo podemos ayudarte?"}
                             </h2>
                             <p className="text-sm text-text-subtle-light leading-relaxed">
-                                {isCollab 
+                                {isCollab
                                     ? "Optimiza tu tienda digital. Encuentra aquí todo lo necesario para resolver tus dudas comerciales."
                                     : "Encuentra respuestas rápidas sobre tus compras, envíos y artículos únicos favoritos."}
                             </p>
@@ -665,23 +665,23 @@ export const HelpScreen: React.FC = () => {
                             {faqs.map((f, i) => {
                                 const isExpanded = expandedIndex === i;
                                 return (
-                                    <div 
-                                        key={i} 
+                                    <div
+                                        key={i}
                                         className="overflow-hidden rounded-[32px] border border-primary/20 shadow-sm transition-all duration-300"
                                     >
-                                        <button 
+                                        <button
                                             onClick={() => toggleFAQ(i)}
                                             className="flex w-full items-center justify-between p-5 text-left text-white transition-colors"
                                             style={{ backgroundColor: '#C29B88' }}
                                         >
                                             <span className="text-sm font-bold pr-4 leading-tight">{f.q}</span>
-                                            <Icon 
-                                                name="expand_more" 
-                                                className={`transition-transform duration-300 text-white ${isExpanded ? 'rotate-180' : 'rotate-0'}`} 
+                                            <Icon
+                                                name="expand_more"
+                                                className={`transition-transform duration-300 text-white ${isExpanded ? 'rotate-180' : 'rotate-0'}`}
                                             />
                                         </button>
-                                        
-                                        <div 
+
+                                        <div
                                             className={`transition-all duration-300 ease-in-out overflow-hidden bg-primary/5 ${isExpanded ? 'max-h-[800px] opacity-100' : 'max-h-0 opacity-0'}`}
                                         >
                                             <div className="px-6 py-6 text-sm text-text-light dark:text-text-dark/90 leading-relaxed whitespace-pre-wrap border-t border-primary/10">
@@ -698,17 +698,17 @@ export const HelpScreen: React.FC = () => {
                         <div className="bg-green-500/10 border border-green-500/20 p-8 rounded-[40px] text-center">
                             <div className="size-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
                                 <svg className="w-10 h-10 text-white fill-current" viewBox="0 0 24 24">
-                                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.72.94 3.659 1.437 5.63 1.438h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.72.94 3.659 1.437 5.63 1.438h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
                             </div>
                             <h3 className="text-xl font-black text-text-light dark:text-white mb-2">WhatsApp Directo</h3>
                             <p className="text-sm text-text-subtle-light mb-8 leading-relaxed">
                                 ¿Tienes una duda urgente sobre un pedido o quieres reportar un problemar? Escríbenos directamente y te responderemos en minutos.
                             </p>
-                            <button 
+                            <button
                                 onClick={handleWhatsAppClick}
                                 className="w-full h-14 bg-green-500 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
                             >
-                                <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.72.94 3.659 1.437 5.63 1.438h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                                <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.72.94 3.659 1.437 5.63 1.438h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
                                 Contactar por WhatsApp
                             </button>
                         </div>
@@ -718,16 +718,17 @@ export const HelpScreen: React.FC = () => {
                             <div className="flex justify-center gap-8 py-2">
                                 <a href="https://instagram.com/localshop" target="_blank" className="flex flex-col items-center gap-1 group">
                                     <div className="size-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary group-active:scale-90 transition-transform overflow-hidden shadow-sm border border-primary/20">
-                                        <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+                                        <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" /></svg>
+                                    </div>
                                 </a>
                                 <a href="https://tiktok.com/@localshop" target="_blank" className="flex flex-col items-center gap-1 group">
                                     <div className="size-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary group-active:scale-90 transition-transform overflow-hidden shadow-sm border border-primary/20">
-                                        <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.17-2.86-.6-4.12-1.31a6.43 6.43 0 0 1-1.55-1.11v7.14c-.01 1.2-.24 2.41-.69 3.53a7.48 7.48 0 0 1-5.11 4.79c-1.2.32-2.45.39-3.68.21a7.41 7.41 0 0 1-5.39-4.01c-.46-1.12-.68-2.32-.69-3.53-.01-1.21.23-2.43.69-3.55a7.48 7.48 0 0 1 5.1-4.79c.96-.26 1.95-.35 2.94-.25v4.21c-.72-.08-1.45.02-2.12.3a3.17 3.17 0 0 0-1.89 2.56c-.05.51-.01 1.03.11 1.53.18.57.54 1.08 1.01 1.46.47.38 1.05.61 1.65.67.6.06 1.21-.04 1.77-.28a3.17 3.17 0 0 0 1.62-2.07c.13-.51.18-1.04.14-1.57V.02z"/></svg>
+                                        <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.17-2.86-.6-4.12-1.31a6.43 6.43 0 0 1-1.55-1.11v7.14c-.01 1.2-.24 2.41-.69 3.53a7.48 7.48 0 0 1-5.11 4.79c-1.2.32-2.45.39-3.68.21a7.41 7.41 0 0 1-5.39-4.01c-.46-1.12-.68-2.32-.69-3.53-.01-1.21.23-2.43.69-3.55a7.48 7.48 0 0 1 5.1-4.79c.96-.26 1.95-.35 2.94-.25v4.21c-.72-.08-1.45.02-2.12.3a3.17 3.17 0 0 0-1.89 2.56c-.05.51-.01 1.03.11 1.53.18.57.54 1.08 1.01 1.46.47.38 1.05.61 1.65.67.6.06 1.21-.04 1.77-.28a3.17 3.17 0 0 0 1.62-2.07c.13-.51.18-1.04.14-1.57V.02z" /></svg>
                                     </div>
                                     <span className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">TikTok</span>
                                 </a>
                                 <a href="https://facebook.com/localshop" target="_blank" className="size-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary active:scale-90 transition-transform overflow-hidden shadow-sm border border-primary/20">
-                                    <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                                    <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg>
                                 </a>
                             </div>
                         </div>
@@ -791,9 +792,9 @@ const SettingsSection: React.FC<{ title: string; children: React.ReactNode }> = 
     </div>
 );
 
-const SettingsLink: React.FC<{ 
-    icon: string; 
-    label: string; 
+const SettingsLink: React.FC<{
+    icon: string;
+    label: string;
     value?: string;
     onClick?: () => void;
     to?: string;
@@ -843,7 +844,7 @@ const FormInput = ({ label, value, type = "text", onChange, placeholder, require
         <label className="text-xs font-black uppercase tracking-widest text-text-light dark:text-text-dark opacity-70">
             {label}
         </label>
-        <input 
+        <input
             required={required}
             disabled={disabled}
             type={type}
@@ -885,23 +886,23 @@ export const AppSettingsScreen: React.FC = () => {
             <DetailHeader title="Ajustes de la App" />
             <main className="pt-4">
                 <SettingsSection title="Preferencias">
-                    <SettingsToggle 
-                        icon="dark_mode" 
-                        label="Modo Oscuro" 
-                        checked={darkMode} 
-                        onChange={toggleDarkMode} 
+                    <SettingsToggle
+                        icon="dark_mode"
+                        label="Modo Oscuro"
+                        checked={darkMode}
+                        onChange={toggleDarkMode}
                     />
-                    <SettingsToggle 
-                        icon="notifications" 
-                        label="Notificaciones Push" 
-                        checked={settings.push} 
-                        onChange={(v) => updateSettings({ push: v })} 
+                    <SettingsToggle
+                        icon="notifications"
+                        label="Notificaciones Push"
+                        checked={settings.push}
+                        onChange={(v) => updateSettings({ push: v })}
                     />
-                    <SettingsToggle 
-                        icon="mail_outline" 
-                        label="Alertas por Email" 
-                        checked={settings.email} 
-                        onChange={(v) => updateSettings({ email: v })} 
+                    <SettingsToggle
+                        icon="mail_outline"
+                        label="Alertas por Email"
+                        checked={settings.email}
+                        onChange={(v) => updateSettings({ email: v })}
                     />
                 </SettingsSection>
 
@@ -915,8 +916,8 @@ export const AppSettingsScreen: React.FC = () => {
 
                 <SettingsSection title="Mantenimiento">
                     <div className="p-4">
-                        <button 
-                            onClick={clearLocalProducts} 
+                        <button
+                            onClick={clearLocalProducts}
                             className="w-full py-4 bg-primary/10 text-primary font-bold rounded-xl border border-primary/20 active:scale-95 transition-all flex items-center justify-center gap-2"
                         >
                             <Icon name="cleaning_services" className="text-xl" />
@@ -928,7 +929,7 @@ export const AppSettingsScreen: React.FC = () => {
                 <SettingsSection title="Cuenta">
                     <SettingsLink icon="logout" label="Cerrar Sesión" showChevron={false} onClick={() => { localStorage.clear(); navigate('/welcome'); }} />
                     <div className="p-4">
-                        <button 
+                        <button
                             onClick={handleDeleteAccount}
                             className="w-full py-4 bg-red-500/10 text-red-500 font-bold rounded-xl border border-red-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
                         >
@@ -995,7 +996,7 @@ export const CartScreen: React.FC = () => {
                                 </div>
                             ))}
                         </div>
-                        
+
                         <div className="bg-white dark:bg-accent-dark p-6 rounded-[32px] border border-border-light dark:border-border-dark shadow-sm space-y-3">
                             <div className="flex justify-between items-center">
                                 <span className="font-black text-xl text-text-light dark:text-text-dark">Total</span>
@@ -1016,7 +1017,7 @@ export const CartScreen: React.FC = () => {
 
 const ReferralCard: React.FC = () => {
     const { user, notify } = useUser() as any;
-    
+
     const handleCopy = () => {
         if (user.referralCode) {
             navigator.clipboard.writeText(user.referralCode);
@@ -1052,13 +1053,13 @@ const ReferralCard: React.FC = () => {
                     <span className="text-lg font-black tracking-tight">€{user.referralBalance.toFixed(2)}</span>
                 </div>
             </div>
-            
+
             <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 flex items-center justify-between border border-white/10">
                 <div className="flex flex-col">
                     <span className="text-[9px] font-black uppercase tracking-widest opacity-60">Tu Código</span>
                     <span className="text-lg font-black tracking-tighter uppercase">{user.referralCode || '----'}</span>
                 </div>
-                <button 
+                <button
                     onClick={handleCopy}
                     className="size-10 bg-white text-primary rounded-xl flex items-center justify-center active:scale-90 transition-transform shadow-lg"
                 >
@@ -1067,7 +1068,7 @@ const ReferralCard: React.FC = () => {
             </div>
 
             <div className="flex gap-3">
-                <button 
+                <button
                     onClick={handleShare}
                     className="flex-1 h-12 bg-white text-primary font-black uppercase tracking-widest text-[10px] rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg"
                 >
@@ -1140,15 +1141,15 @@ export const ProfileScreen: React.FC = () => {
             </header>
             <main className="px-4 -mt-8 space-y-4">
                 {!isCollab && <ReferralCard />}
-                
+
                 <div className="bg-white dark:bg-accent-dark p-2 rounded-[40px] border border-border-light dark:border-border-dark shadow-2xl overflow-hidden">
-                   <SettingsLink icon="person" label={isCollab ? "Datos de la Empresa" : "Mis Datos Personales"} to="/edit-profile" />
-                   {isCollab && <SettingsLink icon="inventory_2" label="Gestionar mi Catálogo" to="/manage-catalog" />}
-                   <SettingsLink icon={isCollab ? "receipt_long" : "shopping_bag"} label={isCollab ? "Mis Ventas" : "Mis Pedidos"} to="/orders" />
-                   <SettingsLink icon="payments" label={isCollab ? "Configuración de Cobros" : "Métodos de Pago"} to="/payment-methods" />
-                   <SettingsLink icon="rate_review" label={isCollab ? "Reseñas de Clientes" : "Mis Reseñas"} to="/my-reviews" />
-                   {!isCollab && <SettingsLink icon="favorite" label="Mis Favoritos" to="/favorites" />}
-                   <SettingsLink icon="help" label="Ayuda y Soporte" to="/help" />
+                    <SettingsLink icon="person" label={isCollab ? "Datos de la Empresa" : "Mis Datos Personales"} to="/edit-profile" />
+                    {isCollab && <SettingsLink icon="inventory_2" label="Gestionar mi Catálogo" to="/manage-catalog" />}
+                    <SettingsLink icon={isCollab ? "receipt_long" : "shopping_bag"} label={isCollab ? "Mis Ventas" : "Mis Pedidos"} to="/orders" />
+                    <SettingsLink icon="payments" label={isCollab ? "Configuración de Cobros" : "Métodos de Pago"} to="/payment-methods" />
+                    <SettingsLink icon="rate_review" label={isCollab ? "Reseñas de Clientes" : "Mis Reseñas"} to="/my-reviews" />
+                    {!isCollab && <SettingsLink icon="favorite" label="Mis Favoritos" to="/favorites" />}
+                    <SettingsLink icon="help" label="Ayuda y Soporte" to="/help" />
                 </div>
 
                 <div className="pt-10 pb-4 text-center">
@@ -1157,20 +1158,20 @@ export const ProfileScreen: React.FC = () => {
                     </h3>
                     <div className="flex justify-center items-center gap-6">
                         <a href="https://instagram.com/localshop" target="_blank" className="size-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary active:scale-90 transition-transform overflow-hidden shadow-sm border border-primary/20">
-                            <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+                            <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" /></svg>
                         </a>
                         <a href="https://facebook.com/localshop" target="_blank" className="size-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary active:scale-90 transition-transform overflow-hidden shadow-sm border border-primary/20">
-                            <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                            <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg>
                         </a>
                         <a href="https://tiktok.com/@localshop" target="_blank" className="size-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary active:scale-90 transition-transform overflow-hidden shadow-sm border border-primary/20">
-                            <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.17-2.86-.6-4.12-1.31a6.43 6.43 0 0 1-1.55-1.11v7.14c-.01 1.2-.24 2.41-.69 3.53a7.48 7.48 0 0 1-5.11 4.79c-1.2.32-2.45.39-3.68.21a7.41 7.41 0 0 1-5.39-4.01c-.46-1.12-.68-2.32-.69-3.53-.01-1.21.23-2.43.69-3.55a7.48 7.48 0 0 1 5.1-4.79c.96-.26 1.95-.35 2.94-.25v4.21c-.72-.08-1.45.02-2.12.3a3.17 3.17 0 0 0-1.89 2.56c-.05.51-.01 1.03.11 1.53.18.57.54 1.08 1.01 1.46.47.38 1.05.61 1.65.67.6.06 1.21-.04 1.77-.28a3.17 3.17 0 0 0 1.62-2.07c.13-.51.18-1.04.14-1.57V.02z"/></svg>
+                            <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.17-2.86-.6-4.12-1.31a6.43 6.43 0 0 1-1.55-1.11v7.14c-.01 1.2-.24 2.41-.69 3.53a7.48 7.48 0 0 1-5.11 4.79c-1.2.32-2.45.39-3.68.21a7.41 7.41 0 0 1-5.39-4.01c-.46-1.12-.68-2.32-.69-3.53-.01-1.21.23-2.43.69-3.55a7.48 7.48 0 0 1 5.1-4.79c.96-.26 1.95-.35 2.94-.25v4.21c-.72-.08-1.45.02-2.12.3a3.17 3.17 0 0 0-1.89 2.56c-.05.51-.01 1.03.11 1.53.18.57.54 1.08 1.01 1.46.47.38 1.05.61 1.65.67.6.06 1.21-.04 1.77-.28a3.17 3.17 0 0 0 1.62-2.07c.13-.51.18-1.04.14-1.57V.02z" /></svg>
                         </a>
                         <div className="size-14 bg-white dark:bg-accent-dark rounded-full flex items-center justify-center shadow-lg border border-border-light dark:border-border-dark overflow-hidden p-2">
                             <Logo showText={false} className="h-full" />
                         </div>
                     </div>
                 </div>
-                
+
                 <div className="bg-white dark:bg-accent-dark rounded-[32px] border border-border-light dark:border-border-dark shadow-sm">
                     <button onClick={() => { localStorage.clear(); navigate('/welcome'); }} className="w-full py-5 text-red-500 font-black text-center active:scale-95 transition-transform">
                         Cerrar Sesión
@@ -1195,16 +1196,16 @@ export const FavoritesScreen: React.FC = () => {
         <div className="bg-background-light dark:bg-background-dark min-h-screen pb-20">
             <span className="sr-only">Favoritos</span>
             <DetailHeader title="Mis Favoritos" />
-            
+
             <div className="flex px-4 border-b border-border-light dark:border-border-dark bg-white dark:bg-background-dark sticky top-16 z-10">
-                <button 
-                    onClick={() => setActiveTab('products')} 
+                <button
+                    onClick={() => setActiveTab('products')}
                     className={`flex-1 py-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all ${activeTab === 'products' ? 'border-primary text-primary' : 'border-transparent text-text-subtle-light'}`}
                 >
                     Artículos ({favProducts.length})
                 </button>
-                <button 
-                    onClick={() => setActiveTab('stores')} 
+                <button
+                    onClick={() => setActiveTab('stores')}
                     className={`flex-1 py-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all ${activeTab === 'stores' ? 'border-primary text-primary' : 'border-transparent text-text-subtle-light'}`}
                 >
                     Tiendas ({favStores.length})
@@ -1253,7 +1254,7 @@ export const FavoritesScreen: React.FC = () => {
 };
 
 export const FollowedStoresScreen: React.FC = () => {
-    return <FavoritesScreen />; 
+    return <FavoritesScreen />;
 };
 
 /**
@@ -1296,7 +1297,7 @@ export const OrdersScreen: React.FC = () => {
     const { notify } = useNotifications();
     const userRole = localStorage.getItem('userRole') || 'cliente';
     const isCollab = userRole === 'colaborador';
-    
+
     // Estado para controlar qué pedidos tienen el historial desplegado
     const [expandedHistory, setExpandedHistory] = useState<Record<string, boolean>>({});
 
@@ -1353,7 +1354,7 @@ export const OrdersScreen: React.FC = () => {
             <span className="sr-only">Orders</span>
             <DetailHeader title={isCollab ? "Mis Ventas" : "Mis Pedidos"} />
             <main className="p-4 space-y-4 animate-fade-in">
-                
+
                 {isCollab && displayedOrders.length > 0 && (
                     <div className="bg-primary/10 border border-primary/20 p-6 rounded-[32px] mb-6 flex justify-between items-center shadow-sm">
                         <div>
@@ -1379,7 +1380,7 @@ export const OrdersScreen: React.FC = () => {
                         const myItems = isCollab ? order.items.filter(i => i.product.storeId === user.storeId) : order.items;
                         const isReturned = order.status === 'Devuelto' || order.status === 'Cancelado';
                         const isExpanded = expandedHistory[order.id] || false;
-                        
+
                         // Accounting logic: if returned, order value is 0 for net revenue
                         const orderValue = isReturned ? 0 : myItems.reduce((acc, i) => acc + (i.product.price * i.quantity), 0);
                         const originalValue = myItems.reduce((acc, i) => acc + (i.product.price * i.quantity), 0);
@@ -1392,7 +1393,7 @@ export const OrdersScreen: React.FC = () => {
 
                         return (
                             <div key={order.id} className={`bg-white dark:bg-accent-dark rounded-3xl border p-6 shadow-sm space-y-4 transition-all ${isReturned ? 'opacity-60 grayscale-[0.3] border-red-200 dark:border-red-900/20' : 'border-border-light dark:border-border-dark hover:border-primary/30'}`}>
-                                
+
                                 {isReturned && (
                                     <div className="flex items-center gap-2 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 p-3 rounded-2xl mb-2 border border-red-100 dark:border-red-900/20">
                                         <Icon name={order.status === 'Cancelado' ? 'cancel' : 'assignment_return'} className="text-sm" filled />
@@ -1405,15 +1406,14 @@ export const OrdersScreen: React.FC = () => {
                                         <h3 className="font-black text-sm uppercase tracking-wider">{isCollab ? `Venta #${order.id.split('-')[1]}` : `Pedido #${order.id.split('-')[1]}`}</h3>
                                         <p className="text-[10px] text-text-subtle-light font-bold uppercase mt-1">{new Date(order.date).toLocaleDateString()}</p>
                                     </div>
-                                    <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest ${
-                                        order.status === 'Nuevo' ? 'bg-primary/10 text-primary' : 
-                                        order.status === 'Completado' ? 'bg-green-500/10 text-green-600' :
-                                        order.status === 'Devolución Solicitada' ? 'bg-purple-100 text-purple-700' :
-                                        order.status === 'Devuelto' || order.status === 'Cancelado' ? 'bg-gray-200 text-gray-600' :
-                                        'bg-gray-100 text-gray-500'
-                                    }`}>{order.status}</span>
+                                    <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest ${order.status === 'Nuevo' ? 'bg-primary/10 text-primary' :
+                                            order.status === 'Completado' ? 'bg-green-500/10 text-green-600' :
+                                                order.status === 'Devolución Solicitada' ? 'bg-purple-100 text-purple-700' :
+                                                    order.status === 'Devuelto' || order.status === 'Cancelado' ? 'bg-gray-200 text-gray-600' :
+                                                        'bg-gray-100 text-gray-500'
+                                        }`}>{order.status}</span>
                                 </div>
-                                
+
                                 <div className="space-y-3">
                                     {myItems.map((item, idx) => (
                                         <div key={idx} className="flex items-center gap-3">
@@ -1428,7 +1428,7 @@ export const OrdersScreen: React.FC = () => {
 
                                 {/* Botón Toggle de Trazabilidad */}
                                 <div className="pt-2">
-                                    <button 
+                                    <button
                                         onClick={() => toggleHistory(order.id)}
                                         className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.1em] text-primary/70 hover:text-primary transition-colors bg-primary/5 px-3 py-1.5 rounded-full"
                                     >
@@ -1456,7 +1456,7 @@ export const OrdersScreen: React.FC = () => {
                                     {!isCollab && (
                                         <div className="flex flex-col gap-2">
                                             {order.status === 'En Proceso' && (
-                                                <button 
+                                                <button
                                                     onClick={() => handleConfirmReceipt(order.id)}
                                                     className="bg-primary text-white h-10 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform flex items-center justify-center gap-1 shadow-md shadow-primary/20"
                                                 >
@@ -1464,9 +1464,9 @@ export const OrdersScreen: React.FC = () => {
                                                     He recibido mi pedido
                                                 </button>
                                             )}
-                                            
+
                                             {isEligibleForReturn && (
-                                                <button 
+                                                <button
                                                     onClick={() => handleRequestReturn(order.id)}
                                                     className="bg-red-500/10 text-red-500 border border-red-500/20 h-10 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform flex items-center justify-center gap-1"
                                                 >
@@ -1480,14 +1480,14 @@ export const OrdersScreen: React.FC = () => {
 
                                 {isCollab && order.status === 'Nuevo' && (
                                     <div className="flex gap-2 mt-2">
-                                        <button 
+                                        <button
                                             onClick={() => handleAcceptOrder(order.id)}
                                             className="flex-1 h-12 bg-primary text-white font-black uppercase tracking-widest rounded-2xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
                                         >
                                             <Icon name="check_circle" className="text-white" filled />
                                             Aceptar y Enviar
                                         </button>
-                                        <button 
+                                        <button
                                             onClick={() => handleCancelOrder(order.id)}
                                             className="px-4 h-12 bg-red-500/10 text-red-500 font-black uppercase tracking-widest rounded-2xl border border-red-500/20 active:scale-95 transition-all flex items-center justify-center"
                                         >
@@ -1497,7 +1497,7 @@ export const OrdersScreen: React.FC = () => {
                                 )}
 
                                 {isCollab && order.status === 'Devolución Solicitada' && (
-                                    <button 
+                                    <button
                                         onClick={() => handleConfirmReception(order.id)}
                                         className="w-full min-h-[64px] py-3 px-6 mt-3 bg-gradient-to-r from-green-600 to-emerald-500 text-white font-black uppercase rounded-2xl shadow-xl shadow-green-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-4 border-b-4 border-green-800/30"
                                     >
@@ -1577,7 +1577,7 @@ export const PaymentScreen: React.FC = () => {
             items: [...cartItems],
             total: finalTotal
         });
-        
+
         setSuccess(true);
         notify('¡Pago realizado!', `Fondos dirigidos a ${LOCALSHOP_PLATFORM_ACCOUNT.bankName}.`, 'lock');
     };
@@ -1619,11 +1619,11 @@ export const PaymentScreen: React.FC = () => {
                                     <span className="text-[10px] font-black uppercase text-primary">Disponible: €{user.referralBalance.toFixed(2)}</span>
                                 </div>
                                 <div className="relative inline-flex items-center">
-                                    <input 
-                                        type="checkbox" 
-                                        checked={useReferral} 
-                                        onChange={e => setUseReferral(e.target.checked)} 
-                                        className="sr-only peer" 
+                                    <input
+                                        type="checkbox"
+                                        checked={useReferral}
+                                        onChange={e => setUseReferral(e.target.checked)}
+                                        className="sr-only peer"
                                     />
                                     <div className="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-background-dark peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
                                 </div>
@@ -1657,42 +1657,42 @@ export const PaymentScreen: React.FC = () => {
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            <FormInput 
-                                label="Número de tarjeta" 
-                                placeholder="0000 0000 0000 0000" 
-                                value={cardData.number} 
+                            <FormInput
+                                label="Número de tarjeta"
+                                placeholder="0000 0000 0000 0000"
+                                value={cardData.number}
                                 maxLength={19}
                                 onChange={(v: string) => {
                                     const val = v.replace(/\D/g, '').substring(0, 16);
-                                    setCardData(p => ({...p, number: val.match(/.{1,4}/g)?.join(' ') || ''}));
+                                    setCardData(p => ({ ...p, number: val.match(/.{1,4}/g)?.join(' ') || '' }));
                                 }}
                             />
-                            <FormInput 
-                                label="Titular" 
-                                placeholder="Nombre completo" 
-                                value={cardData.holder} 
-                                onChange={(v: string) => setCardData(p => ({...p, holder: v}))}
+                            <FormInput
+                                label="Titular"
+                                placeholder="Nombre completo"
+                                value={cardData.holder}
+                                onChange={(v: string) => setCardData(p => ({ ...p, holder: v }))}
                             />
                             <div className="grid grid-cols-2 gap-4">
-                                <FormInput 
-                                label="Caducidad" 
-                                placeholder="MM/YY" 
-                                value={cardData.expiry} 
-                                maxLength={5}
-                                onChange={(v: string) => {
-                                    const val = v.replace(/\D/g, '').substring(0, 4);
-                                    let formatted = val;
-                                    if (val.length > 2) formatted = val.substring(0, 2) + '/' + val.substring(2);
-                                    setCardData(p => ({...p, expiry: formatted}));
-                                }}
+                                <FormInput
+                                    label="Caducidad"
+                                    placeholder="MM/YY"
+                                    value={cardData.expiry}
+                                    maxLength={5}
+                                    onChange={(v: string) => {
+                                        const val = v.replace(/\D/g, '').substring(0, 4);
+                                        let formatted = val;
+                                        if (val.length > 2) formatted = val.substring(0, 2) + '/' + val.substring(2);
+                                        setCardData(p => ({ ...p, expiry: formatted }));
+                                    }}
                                 />
-                                <FormInput 
-                                label="CVV" 
-                                placeholder="123" 
-                                type="password"
-                                maxLength={4}
-                                value={cardData.cvv} 
-                                onChange={(v: string) => setCardData(p => ({...p, cvv: v.replace(/\D/g, '').substring(0, 4)}))}
+                                <FormInput
+                                    label="CVV"
+                                    placeholder="123"
+                                    type="password"
+                                    maxLength={4}
+                                    value={cardData.cvv}
+                                    onChange={(v: string) => setCardData(p => ({ ...p, cvv: v.replace(/\D/g, '').substring(0, 4) }))}
                                 />
                             </div>
                             <p className="text-[10px] text-text-subtle-light italic leading-tight">Tu tarjeta se guardará de forma segura en tu perfil para futuras compras.</p>
@@ -1704,14 +1704,14 @@ export const PaymentScreen: React.FC = () => {
                     <Icon name="verified_user" className="text-primary text-2xl" />
                     <div className="flex-1">
                         <p className="text-[10px] font-bold text-primary/80 leading-relaxed">
-                            Pago 100% seguro gestionado por LocalShop. Fondos depositados en la cuenta de garantía: 
+                            Pago 100% seguro gestionado por LocalShop. Fondos depositados en la cuenta de garantía:
                             <span className="block font-black opacity-60">{LOCALSHOP_PLATFORM_ACCOUNT.iban}</span>
                         </p>
                     </div>
                 </div>
 
-                <button 
-                    onClick={handleConfirmPayment} 
+                <button
+                    onClick={handleConfirmPayment}
                     className="w-full h-16 bg-primary text-white font-bold rounded-2xl shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-3 text-lg"
                 >
                     <Icon name="lock" />
@@ -1814,12 +1814,12 @@ export const PaymentMethodsScreen: React.FC = () => {
                         <div className="space-y-4">
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Número de tarjeta (16 dígitos)</label>
-                                <input 
+                                <input
                                     value={cardForm.number}
                                     maxLength={19}
                                     onChange={e => {
                                         const val = e.target.value.replace(/\D/g, '').substring(0, 16);
-                                        setCardForm(p => ({...p, number: val.match(/.{1,4}/g)?.join(' ') || ''}));
+                                        setCardForm(p => ({ ...p, number: val.match(/.{1,4}/g)?.join(' ') || '' }));
                                     }}
                                     className="w-full h-12 bg-accent-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded-xl px-4 text-sm font-bold text-text-light dark:text-text-dark outline-none focus:ring-2 focus:ring-primary/20"
                                     placeholder="0000 0000 0000 0000"
@@ -1827,24 +1827,24 @@ export const PaymentMethodsScreen: React.FC = () => {
                             </div>
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Titular</label>
-                                <input 
+                                <input
                                     value={cardForm.holder}
-                                    onChange={e => setCardForm(p => ({...p, holder: e.target.value}))}
-                                    className="form-input w-full rounded-lg border border-border-light bg-white dark:bg-background-dark dark:border-border-dark text-text-light dark:text-text-dark h-12 pl-3 pr-3 text-base outline-none focus:ring-2 focus:ring-primary/20 transition-all" 
+                                    onChange={e => setCardForm(p => ({ ...p, holder: e.target.value }))}
+                                    className="form-input w-full rounded-lg border border-border-light bg-white dark:bg-background-dark dark:border-border-dark text-text-light dark:text-text-dark h-12 pl-3 pr-3 text-base outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                                     placeholder="Nombre como aparece en la tarjeta"
                                 />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Caducidad (MM/YY)</label>
-                                    <input 
+                                    <input
                                         value={cardForm.expiry}
                                         maxLength={5}
                                         onChange={e => {
                                             const val = e.target.value.replace(/\D/g, '').substring(0, 4);
                                             let formatted = val;
                                             if (val.length > 2) formatted = val.substring(0, 2) + '/' + val.substring(2);
-                                            setCardForm(p => ({...p, expiry: formatted}));
+                                            setCardForm(p => ({ ...p, expiry: formatted }));
                                         }}
                                         className="w-full h-12 bg-accent-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded-xl px-4 text-sm font-bold text-text-light dark:text-text-dark outline-none focus:ring-2 focus:ring-primary/20"
                                         placeholder="MM/YY"
@@ -1852,10 +1852,10 @@ export const PaymentMethodsScreen: React.FC = () => {
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">CVV (3-4 dígitos)</label>
-                                    <input 
+                                    <input
                                         value={cardForm.cvv}
                                         maxLength={4}
-                                        onChange={e => setCardForm(p => ({...p, cvv: e.target.value.replace(/\D/g, '').substring(0, 4)}))}
+                                        onChange={e => setCardForm(p => ({ ...p, cvv: e.target.value.replace(/\D/g, '').substring(0, 4) }))}
                                         className="w-full h-12 bg-accent-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded-xl px-4 text-sm font-bold text-text-light dark:text-text-dark outline-none focus:ring-2 focus:ring-primary/20"
                                         placeholder="123"
                                         type="password"
@@ -1921,22 +1921,22 @@ export const PaymentMethodsScreen: React.FC = () => {
                     <div className="space-y-4">
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Titular de la cuenta</label>
-                            <input 
+                            <input
                                 value={bankForm.holder}
-                                onChange={e => setBankForm(p => ({...p, holder: e.target.value}))}
+                                onChange={e => setBankForm(p => ({ ...p, holder: e.target.value }))}
                                 className="w-full h-12 bg-accent-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded-xl px-4 text-sm font-bold text-text-light dark:text-white outline-none focus:ring-2 focus:ring-primary/20"
                                 placeholder="Ej: Elena García Martín"
                             />
                         </div>
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">IBAN (24 caracteres)</label>
-                            <input 
+                            <input
                                 value={bankForm.iban}
                                 maxLength={29}
                                 onChange={e => {
                                     const raw = e.target.value.replace(/[^A-Z0-9]/gi, '').toUpperCase().substring(0, 24);
                                     const formatted = raw.match(/.{1,4}/g)?.join(' ') || '';
-                                    setBankForm(p => ({...p, iban: formatted}));
+                                    setBankForm(p => ({ ...p, iban: formatted }));
                                 }}
                                 className="w-full h-12 bg-accent-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded-xl px-4 text-sm font-bold text-text-light dark:text-white outline-none focus:ring-2 focus:ring-primary/20"
                                 placeholder="ES00 0000 0000 0000 0000 0000"
@@ -1945,18 +1945,18 @@ export const PaymentMethodsScreen: React.FC = () => {
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Nombre del banco</label>
-                                <input 
+                                <input
                                     value={bankForm.bankName}
-                                    onChange={e => setBankForm(p => ({...p, bankName: e.target.value}))}
+                                    onChange={e => setBankForm(p => ({ ...p, bankName: e.target.value }))}
                                     className="w-full h-12 bg-accent-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded-xl px-4 text-sm font-bold text-text-light dark:text-white outline-none focus:ring-2 focus:ring-primary/20"
                                     placeholder="Ej: BBVA, Santander..."
                                 />
                             </div>
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">BIC / SWIFT</label>
-                                <input 
+                                <input
                                     value={bankForm.bic}
-                                    onChange={e => setBankForm(p => ({...p, bic: e.target.value}))}
+                                    onChange={e => setBankForm(p => ({ ...p, bic: e.target.value }))}
                                     className="w-full h-12 bg-accent-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded-xl px-4 text-sm font-bold text-text-light dark:text-white outline-none focus:ring-2 focus:ring-primary/20"
                                     placeholder="Opcional"
                                 />
@@ -1983,21 +1983,21 @@ export const EditCustomerProfileScreen: React.FC = () => {
     const { notify } = useNotifications();
     const userRole = localStorage.getItem('userRole') || 'cliente';
     const isCollab = userRole === 'colaborador';
-    
+
     const currentStore = useMemo(() => isCollab ? stores.find(s => s.id === user.storeId) : null, [stores, isCollab, user.storeId]);
 
-    const [formData, setFormData] = useState({ 
-        displayName: user.name || '', 
-        businessName: isCollab ? (currentStore?.businessName || '') : '', 
-        displayLocation: isCollab ? (currentStore?.address || '') : (user.location || ''), 
+    const [formData, setFormData] = useState({
+        displayName: user.name || '',
+        businessName: isCollab ? (currentStore?.businessName || '') : '',
+        displayLocation: isCollab ? (currentStore?.address || '') : (user.location || ''),
         displayBio: isCollab ? (currentStore?.description || '') : (user.bio || ''),
         category: currentStore?.category || 'Multimarca',
         cif: currentStore?.cif || '',
         email: user.email || '',
         phone: user.phone || ''
     });
-    
-    const [avatar, setAvatar] = useState<string | null>( isCollab ? null : (user.avatar || null));
+
+    const [avatar, setAvatar] = useState<string | null>(isCollab ? null : (user.avatar || null));
     const [showSourceModal, setShowSourceModal] = useState(false);
     const [showCategoryModal, setShowCategoryModal] = useState(false);
     const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -2020,16 +2020,16 @@ export const EditCustomerProfileScreen: React.FC = () => {
         e.preventDefault();
         if (isCollab && user.storeId) {
             updateStore(user.storeId, {
-                businessName: formData.businessName, 
+                businessName: formData.businessName,
                 address: formData.displayLocation,
                 category: formData.category,
                 description: formData.displayBio,
                 cif: formData.cif
                 // El imageUrl para colaboradores registrados se mantiene vacío para usar la Identidad Digital automática
             });
-            updateUser({ 
-                email: formData.email, 
-                phone: formData.phone 
+            updateUser({
+                email: formData.email,
+                phone: formData.phone
             });
             notify('Negocio Actualizado', 'Los datos de tu empresa se han guardado.', 'check_circle');
         } else {
@@ -2122,12 +2122,12 @@ export const EditCustomerProfileScreen: React.FC = () => {
                 )}
 
                 <div className="space-y-4 bg-white dark:bg-accent-dark p-6 rounded-[32px] border border-border-light dark:border-border-dark shadow-sm">
-                    <FormInput 
-                        label={isCollab ? "ID Público Local (No editable)" : "Nombre Completo"} 
-                        value={formData.displayName} 
-                        onChange={(v: string) => setFormData(p => ({ ...p, displayName: v }))} 
+                    <FormInput
+                        label={isCollab ? "ID Público Local (No editable)" : "Nombre Completo"}
+                        value={formData.displayName}
+                        onChange={(v: string) => setFormData(p => ({ ...p, displayName: v }))}
                         disabled={isCollab}
-                        required 
+                        required
                     />
                     {isCollab && (
                         <>
@@ -2135,7 +2135,7 @@ export const EditCustomerProfileScreen: React.FC = () => {
                             <FormInput label="CIF / NIF" placeholder="B-12345678" value={formData.cif} onChange={(v: string) => setFormData(p => ({ ...p, cif: v }))} required />
                             <div className="space-y-1.5 relative">
                                 <label className="text-xs font-black uppercase tracking-widest text-text-light dark:text-text-dark opacity-70">Categoría</label>
-                                <button 
+                                <button
                                     type="button"
                                     onClick={() => setShowCategoryModal(true)}
                                     className="w-full h-12 bg-white dark:bg-accent-dark border border-border-light dark:border-border-dark rounded-xl px-4 text-sm font-bold text-text-light dark:text-white flex items-center justify-between"
@@ -2150,10 +2150,10 @@ export const EditCustomerProfileScreen: React.FC = () => {
                         <label className="text-xs font-black uppercase tracking-widest text-text-light dark:text-text-dark opacity-70">Dirección Local (Provincia)</label>
                         <div className="relative">
                             <Icon name="location_on" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-light/50 dark:text-text-dark/50" />
-                            <select 
+                            <select
                                 value={formData.displayLocation}
-                                onChange={e => setFormData(p => ({...p, displayLocation: e.target.value}))}
-                                className="w-full h-12 bg-white dark:bg-accent-dark border border-border-light dark:border-border-dark rounded-xl pl-10 pr-10 text-sm font-bold text-text-light dark:text-white appearance-none cursor-pointer outline-none focus:ring-2 focus:ring-primary/20 transition-all" 
+                                onChange={e => setFormData(p => ({ ...p, displayLocation: e.target.value }))}
+                                className="w-full h-12 bg-white dark:bg-accent-dark border border-border-light dark:border-border-dark rounded-xl pl-10 pr-10 text-sm font-bold text-text-light dark:text-white appearance-none cursor-pointer outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                             >
                                 <option value="" disabled>Selecciona la provincia</option>
                                 {SPANISH_PROVINCES.map(prov => (
@@ -2177,7 +2177,7 @@ export const EditCustomerProfileScreen: React.FC = () => {
                             <h3 className="text-center text-lg font-black text-text-light dark:text-white mb-6 tracking-tight uppercase tracking-widest">Seleccionar Categoría</h3>
                             <div className="overflow-y-auto space-y-2">
                                 {collaboratorCategories.map(c => (
-                                    <button 
+                                    <button
                                         key={c}
                                         type="button"
                                         onClick={() => { setFormData(p => ({ ...p, category: c })); setShowCategoryModal(false); }}
@@ -2228,7 +2228,7 @@ export const PublishScreen: React.FC = () => {
     const { user, bankAccounts } = useUser();
     const { notify } = useNotifications();
     const navigate = useNavigate();
-    
+
     // Verificación de cuenta bancaria para colaboradores
     const userRole = localStorage.getItem('userRole') || 'cliente';
     const isCollab = userRole === 'colaborador';
@@ -2240,7 +2240,7 @@ export const PublishScreen: React.FC = () => {
     const [brand, setBrand] = useState('');
     const [color, setColor] = useState('');
     const [model, setModel] = useState('');
-    
+
     const [price, setPrice] = useState('');
     const [category, setCategory] = useState('Camisetas');
     const [pantType, setPantType] = useState<'cortos' | 'largos'>('largos');
@@ -2248,13 +2248,13 @@ export const PublishScreen: React.FC = () => {
     const [shirtSleeveType, setShirtSleeveType] = useState<'corta' | 'larga'>('larga');
     const [skirtType, setSkirtType] = useState<'cortas' | 'largas'>('cortas');
     const [shoeType, setShoeType] = useState<'running' | 'casual' | 'vestir' | 'otro'>('casual');
-    
+
     const [description, setDescription] = useState('');
     const [activeGroup, setActiveGroup] = useState('CAMISETAS');
     const [stockPerSize, setStockPerSize] = useState<Record<string, number>>({});
-    
+
     const [images, setImages] = useState<(string | null)[]>([null, null, null]);
-    
+
     const [isAIOptimizing, setIsAIOptimizing] = useState(false);
     const [showSourceModal, setShowSourceModal] = useState(false);
     const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -2274,7 +2274,7 @@ export const PublishScreen: React.FC = () => {
                 setDescription(prod.description || '');
                 setGender(prod.gender || 'Mujer');
                 setStockPerSize(prod.stockPerSize || {});
-                
+
                 if (prod.category?.startsWith('Pantalones')) {
                     setCategory('Pantalones');
                     setPantType(prod.category.includes('cortos') ? 'cortos' : 'largos');
@@ -2339,7 +2339,7 @@ export const PublishScreen: React.FC = () => {
                     </h2>
                     <div className="bg-white dark:bg-accent-dark p-6 rounded-[32px] border border-primary/20 shadow-xl space-y-4 max-w-sm">
                         <p className="text-sm text-text-subtle-light dark:text-text-subtle-dark leading-relaxed font-medium">
-                            Para empezar a publicar artículos es obligatorio configurar tu cuenta bancaria. 
+                            Para empezar a publicar artículos es obligatorio configurar tu cuenta bancaria.
                         </p>
                         <div className="py-3 border-y border-border-light dark:border-border-dark space-y-2">
                             <div className="flex justify-between items-center">
@@ -2352,16 +2352,16 @@ export const PublishScreen: React.FC = () => {
                             Los ingresos de tus ventas se depositarán automáticamente en esta cuenta.
                         </p>
                     </div>
-                    
+
                     <div className="w-full max-w-sm mt-10">
-                        <button 
+                        <button
                             onClick={() => navigate('/payment-methods')}
                             className="w-full h-16 bg-primary text-white font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/20 active:scale-95 transition-all flex items-center justify-center gap-3"
                         >
                             <Icon name="payments" />
                             Configurar ahora
                         </button>
-                        <button 
+                        <button
                             onClick={() => navigate(-1)}
                             className="w-full h-14 mt-4 text-text-subtle-light font-bold text-sm uppercase"
                         >
@@ -2401,13 +2401,14 @@ export const PublishScreen: React.FC = () => {
                 try {
                     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
                     const categoriesList = CLOTHING_CATEGORIES.join(', ');
-                    
+
                     const response = await ai.models.generateContent({
                         model: 'gemini-2.5-flash-image',
                         contents: {
                             parts: [
                                 { inlineData: { data: base64Data, mimeType } },
-                                { text: `CRITICAL INSTRUCTION: Your ABSOLUTE PRIORITY is to return a MODIFIED VERSION of the uploaded image. 
+                                {
+                                    text: `CRITICAL INSTRUCTION: Your ABSOLUTE PRIORITY is to return a MODIFIED VERSION of the uploaded image. 
                                 1. Remove the entire original background. 
                                 2. Replace it with a professional studio background (Solid flat color #C9D0D6). 
                                 3. Apply soft directional lighting and a subtle luminous glow. 
@@ -2425,7 +2426,7 @@ export const PublishScreen: React.FC = () => {
                             ]
                         }
                     });
-                    
+
                     let finalImage = base64WithHeader;
                     if (response.candidates && response.candidates[0].content.parts) {
                         for (const part of response.candidates[0].content.parts) {
@@ -2434,7 +2435,7 @@ export const PublishScreen: React.FC = () => {
                             }
                         }
                     }
-                    
+
                     const fullText = response.text || "";
                     const garmentMatch = fullText.match(/PRENDA:\s*(.*)/i);
                     const brandMatch = fullText.match(/MARCA:\s*(.*)/i);
@@ -2443,7 +2444,7 @@ export const PublishScreen: React.FC = () => {
                     const rootCatMatch = fullText.match(/CATEGORÍA_RAIZ:\s*(.*)/i);
                     const subMatch = fullText.match(/SUB_APARTADO:\s*(.*)/i);
                     const descMatch = fullText.match(/DESCRIPCIÓN:\s*([\s\S]*)/i);
-                    
+
                     if (targetSlot === 0 || !garment) {
                         if (garmentMatch && garmentMatch[1]) setGarment(garmentMatch[1].split(/\n/)[0].trim());
                         if (brandMatch && brandMatch[1]) setBrand(brandMatch[1].split(/\n/)[0].trim());
@@ -2480,7 +2481,7 @@ export const PublishScreen: React.FC = () => {
                         updated[targetSlot] = finalImage;
                         return updated;
                     });
-                    
+
                     notify('IA LocalShop', 'Foto optimizada con fondo de estudio.', 'auto_awesome');
                 } catch (error) {
                     console.error("AI Error", error);
@@ -2534,7 +2535,7 @@ export const PublishScreen: React.FC = () => {
             notify('Incompleto', 'Rellena los datos básicos y al menos una foto.', 'error');
             return;
         }
-        
+
         const finalName = `${garment} ${brand} ${model} ${color}`.trim().replace(/\s+/g, ' ');
         let finalCategory = category;
         if (category === 'Pantalones') finalCategory = `Pantalones ${pantType}`;
@@ -2542,7 +2543,7 @@ export const PublishScreen: React.FC = () => {
         else if (category === 'Camisas') finalCategory = `Camisas manga ${shirtSleeveType}`;
         else if (category === 'Faldas') finalCategory = `Faldas ${skirtType}`;
         else if (category === 'Calzado') finalCategory = `Calzado ${shoeType}`;
-        
+
         const productData = {
             name: finalName,
             price: parseFloat(price),
@@ -2605,7 +2606,7 @@ export const PublishScreen: React.FC = () => {
                     </div>
                     <div className="grid grid-cols-3 gap-3">
                         {images.map((img, idx) => (
-                            <div 
+                            <div
                                 key={idx}
                                 onClick={() => !isAIOptimizing && handleImageUploadRequest(idx)}
                                 className={`aspect-square rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2 cursor-pointer relative overflow-hidden group transition-all duration-500 ${isAIOptimizing && activeSlot === idx ? 'border-primary scale-105 shadow-xl' : 'border-primary/20 bg-white dark:bg-accent-dark'}`}
@@ -2613,12 +2614,12 @@ export const PublishScreen: React.FC = () => {
                                 {isAIOptimizing && activeSlot === idx ? (
                                     <div className="absolute inset-0 bg-white/70 dark:bg-black/70 flex flex-col items-center justify-center p-2 text-center z-10 animate-fade-in">
                                         <div className="size-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin mb-2"></div>
-                                        <span className="text-[8px] font-black uppercase text-primary tracking-widest leading-tight">Gemini AI<br/>Procesando...</span>
+                                        <span className="text-[8px] font-black uppercase text-primary tracking-widest leading-tight">Gemini AI<br />Procesando...</span>
                                     </div>
                                 ) : img ? (
                                     <div className="relative w-full h-full">
                                         <img src={img} className="absolute inset-0 w-full h-full object-cover animate-fade-in" alt={`Foto ${idx + 1}`} />
-                                        <button 
+                                        <button
                                             onClick={(e) => handleRemoveImage(e, idx)}
                                             className="absolute top-1 right-1 size-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow-md active:scale-90 transition-transform z-20"
                                         >
@@ -2646,28 +2647,28 @@ export const PublishScreen: React.FC = () => {
                         <Icon name="auto_awesome" className="text-primary text-sm" filled />
                         <h3 className="text-[10px] font-black uppercase tracking-widest text-primary">Identidad con IA (Auto-completado)</h3>
                     </div>
-                    
+
                     <div className="bg-white dark:bg-accent-dark p-6 rounded-[32px] border border-primary/20 shadow-sm space-y-4 relative overflow-hidden">
                         {isAIOptimizing && (
                             <div className="absolute inset-0 bg-primary/5 backdrop-blur-[1px] z-10 flex items-center justify-center animate-pulse">
                                 <span className="text-[10px] font-black uppercase text-primary tracking-widest">IA Analizando...</span>
                             </div>
                         )}
-                        
+
                         <div className="space-y-1.5 transition-all duration-700">
                             <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Prenda</label>
-                            <input 
+                            <input
                                 value={garment}
                                 onChange={e => setGarment(e.target.value)}
                                 placeholder="Ej: Camiseta, Chaqueta..."
                                 className={`w-full h-11 bg-primary/5 dark:bg-background-dark border rounded-xl px-4 text-sm font-bold text-text-light dark:text-white outline-none focus:ring-2 focus:ring-primary/20 transition-all ${garment && !isAIOptimizing ? 'border-primary/40 shadow-[0_0_10px_rgba(194,155,136,0.1)]' : 'border-primary/10'}`}
                             />
                         </div>
-                        
+
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Marca</label>
-                                <input 
+                                <input
                                     value={brand}
                                     onChange={e => setBrand(e.target.value)}
                                     placeholder="Marca detectada"
@@ -2676,7 +2677,7 @@ export const PublishScreen: React.FC = () => {
                             </div>
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Color</label>
-                                <input 
+                                <input
                                     value={color}
                                     onChange={e => setColor(e.target.value)}
                                     placeholder="Color principal"
@@ -2693,22 +2694,22 @@ export const PublishScreen: React.FC = () => {
                         <Icon name="edit_note" className="text-text-subtle-light text-sm" />
                         <h3 className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Detalles Manuales</h3>
                     </div>
-                    
+
                     <div className="bg-white dark:bg-accent-dark p-6 rounded-[32px] border border-border-light dark:border-border-dark shadow-sm space-y-4">
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Modelo / Colección</label>
-                            <input 
+                            <input
                                 value={model}
                                 onChange={e => setModel(e.target.value)}
                                 placeholder="Ej: Slim Fit, Colección Verano 24..."
                                 className="w-full h-11 bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded-xl px-4 text-sm font-bold text-text-light dark:text-white outline-none focus:ring-2 focus:ring-primary/20"
                             />
                         </div>
-                        
+
                         <div className="flex gap-4">
                             <div className="flex-1 space-y-1.5">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Precio (€)</label>
-                                <input 
+                                <input
                                     type="number"
                                     value={price}
                                     onChange={e => setPrice(e.target.value)}
@@ -2730,21 +2731,21 @@ export const PublishScreen: React.FC = () => {
 
                 {/* Selector de Género (Sincronizado con IA) */}
                 <div className={`bg-white dark:bg-accent-dark p-2 rounded-2xl border flex gap-2 shadow-sm transition-all duration-500 ${gender && !isAIOptimizing ? 'border-primary/30' : 'border-border-light dark:border-border-dark'}`}>
-                    <button 
+                    <button
                         onClick={() => setGender('Mujer')}
                         className={`flex-1 h-12 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${gender === 'Mujer' ? 'bg-primary text-white shadow-lg' : 'text-text-subtle-light dark:text-text-subtle-dark'}`}
                     >
                         <Icon name="woman" filled={gender === 'Mujer'} />
                         Mujer
                     </button>
-                    <button 
+                    <button
                         onClick={() => setGender('Hombre')}
                         className={`flex-1 h-12 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${gender === 'Hombre' ? 'bg-primary text-white shadow-lg' : 'text-text-subtle-light dark:text-text-subtle-dark'}`}
                     >
                         <Icon name="man" filled={gender === 'Hombre'} />
                         Hombre
                     </button>
-                    <button 
+                    <button
                         onClick={() => setGender('Unisex')}
                         className={`flex-1 h-12 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${gender === 'Unisex' ? 'bg-primary text-white shadow-lg' : 'text-text-subtle-light dark:text-text-subtle-dark'}`}
                     >
@@ -2758,12 +2759,12 @@ export const PublishScreen: React.FC = () => {
                     <div className="flex justify-between items-center px-1">
                         <h3 className="text-[10px] font-black uppercase tracking-widest text-primary/60">Categoría Seleccionada: {activeGroup}</h3>
                     </div>
-                    <div 
+                    <div
                         ref={categoryScrollRef}
                         className="flex overflow-x-auto gap-2 pb-2 [-ms-scrollbar-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                     >
                         {Object.keys(SIZE_GROUPS).map(g => (
-                            <button 
+                            <button
                                 key={g}
                                 data-active={activeGroup === g}
                                 onClick={() => setActiveGroup(g)}
@@ -2779,13 +2780,13 @@ export const PublishScreen: React.FC = () => {
                         <div className="flex items-center gap-2 p-2 bg-primary/5 rounded-2xl border border-primary/10 animate-fade-in">
                             <span className="text-[9px] font-black uppercase tracking-widest text-primary/60 px-2 shrink-0">Tipo:</span>
                             <div className="flex-1 grid grid-cols-2 gap-2">
-                                <button 
+                                <button
                                     onClick={() => { setPantType('cortos'); setCategory('Pantalones'); }}
                                     className={`h-9 rounded-xl text-[10px] font-black uppercase transition-all ${pantType === 'cortos' ? 'bg-primary text-white shadow-sm' : 'bg-white/50 text-primary/40'}`}
                                 >
                                     Pantalón Corto
                                 </button>
-                                <button 
+                                <button
                                     onClick={() => { setPantType('largos'); setCategory('Pantalones'); }}
                                     className={`h-9 rounded-xl text-[10px] font-black uppercase transition-all ${pantType === 'largos' ? 'bg-primary text-white shadow-sm' : 'bg-white/50 text-primary/40'}`}
                                 >
@@ -2800,13 +2801,13 @@ export const PublishScreen: React.FC = () => {
                         <div className="flex items-center gap-2 p-2 bg-primary/5 rounded-2xl border border-primary/10 animate-fade-in">
                             <span className="text-[9px] font-black uppercase tracking-widest text-primary/60 px-2 shrink-0">Manga:</span>
                             <div className="flex-1 grid grid-cols-2 gap-2">
-                                <button 
+                                <button
                                     onClick={() => { setSleeveType('corta'); setCategory('Camisetas'); }}
                                     className={`h-9 rounded-xl text-[10px] font-black uppercase transition-all ${sleeveType === 'corta' ? 'bg-primary text-white shadow-sm' : 'bg-white/50 text-primary/40'}`}
                                 >
                                     Manga Corta
                                 </button>
-                                <button 
+                                <button
                                     onClick={() => { setSleeveType('larga'); setCategory('Camisetas'); }}
                                     className={`h-9 rounded-xl text-[10px] font-black uppercase transition-all ${sleeveType === 'larga' ? 'bg-primary text-white shadow-sm' : 'bg-white/50 text-primary/40'}`}
                                 >
@@ -2821,13 +2822,13 @@ export const PublishScreen: React.FC = () => {
                         <div className="flex items-center gap-2 p-2 bg-primary/5 rounded-2xl border border-primary/10 animate-fade-in">
                             <span className="text-[9px] font-black uppercase tracking-widest text-primary/60 px-2 shrink-0">Manga:</span>
                             <div className="flex-1 grid grid-cols-2 gap-2">
-                                <button 
+                                <button
                                     onClick={() => { setShirtSleeveType('corta'); setCategory('Camisas'); }}
                                     className={`h-9 rounded-xl text-[10px] font-black uppercase transition-all ${shirtSleeveType === 'corta' ? 'bg-primary text-white shadow-sm' : 'bg-white/50 text-primary/40'}`}
                                 >
                                     Manga Corta
                                 </button>
-                                <button 
+                                <button
                                     onClick={() => { setShirtSleeveType('larga'); setCategory('Camisas'); }}
                                     className={`h-9 rounded-xl text-[10px] font-black uppercase transition-all ${shirtSleeveType === 'larga' ? 'bg-primary text-white shadow-sm' : 'bg-white/50 text-primary/40'}`}
                                 >
@@ -2842,13 +2843,13 @@ export const PublishScreen: React.FC = () => {
                         <div className="flex items-center gap-2 p-2 bg-primary/5 rounded-2xl border border-primary/10 animate-fade-in">
                             <span className="text-[9px] font-black uppercase tracking-widest text-primary/60 px-2 shrink-0">Largo:</span>
                             <div className="flex-1 grid grid-cols-2 gap-2">
-                                <button 
+                                <button
                                     onClick={() => { setSkirtType('cortas'); setCategory('Faldas'); }}
                                     className={`h-9 rounded-xl text-[10px] font-black uppercase transition-all ${skirtType === 'cortas' ? 'bg-primary text-white shadow-sm' : 'bg-white/50 text-primary/40'}`}
                                 >
                                     Corta
                                 </button>
-                                <button 
+                                <button
                                     onClick={() => { setSkirtType('largas'); setCategory('Faldas'); }}
                                     className={`h-9 rounded-xl text-[10px] font-black uppercase transition-all ${skirtType === 'largas' ? 'bg-primary text-white shadow-sm' : 'bg-white/50 text-primary/40'}`}
                                 >
@@ -2864,7 +2865,7 @@ export const PublishScreen: React.FC = () => {
                             <span className="text-[9px] font-black uppercase tracking-widest text-primary/60 px-2 shrink-0">Uso:</span>
                             <div className="flex-1 grid grid-cols-4 gap-1.5">
                                 {(['running', 'casual', 'vestir', 'otro'] as const).map(type => (
-                                    <button 
+                                    <button
                                         key={type}
                                         onClick={() => { setShoeType(type); setCategory('Calzado'); }}
                                         className={`h-9 rounded-xl text-[8px] font-black uppercase transition-all ${shoeType === type ? 'bg-primary text-white shadow-sm' : 'bg-white/50 text-primary/40'}`}
@@ -2881,7 +2882,7 @@ export const PublishScreen: React.FC = () => {
                             const isSelected = stockPerSize[size] !== undefined;
                             return (
                                 <div key={size} className="relative group">
-                                    <button 
+                                    <button
                                         type="button"
                                         onClick={() => toggleSize(size)}
                                         className={`h-11 px-6 rounded-xl border-2 font-black text-sm transition-all flex items-center gap-2 ${isSelected ? 'bg-primary/20 border-primary text-primary' : 'bg-white dark:bg-accent-dark border-border-light dark:border-border-dark text-text-light dark:text-white'}`}
@@ -2905,18 +2906,18 @@ export const PublishScreen: React.FC = () => {
                 <div className={`bg-white dark:bg-accent-dark p-6 rounded-[32px] border shadow-sm space-y-6 transition-all duration-700 ${category && !isAIOptimizing ? 'border-primary/30' : 'border-border-light dark:border-border-dark'}`}>
                     <div className="space-y-1.5 relative">
                         <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Categoría Principal (Sinc. IA)</label>
-                        <button 
+                        <button
                             type="button"
                             onClick={() => setShowCategoryModal(true)}
                             className="w-full h-11 bg-background-light dark:bg-background-dark border border-border-light rounded-xl px-4 text-sm font-bold flex items-center justify-between text-text-light dark:text-white outline-none"
                         >
                             <span className="flex items-center gap-2">
                                 {gender} {category} {
-                                    category === 'Pantalones' ? `(${pantType === 'cortos' ? 'Cortos' : 'Largos'})` : 
-                                    category === 'Camisetas' ? `(${sleeveType === 'corta' ? 'M. Corta' : 'M. Larga'})` : 
-                                    category === 'Camisas' ? `(${shirtSleeveType === 'corta' ? 'M. Corta' : 'M. Larga'})` :
-                                    category === 'Faldas' ? `(${skirtType === 'cortas' ? 'Cortas' : 'Largas'})` :
-                                    category === 'Calzado' ? `(${shoeType.charAt(0).toUpperCase() + shoeType.slice(1)})` : ''
+                                    category === 'Pantalones' ? `(${pantType === 'cortos' ? 'Cortos' : 'Largos'})` :
+                                        category === 'Camisetas' ? `(${sleeveType === 'corta' ? 'M. Corta' : 'M. Larga'})` :
+                                            category === 'Camisas' ? `(${shirtSleeveType === 'corta' ? 'M. Corta' : 'M. Larga'})` :
+                                                category === 'Faldas' ? `(${skirtType === 'cortas' ? 'Cortas' : 'Largas'})` :
+                                                    category === 'Calzado' ? `(${shoeType.charAt(0).toUpperCase() + shoeType.slice(1)})` : ''
                                 }
                                 {category && !isAIOptimizing && <Icon name="verified" className="text-primary text-[14px]" filled />}
                             </span>
@@ -2927,7 +2928,7 @@ export const PublishScreen: React.FC = () => {
                     <div className="space-y-1.5 relative">
                         <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Descripción Generativa</label>
                         <div className="relative">
-                            <textarea 
+                            <textarea
                                 value={isAIOptimizing ? "" : description}
                                 disabled={isAIOptimizing}
                                 onChange={e => setDescription(e.target.value)}
@@ -2946,8 +2947,8 @@ export const PublishScreen: React.FC = () => {
                             <h3 className="text-center text-lg font-black text-text-light dark:text-white mb-6 tracking-tight uppercase tracking-widest shrink-0">Categoría del Artículo</h3>
                             <div className="overflow-y-auto space-y-2 custom-scrollbar pr-1">
                                 {CLOTHING_CATEGORIES.map(c => (
-                                    <button 
-                                        key={c} 
+                                    <button
+                                        key={c}
                                         type="button"
                                         onClick={() => handleCategorySelect(c)}
                                         className={`w-full text-left p-5 rounded-2xl text-base font-bold transition-all ${category === c ? 'bg-primary text-white shadow-lg' : 'bg-background-light dark:bg-background-dark text-text-light hover:bg-white dark:hover:bg-border-dark'}`}
@@ -2961,7 +2962,7 @@ export const PublishScreen: React.FC = () => {
                 )}
 
                 <div className="fixed bottom-0 left-0 right-0 p-4 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md border-t border-border-light dark:border-border-dark z-50">
-                    <button 
+                    <button
                         onClick={handlePublish}
                         disabled={isAIOptimizing}
                         className="w-full h-16 bg-primary text-white font-bold rounded-2xl shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-3 text-lg disabled:opacity-50"
