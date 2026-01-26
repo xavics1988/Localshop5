@@ -13,10 +13,31 @@ export const LOCALSHOP_PLATFORM_ACCOUNT: PlatformAccount = {
     bankName: "Banco Central LocalShop"
 };
 
+/**
+ * Helper para generar claves de localStorage con scope de usuario.
+ * Evita fugas de datos entre perfiles Cliente/Colaborador.
+ */
+const getStorageKey = (baseKey: string, userId: string | null | undefined): string => {
+    return userId ? `${baseKey}_${userId}` : baseKey;
+};
+
+// Estado inicial del usuario (sin sesión activa)
+const INITIAL_USER_PROFILE: UserProfile = {
+    id: '',
+    name: '',
+    email: '',
+    location: '',
+    bio: '',
+    phone: '',
+    referralCode: '',
+    referralBalance: 0
+};
+
 // --- Interfaces ---
 interface UserContextType {
     user: UserProfile;
     updateUser: (data: Partial<UserProfile>) => void;
+    logout: () => void;
     paymentMethods: PaymentCard[];
     addPaymentMethod: (card: Omit<PaymentCard, 'id'>) => void;
     removePaymentMethod: (id: string) => void;
@@ -152,7 +173,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const [notifSettings, setNotifSettings] = useState<NotificationSettings>({
         push: true, email: false, storeUpdates: true, followerActivity: true
     });
-    const [activeNotif, setActiveNotif] = useState<{title: string; message: string; icon?: string} | null>(null);
+    const [activeNotif, setActiveNotif] = useState<{ title: string; message: string; icon?: string } | null>(null);
 
     const notify = useCallback((title: string, message: string, icon: string = 'notifications', category?: keyof NotificationSettings) => {
         if (category && !notifSettings[category]) return;
@@ -205,53 +226,56 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         });
     }, []);
 
-    const [paymentMethods, setPaymentMethods] = useState<PaymentCard[]>(() => {
-        const saved = localStorage.getItem('payment_methods');
-        return saved ? JSON.parse(saved) : [];
-    });
+    const [paymentMethods, setPaymentMethods] = useState<PaymentCard[]>([]);
 
-    const [bankAccounts, setBankAccounts] = useState<BankAccount[]>(() => {
-        const saved = localStorage.getItem('bank_accounts');
-        const allAccounts = saved ? JSON.parse(saved) : [];
-        // Filtramos para que este colaborador solo vea las suyas
-        return allAccounts.filter((acc: any) => acc.userId === user.id);
-    });
-
-    // Sincronizar cuentas bancarias cuando el usuario cambie (ej: Login/Logout)
+    // Carga reactiva de métodos de pago
     useEffect(() => {
-        const saved = localStorage.getItem('bank_accounts');
-        const allAccounts = saved ? JSON.parse(saved) : [];
-        setBankAccounts(allAccounts.filter((acc: any) => acc.userId === user.id));
+        if (!user?.id) return;
+        const key = getStorageKey('payment_methods', user.id);
+        const saved = localStorage.getItem(key);
+        setPaymentMethods(saved ? JSON.parse(saved) : []);
     }, [user.id]);
 
-    useEffect(() => safeStorageSet('user_profile', user), [user]);
-    useEffect(() => safeStorageSet('payment_methods', paymentMethods), [paymentMethods]);
-
-    // Persistir cambios en cuentas bancarias a localStorage
+    // Persistencia de métodos de pago
     useEffect(() => {
-        const saved = localStorage.getItem('bank_accounts');
-        let allAccounts = saved ? JSON.parse(saved) : [];
-        // Quitamos las versiones viejas de las cuentas de este usuario
-        allAccounts = allAccounts.filter((acc: any) => acc.userId !== user.id);
-        // Añadimos las actuales
-        const updatedAll = [...allAccounts, ...bankAccounts];
-        localStorage.setItem('bank_accounts', JSON.stringify(updatedAll));
+        if (!user?.id) return;
+        const key = getStorageKey('payment_methods', user.id);
+        safeStorageSet(key, paymentMethods);
+    }, [paymentMethods, user.id]);
+
+    const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+
+    // Carga reactiva de cuentas bancarias
+    useEffect(() => {
+        if (!user?.id) return;
+        const key = getStorageKey('bank_accounts', user.id);
+        const saved = localStorage.getItem(key);
+        setBankAccounts(saved ? JSON.parse(saved) : []);
+    }, [user.id]);
+
+    // Persistencia de cuentas bancarias
+    useEffect(() => {
+        if (!user?.id) return;
+        const key = getStorageKey('bank_accounts', user.id);
+        safeStorageSet(key, bankAccounts);
     }, [bankAccounts, user.id]);
 
+    useEffect(() => safeStorageSet('user_profile', user), [user]);
+
     const updateUser = useCallback((data: Partial<UserProfile>) => setUser(prev => ({ ...prev, ...data })), []);
-    
+
     const addPaymentMethod = useCallback((card: Omit<PaymentCard, 'id'>) => {
         const newCard = { ...card, id: `CARD-${Math.random().toString(36).substr(2, 9)}` };
         setPaymentMethods(prev => [...prev, newCard]);
     }, []);
-    
+
     const removePaymentMethod = useCallback((id: string) => {
         setPaymentMethods(prev => prev.filter(c => c.id !== id));
     }, []);
 
     const addBankAccount = useCallback((account: Omit<BankAccount, 'id' | 'userId'>) => {
-        const newAccount = { 
-            ...account, 
+        const newAccount = {
+            ...account,
             id: `BANK-${Math.random().toString(36).substr(2, 9)}`,
             userId: user.id // Vinculamos la cuenta al usuario logueado
         };
@@ -265,7 +289,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const useReferralBalance = useCallback((amount: number) => {
         const newBalance = Math.max(0, (user.referralBalance || 0) - amount);
         updateUser({ referralBalance: newBalance });
-        
+
         // Persistir cambio en el almacenamiento global de usuarios
         const savedUsers = localStorage.getItem('app_users');
         if (savedUsers) {
@@ -283,7 +307,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const localProds: Product[] = saved ? JSON.parse(saved) : [];
         const deletedIdsSaved = localStorage.getItem('deleted_product_ids');
         const deletedIds: string[] = deletedIdsSaved ? JSON.parse(deletedIdsSaved) : [];
-        
+
         // Sincronización de productos iniciales con versiones locales y filtrado de eliminados
         const merged = initialProducts
             .filter(ip => !deletedIds.includes(ip.id))
@@ -291,13 +315,13 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                 const local = localProds.find(lp => lp.id === ip.id);
                 return local || ip;
             });
-        
+
         localProds.forEach(lp => {
             if (!merged.find(m => m.id === lp.id) && !deletedIds.includes(lp.id)) {
                 merged.push(lp);
             }
         });
-        
+
         return merged;
     });
 
@@ -326,14 +350,14 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         try {
             setProducts(prev => {
                 const updated = prev.map(p => p.id === id ? { ...p, ...data } : p);
-                
+
                 const initialIds = initialProducts.map(ip => ip.id);
                 const localToSave = updated.filter(p => {
                     if (!initialIds.includes(p.id)) return true;
                     const original = initialProducts.find(ip => ip.id === p.id);
                     return JSON.stringify(p) !== JSON.stringify(original);
                 });
-                
+
                 localStorage.setItem('local_products', JSON.stringify(localToSave));
                 return updated;
             });
@@ -347,7 +371,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const deleteProduct = useCallback((id: string) => {
         setProducts(prev => {
             const updated = prev.filter(p => p.id !== id);
-            
+
             // Persistir eliminación de forma permanente
             const deletedIdsSaved = localStorage.getItem('deleted_product_ids');
             const deletedIds: string[] = deletedIdsSaved ? JSON.parse(deletedIdsSaved) : [];
@@ -367,12 +391,23 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         notify('Eliminado', 'Producto borrado correctamente.', 'delete');
     }, [notify]);
 
-    const [cartItems, setCartItems] = useState<OrderItem[]>(() => {
-        const saved = localStorage.getItem('cart');
-        return saved ? JSON.parse(saved) : [];
-    });
-    
-    useEffect(() => safeStorageSet('cart', cartItems), [cartItems]);
+    // Estados inicializados vacíos - se cargan reactivamente al cambiar user.id
+    const [cartItems, setCartItems] = useState<OrderItem[]>([]);
+
+    // Carga reactiva del carrito cuando cambia el usuario
+    useEffect(() => {
+        if (!user?.id) return;
+        const key = getStorageKey('cart', user.id);
+        const saved = localStorage.getItem(key);
+        setCartItems(saved ? JSON.parse(saved) : []);
+    }, [user.id]);
+
+    // Persistencia del carrito con clave de usuario
+    useEffect(() => {
+        if (!user?.id) return;
+        const key = getStorageKey('cart', user.id);
+        safeStorageSet(key, cartItems);
+    }, [cartItems, user.id]);
 
     const addToCart = useCallback((product: Product, variant: string | null, quantity: number = 1) => {
         setCartItems(prev => {
@@ -383,31 +418,67 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         });
     }, []);
 
-    const [favorites, setFavorites] = useState<string[]>(() => {
-        const saved = localStorage.getItem('favorites');
-        return saved ? JSON.parse(saved) : [];
-    });
-    useEffect(() => safeStorageSet('favorites', favorites), [favorites]);
+    const [favorites, setFavorites] = useState<string[]>([]);
+
+    // Carga reactiva de favoritos cuando cambia el usuario
+    useEffect(() => {
+        if (!user?.id) return;
+        const key = getStorageKey('favorites', user.id);
+        const saved = localStorage.getItem(key);
+        setFavorites(saved ? JSON.parse(saved) : []);
+    }, [user.id]);
+
+    // Persistencia de favoritos con clave de usuario
+    useEffect(() => {
+        if (!user?.id) return;
+        const key = getStorageKey('favorites', user.id);
+        safeStorageSet(key, favorites);
+    }, [favorites, user.id]);
     const isFavorite = useCallback((id: string) => favorites.includes(id), [favorites]);
     const toggleFavorite = useCallback((id: string) => {
+        // [SEGURIDAD] Solo los clientes pueden tener favoritos
+        if (user.role === 'colaborador') return;
         setFavorites(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
-    }, []);
+    }, [user.role]);
 
-    const [followedIds, setFollowedIds] = useState<string[]>(() => {
-        const saved = localStorage.getItem('followedStores');
-        return saved ? JSON.parse(saved) : [];
-    });
-    useEffect(() => safeStorageSet('followedStores', followedIds), [followedIds]);
-    
+    const [followedIds, setFollowedIds] = useState<string[]>([]);
+
+    // Carga reactiva de tiendas seguidas cuando cambia el usuario
+    useEffect(() => {
+        if (!user?.id) return;
+        const key = getStorageKey('followedStores', user.id);
+        const saved = localStorage.getItem(key);
+        setFollowedIds(saved ? JSON.parse(saved) : []);
+    }, [user.id]);
+
+    // Persistencia de tiendas seguidas con clave de usuario
+    useEffect(() => {
+        if (!user?.id) return;
+        const key = getStorageKey('followedStores', user.id);
+        safeStorageSet(key, followedIds);
+    }, [followedIds, user.id]);
+
     const isFollowing = useCallback((id: string) => followedIds.includes(id), [followedIds]);
     const toggleFollow = useCallback((id: string) => {
         setFollowedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
     }, []);
 
-    const [orders, setOrders] = useState<Order[]>(() => {
-        const saved = localStorage.getItem('user_orders');
-        return saved ? JSON.parse(saved) : initialOrders;
-    });
+    const [orders, setOrders] = useState<Order[]>([]);
+
+    // Carga reactiva de pedidos cuando cambia el usuario
+    useEffect(() => {
+        if (!user?.id) return;
+        const key = getStorageKey('orders', user.id);
+        const saved = localStorage.getItem(key);
+        setOrders(saved ? JSON.parse(saved) : []);
+    }, [user.id]);
+
+    // Persistencia de pedidos con clave de usuario
+    useEffect(() => {
+        if (!user?.id) return;
+        const key = getStorageKey('orders', user.id);
+        safeStorageSet(key, orders);
+    }, [orders, user.id]);
 
     const createEvent = useCallback((status: OrderStatus, label: string): OrderEvent => ({
         date: new Date().toISOString(),
@@ -438,13 +509,11 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             destinationIban: LOCALSHOP_PLATFORM_ACCOUNT.iban,
             history: [createEvent('Nuevo', 'Pedido Realizado')]
         };
-        
+
         console.log(`[PAGO PROCESADO] Importe: €${orderData.total.toFixed(2)} -> Cuenta Destino: ${LOCALSHOP_PLATFORM_ACCOUNT.holder} (${LOCALSHOP_PLATFORM_ACCOUNT.iban})`);
 
         setOrders(prev => [newOrder, ...prev]);
-        const savedOrders = localStorage.getItem('user_orders');
-        const currentOrders = savedOrders ? JSON.parse(savedOrders) : [];
-        safeStorageSet('user_orders', [newOrder, ...currentOrders]);
+        // La persistencia se maneja automáticamente via useEffect con clave de usuario
 
         // Lógica de Recompensa al Comprar (Referidos)
         if (user.referredBy && orders.filter(o => o.customerName === user.name).length === 0) {
@@ -459,7 +528,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                     const totalQtyPurchased = purchasedItems.reduce((acc, item) => acc + item.quantity, 0);
                     const currentTotalStock = prod.stock !== undefined ? prod.stock : 10;
                     const newTotalStock = Math.max(0, currentTotalStock - totalQtyPurchased);
-                    
+
                     let newStockPerSize = prod.stockPerSize ? { ...prod.stockPerSize } : undefined;
                     if (newStockPerSize) {
                         purchasedItems.forEach(item => {
@@ -506,7 +575,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                 }
                 return o;
             });
-            safeStorageSet('user_orders', updated);
+            // La persistencia se maneja automáticamente via useEffect con clave de usuario
             return updated;
         });
     }, [createEvent]);
@@ -515,9 +584,9 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setOrders(prev => {
             const orderIndex = prev.findIndex(o => o.id === orderId);
             if (orderIndex === -1) return prev;
-            
+
             const order = prev[orderIndex];
-            
+
             if (order.status !== 'Completado') {
                 notify('No disponible', 'Solo se pueden devolver pedidos en estado "Completado".', 'error');
                 return prev;
@@ -527,7 +596,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             const orderDate = new Date(order.date);
             const now = new Date();
             const diffInDays = (now.getTime() - orderDate.getTime()) / (1000 * 3600 * 24);
-            
+
             if (diffInDays > 14) {
                 notify('Plazo vencido', 'El periodo de 14 días para devoluciones ha finalizado.', 'error');
                 return prev;
@@ -535,10 +604,10 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
             const updatedOrders = [...prev];
             const event = createEvent('Devolución Solicitada', 'Solicitud de Devolución Enviada');
-            updatedOrders[orderIndex] = { 
-                ...order, 
-                status: 'Devolución Solicitada', 
-                history: [...(order.history || []), event] 
+            updatedOrders[orderIndex] = {
+                ...order,
+                status: 'Devolución Solicitada',
+                history: [...(order.history || []), event]
             };
             safeStorageSet('user_orders', updatedOrders);
             notify('Devolución Solicitada', 'Tu solicitud ha sido enviada a la tienda.', 'assignment_return');
@@ -551,7 +620,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             const orderIndex = prev.findIndex(o => o.id === orderId);
             if (orderIndex === -1) return prev;
             const order = prev[orderIndex];
-            
+
             if (order.status !== 'Devolución Solicitada') return prev;
 
             // Increment Stock Automatically
@@ -562,7 +631,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                         const totalQtyReturned = returnedItems.reduce((acc, item) => acc + item.quantity, 0);
                         const currentTotalStock = prod.stock !== undefined ? prod.stock : 10;
                         const newTotalStock = currentTotalStock + totalQtyReturned;
-                        
+
                         let newStockPerSize = prod.stockPerSize ? { ...prod.stockPerSize } : undefined;
                         if (newStockPerSize) {
                             returnedItems.forEach(item => {
@@ -589,12 +658,12 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
             const updatedOrders = [...prev];
             const event = createEvent('Devuelto', 'Producto Recibido y Devolución Finalizada');
-            updatedOrders[orderIndex] = { 
-                ...order, 
-                status: 'Devuelto', 
-                history: [...(order.history || []), event] 
+            updatedOrders[orderIndex] = {
+                ...order,
+                status: 'Devuelto',
+                history: [...(order.history || []), event]
             };
-            safeStorageSet('user_orders', updatedOrders);
+            // La persistencia se maneja automáticamente via useEffect con clave de usuario
             return updatedOrders;
         });
     }, [createEvent]);
@@ -620,7 +689,28 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const getStoreReviews = useCallback((storeId: string) => reviews.filter(r => r.storeId === storeId), [reviews]);
     const getUserReviews = useCallback((userName: string) => reviews.filter(r => r.userName === userName), [reviews]);
 
-    const userValue = useMemo(() => ({ user, updateUser, paymentMethods, addPaymentMethod, removePaymentMethod, bankAccounts, addBankAccount, removeBankAccount, useReferralBalance }), [user, updateUser, paymentMethods, addPaymentMethod, removePaymentMethod, bankAccounts, addBankAccount, removeBankAccount, useReferralBalance]);
+    // Función de logout atómico - resetea todos los estados de React
+    const logout = useCallback(() => {
+        // 1. Reset atómico de todos los estados de usuario
+        setCartItems([]);
+        setFavorites([]);
+        setFollowedIds([]);
+        setOrders([]);
+        setPaymentMethods([]);
+        setBankAccounts([]);
+
+        // 2. Limpiar datos de sesión (no borramos datos de usuarios en localStorage)
+        localStorage.removeItem('userRole');
+        localStorage.removeItem('userName');
+        localStorage.removeItem('user_profile');
+
+        // 3. Reset usuario a estado inicial
+        setUser(INITIAL_USER_PROFILE);
+
+        notify('Sesión cerrada', 'Has cerrado sesión correctamente.', 'logout');
+    }, [notify]);
+
+    const userValue = useMemo(() => ({ user, updateUser, logout, paymentMethods, addPaymentMethod, removePaymentMethod, bankAccounts, addBankAccount, removeBankAccount, useReferralBalance }), [user, updateUser, logout, paymentMethods, addPaymentMethod, removePaymentMethod, bankAccounts, addBankAccount, removeBankAccount, useReferralBalance]);
     const storeValue = useMemo(() => ({ stores, addStore, updateStore, getStoreById: (id: string) => stores.find(s => s.id === id) }), [stores, addStore, updateStore]);
     const productValue = useMemo(() => ({ products, addProduct, updateProduct, deleteProduct, getProductById: (id: string) => products.find(p => p.id === id), clearLocalProducts }), [products, addProduct, updateProduct, deleteProduct, clearLocalProducts]);
     const cartValue = useMemo(() => ({ cartItems, addToCart, clearCart: () => setCartItems([]), removeFromCart: (pid: string, v?: string) => setCartItems(prev => prev.filter(i => !(i.product.id === pid && i.variant === v))), updateQuantity: (pid: string, q: number, v?: string) => setCartItems(prev => prev.map(i => (i.product.id === pid && i.variant === v) ? { ...i, quantity: q } : i)) }), [cartItems, addToCart]);
@@ -628,36 +718,36 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const followedStoresValue = useMemo(() => ({ followedStoreIds: followedIds, toggleFollow, isFollowing }), [followedIds, toggleFollow, isFollowing]);
     const orderValue = useMemo(() => ({ orders, addOrder, requestReturn, processReturn, updateOrderStatus }), [orders, addOrder, requestReturn, processReturn, updateOrderStatus]);
     const reviewValue = useMemo(() => ({ addReview, getStoreReviews, getUserReviews }), [addReview, getStoreReviews, getUserReviews]);
-    const notificationValue = useMemo(() => ({ settings: notifSettings, updateSettings: (s: Partial<NotificationSettings>) => setNotifSettings(prev => ({...prev, ...s})), notify }), [notifSettings, notify]);
+    const notificationValue = useMemo(() => ({ settings: notifSettings, updateSettings: (s: Partial<NotificationSettings>) => setNotifSettings(prev => ({ ...prev, ...s })), notify }), [notifSettings, notify]);
 
     return (
         <UserContext.Provider value={userValue}>
-        <StoreContext.Provider value={storeValue}>
-        <ProductContext.Provider value={productValue}>
-        <CartContext.Provider value={cartValue}>
-        <FavoritesContext.Provider value={favoritesValue}>
-        <FollowedStoresContext.Provider value={followedStoresValue}>
-        <OrderContext.Provider value={orderValue}>
-        <ReviewContext.Provider value={reviewValue}>
-        <NotificationContext.Provider value={notificationValue}>
-            {children}
-            {activeNotif && (
-                <div className="fixed top-4 left-4 right-4 z-[3000] animate-slide-up bg-white dark:bg-accent-dark border-l-4 border-primary p-4 rounded-xl shadow-2xl flex items-start gap-4 ring-1 ring-black/5">
-                    <span className="material-symbols-outlined text-primary">{activeNotif.icon}</span>
-                    <div className="flex-1">
-                        <p className="text-sm font-bold">{activeNotif.title}</p>
-                        <p className="text-xs text-text-subtle-light">{activeNotif.message}</p>
-                    </div>
-                </div>
-            )}
-        </NotificationContext.Provider>
-        </ReviewContext.Provider>
-        </OrderContext.Provider>
-        </FollowedStoresContext.Provider>
-        </FavoritesContext.Provider>
-        </CartContext.Provider>
-        </ProductContext.Provider>
-        </StoreContext.Provider>
+            <StoreContext.Provider value={storeValue}>
+                <ProductContext.Provider value={productValue}>
+                    <CartContext.Provider value={cartValue}>
+                        <FavoritesContext.Provider value={favoritesValue}>
+                            <FollowedStoresContext.Provider value={followedStoresValue}>
+                                <OrderContext.Provider value={orderValue}>
+                                    <ReviewContext.Provider value={reviewValue}>
+                                        <NotificationContext.Provider value={notificationValue}>
+                                            {children}
+                                            {activeNotif && (
+                                                <div className="fixed top-4 left-4 right-4 z-[3000] animate-slide-up bg-white dark:bg-accent-dark border-l-4 border-primary p-4 rounded-xl shadow-2xl flex items-start gap-4 ring-1 ring-black/5">
+                                                    <span className="material-symbols-outlined text-primary">{activeNotif.icon}</span>
+                                                    <div className="flex-1">
+                                                        <p className="text-sm font-bold">{activeNotif.title}</p>
+                                                        <p className="text-xs text-text-subtle-light">{activeNotif.message}</p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </NotificationContext.Provider>
+                                    </ReviewContext.Provider>
+                                </OrderContext.Provider>
+                            </FollowedStoresContext.Provider>
+                        </FavoritesContext.Provider>
+                    </CartContext.Provider>
+                </ProductContext.Provider>
+            </StoreContext.Provider>
         </UserContext.Provider>
     );
 };

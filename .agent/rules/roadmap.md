@@ -1,5 +1,5 @@
 ---
-trigger: always_on
+trigger: manual
 ---
 
 # DOCUMENTO DE ESPECIFICACIÓN TÉCNICA (SRS) - PROYECTO LOCAL SHOP

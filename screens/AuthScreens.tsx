@@ -4,8 +4,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useUser, useStores, useNotifications } from '../AppContext';
 
 const Icon = ({ name, className, filled }: { name: string; className?: string; filled?: boolean }) => (
-    <span 
-        className={`material-symbols-outlined ${className}`} 
+    <span
+        className={`material-symbols-outlined ${className}`}
         style={{ fontVariationSettings: filled ? "'FILL' 1" : "'FILL' 0" }}
     >
         {name}
@@ -23,7 +23,7 @@ export const SPANISH_PROVINCES = [
 
 export const OnboardingScreen: React.FC = () => {
     const navigate = useNavigate();
-    
+
     const handleNavigation = (path: string) => {
         localStorage.setItem('hasOnboarded', 'true');
         navigate(path);
@@ -63,10 +63,10 @@ export const OnboardingScreen: React.FC = () => {
 
 export const SignUpScreen: React.FC = () => {
     const navigate = useNavigate();
-    const { updateUser } = useUser();
+    const { updateUser, logout } = useUser();
     const { addStore, stores } = useStores();
     const { notify } = useNotifications();
-    
+
     // Estados de Flujo
     const [step, setStep] = useState<1 | 2 | 3>(1);
     const [role, setRole] = useState<'cliente' | 'colaborador' | null>(null);
@@ -74,9 +74,9 @@ export const SignUpScreen: React.FC = () => {
     const [acceptTerms, setAcceptTerms] = useState(false);
     const [verificationCode, setVerificationCode] = useState('');
     const [showPushNotice, setshowPushNotice] = useState(false);
-    
+
     const [formData, setFormData] = useState({
-        name: '', 
+        name: '',
         storePublicName: '',
         email: '',
         password: '',
@@ -116,11 +116,11 @@ export const SignUpScreen: React.FC = () => {
     const validate = () => {
         const newErrors: Record<string, string> = {};
         if (!formData.name) newErrors.name = 'El nombre es obligatorio';
-        
+
         // Email
         if (!formData.email) newErrors.email = 'El email es obligatorio';
         else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Email no válido';
-        
+
         // Password Robusta
         const password = formData.password;
         if (!password) {
@@ -134,10 +134,10 @@ export const SignUpScreen: React.FC = () => {
         } else if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
             newErrors.password = 'Debe incluir un signo de puntuación';
         }
-        
+
         if (!formData.location) newErrors.location = 'Selecciona una provincia';
         if (!acceptTerms) newErrors.terms = 'Debes aceptar los términos';
-        
+
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -147,10 +147,10 @@ export const SignUpScreen: React.FC = () => {
             notify('Atención', 'Revisa los requisitos de seguridad.', 'error');
             return;
         }
-        
+
         setStep(3);
         notify('Enviando...', 'Generando código de seguridad.', 'sync');
-        
+
         // Simulamos la llegada del "correo" mediante una notificación push ficticia en 2 segundos
         setTimeout(() => {
             setshowPushNotice(true);
@@ -195,7 +195,7 @@ export const SignUpScreen: React.FC = () => {
         const myReferralCode = `${cleanName}${Math.floor(1000 + Math.random() * 9000)}`;
 
         const newUserProfile = {
-            id: `USER-${Date.now()}`,
+            id: crypto.randomUUID(),
             email: formData.email,
             password: formData.password,
             role: role!,
@@ -212,6 +212,11 @@ export const SignUpScreen: React.FC = () => {
 
         usersList.push(newUserProfile);
         localStorage.setItem('app_users', JSON.stringify(usersList));
+
+        // Limpiamos cualquier estado anterior para evitar fugas
+        logout();
+
+        // Establecemos la nueva sesión
         localStorage.setItem('userRole', role!);
         localStorage.setItem('userName', finalUserName);
         updateUser(newUserProfile);
@@ -226,7 +231,7 @@ export const SignUpScreen: React.FC = () => {
 
     return (
         <div className="relative flex min-h-screen w-full flex-col bg-background-light dark:bg-background-dark overflow-hidden">
-            
+
             {/* Simulación de Notificación Push de Correo */}
             {showPushNotice && (
                 <div className="fixed top-2 left-4 right-4 z-[5000] animate-slide-up">
@@ -245,8 +250,8 @@ export const SignUpScreen: React.FC = () => {
 
             {/* Header / Back */}
             <div className="flex items-center px-4 h-16 shrink-0">
-                <button 
-                    onClick={handleBack} 
+                <button
+                    onClick={handleBack}
                     className="size-10 flex items-center justify-center rounded-full bg-white dark:bg-accent-dark text-text-light dark:text-text-dark shadow-sm border border-border-light dark:border-border-dark active:scale-90 transition-transform"
                 >
                     <Icon name="arrow_back" />
@@ -261,7 +266,7 @@ export const SignUpScreen: React.FC = () => {
             </div>
 
             <div className="flex-1 flex flex-col items-center p-6 max-w-md mx-auto w-full animate-fade-in overflow-y-auto">
-                
+
                 {step === 1 ? (
                     <div className="w-full space-y-8">
                         <header className="text-center space-y-2">
@@ -270,7 +275,7 @@ export const SignUpScreen: React.FC = () => {
                         </header>
 
                         <div className="grid gap-4">
-                            <button 
+                            <button
                                 onClick={() => { setRole('cliente'); setStep(2); }}
                                 className={`group relative flex flex-col items-start p-6 rounded-3xl border-2 transition-all text-left ${role === 'cliente' ? 'border-primary bg-primary/5 shadow-md' : 'border-gray-300 dark:border-border-dark hover:border-primary/50'}`}
                             >
@@ -284,7 +289,7 @@ export const SignUpScreen: React.FC = () => {
                                 </div>
                             </button>
 
-                            <button 
+                            <button
                                 onClick={() => { setRole('colaborador'); setStep(2); }}
                                 className={`group relative flex flex-col items-start p-6 rounded-3xl border-2 transition-all text-left ${role === 'colaborador' ? 'border-primary bg-primary/5 shadow-md' : 'border-gray-300 dark:border-border-dark hover:border-primary/50'}`}
                             >
@@ -298,7 +303,7 @@ export const SignUpScreen: React.FC = () => {
                                 </div>
                             </button>
                         </div>
-                        
+
                         <footer className="pt-4 text-center">
                             <p className="text-sm text-text-subtle-light">
                                 ¿Ya eres usuario? <Link className="font-bold text-primary" to="/login">Inicia sesión</Link>
@@ -322,7 +327,7 @@ export const SignUpScreen: React.FC = () => {
                                     Google
                                 </button>
                                 <button type="button" onClick={() => handleSocialAuth('Apple')} className="flex items-center justify-center gap-2 h-14 rounded-2xl border border-border-light dark:border-border-dark bg-white dark:bg-accent-dark text-sm font-bold text-text-light dark:text-text-dark active:scale-95 transition-transform">
-                                    <svg viewBox="0 0 384 512" className="size-5 fill-current"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>
+                                    <svg viewBox="0 0 384 512" className="size-5 fill-current"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z" /></svg>
                                     Apple
                                 </button>
                             </div>
@@ -361,10 +366,10 @@ export const SignUpScreen: React.FC = () => {
                                 </label>
                                 <div className={`flex items-center h-14 rounded-2xl border bg-white dark:bg-background-dark px-4 transition-all focus-within:ring-2 focus-within:ring-primary/20 ${errors.name ? 'border-red-500' : 'border-border-light dark:border-border-dark'}`}>
                                     <Icon name={role === 'colaborador' ? 'gavel' : 'person'} className="text-text-subtle-light mr-3" />
-                                    <input 
+                                    <input
                                         value={formData.name}
-                                        onChange={e => setFormData(p => ({...p, name: e.target.value}))}
-                                        placeholder={role === 'colaborador' ? 'Ej: Moda Local S.L.' : 'Ej: Elena García'} 
+                                        onChange={e => setFormData(p => ({ ...p, name: e.target.value }))}
+                                        placeholder={role === 'colaborador' ? 'Ej: Moda Local S.L.' : 'Ej: Elena García'}
                                         className="flex-1 bg-transparent text-sm font-medium outline-none text-text-light dark:text-white"
                                     />
                                 </div>
@@ -376,10 +381,10 @@ export const SignUpScreen: React.FC = () => {
                                 <label className="text-xs font-bold text-text-light dark:text-text-dark ml-1">Correo Electrónico</label>
                                 <div className={`flex items-center h-14 rounded-2xl border bg-white dark:bg-background-dark px-4 transition-all focus-within:ring-2 focus-within:ring-primary/20 ${errors.email ? 'border-red-500' : 'border-border-light dark:border-border-dark'}`}>
                                     <Icon name="mail" className="text-text-subtle-light mr-3" />
-                                    <input 
+                                    <input
                                         value={formData.email}
-                                        onChange={e => setFormData(p => ({...p, email: e.target.value}))}
-                                        placeholder="tu@email.com" 
+                                        onChange={e => setFormData(p => ({ ...p, email: e.target.value }))}
+                                        placeholder="tu@email.com"
                                         type="email"
                                         className="flex-1 bg-transparent text-sm font-medium outline-none text-text-light dark:text-white"
                                     />
@@ -392,10 +397,10 @@ export const SignUpScreen: React.FC = () => {
                                 <label className="text-xs font-bold text-text-light dark:text-text-dark ml-1">Contraseña</label>
                                 <div className={`flex items-center h-14 rounded-2xl border bg-white dark:bg-background-dark px-4 transition-all focus-within:ring-2 focus-within:ring-primary/20 ${errors.password ? 'border-red-500' : 'border-border-light dark:border-border-dark'}`}>
                                     <Icon name="lock" className="text-text-subtle-light mr-3" />
-                                    <input 
+                                    <input
                                         value={formData.password}
-                                        onChange={e => setFormData(p => ({...p, password: e.target.value}))}
-                                        placeholder="Ej: Shop2024!" 
+                                        onChange={e => setFormData(p => ({ ...p, password: e.target.value }))}
+                                        placeholder="Ej: Shop2024!"
                                         type={showPassword ? "text" : "password"}
                                         className="flex-1 bg-transparent text-sm font-medium outline-none text-text-light dark:text-white"
                                     />
@@ -418,10 +423,10 @@ export const SignUpScreen: React.FC = () => {
                                 <label className="text-xs font-bold text-text-light dark:text-text-dark ml-1">Provincia</label>
                                 <div className={`flex items-center h-14 rounded-2xl border bg-white dark:bg-background-dark px-4 transition-all focus-within:ring-2 focus-within:ring-primary/20 ${errors.location ? 'border-red-500' : 'border-border-light dark:border-border-dark'}`}>
                                     <Icon name="location_on" className="text-text-subtle-light mr-3" />
-                                    <select 
+                                    <select
                                         value={formData.location}
-                                        onChange={e => setFormData(p => ({...p, location: e.target.value}))}
-                                        className="flex-1 bg-transparent text-sm font-bold text-text-light dark:text-white appearance-none outline-none cursor-pointer" 
+                                        onChange={e => setFormData(p => ({ ...p, location: e.target.value }))}
+                                        className="flex-1 bg-transparent text-sm font-bold text-text-light dark:text-white appearance-none outline-none cursor-pointer"
                                     >
                                         <option value="" disabled>Selecciona tu provincia</option>
                                         {SPANISH_PROVINCES.map(prov => (
@@ -439,10 +444,10 @@ export const SignUpScreen: React.FC = () => {
                                     <label className="text-xs font-bold text-text-light dark:text-text-dark ml-1">¿Tienes un código de referido? (Opcional)</label>
                                     <div className="flex items-center h-14 rounded-2xl border border-border-light dark:border-border-dark bg-white dark:bg-background-dark px-4 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
                                         <Icon name="confirmation_number" className="text-text-subtle-light mr-3" />
-                                        <input 
+                                        <input
                                             value={formData.referralInput}
-                                            onChange={e => setFormData(p => ({...p, referralInput: e.target.value.toUpperCase()}))}
-                                            placeholder="EJ: ELENA123" 
+                                            onChange={e => setFormData(p => ({ ...p, referralInput: e.target.value.toUpperCase() }))}
+                                            placeholder="EJ: ELENA123"
                                             className="flex-1 bg-transparent text-sm font-medium outline-none text-text-light dark:text-white uppercase"
                                         />
                                     </div>
@@ -453,8 +458,8 @@ export const SignUpScreen: React.FC = () => {
                             <div className="pt-2 px-1">
                                 <label className="flex items-start gap-3 cursor-pointer group">
                                     <div className="relative flex items-center mt-0.5">
-                                        <input 
-                                            type="checkbox" 
+                                        <input
+                                            type="checkbox"
                                             checked={acceptTerms}
                                             onChange={e => setAcceptTerms(e.target.checked)}
                                             className="sr-only"
@@ -485,13 +490,13 @@ export const SignUpScreen: React.FC = () => {
                         </div>
                         <header className="space-y-2">
                             <h2 className="text-2xl font-bold text-text-light dark:text-text-dark">Verifica tu correo</h2>
-                            <p className="text-sm text-text-subtle-light">Introduce el código de 6 dígitos que hemos enviado a <br/><span className="font-bold text-text-light dark:text-white">{formData.email}</span></p>
+                            <p className="text-sm text-text-subtle-light">Introduce el código de 6 dígitos que hemos enviado a <br /><span className="font-bold text-text-light dark:text-white">{formData.email}</span></p>
                         </header>
 
                         <div className="space-y-4">
                             <div className="flex justify-center">
-                                <input 
-                                    type="text" 
+                                <input
+                                    type="text"
                                     maxLength={6}
                                     value={verificationCode}
                                     onChange={e => setVerificationCode(e.target.value.replace(/\D/g, ''))}
@@ -508,7 +513,7 @@ export const SignUpScreen: React.FC = () => {
                         >
                             Verificar y Entrar
                         </button>
-                        
+
                         <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 mt-6">
                             <p className="text-[10px] text-primary uppercase font-black tracking-[0.2em] mb-1">Entorno de Pruebas</p>
                             <p className="text-[11px] text-text-subtle-light leading-snug">Al ser un prototipo, el correo se simula con una notificación push. El código es <span className="font-bold text-primary">123456</span>.</p>
@@ -523,13 +528,13 @@ export const SignUpScreen: React.FC = () => {
 export const LoginScreen: React.FC = () => {
     const navigate = useNavigate();
     const { notify } = useNotifications();
-    const { updateUser } = useUser();
-    
+    const { updateUser, logout } = useUser();
+
     // Estados de autenticación
     const [view, setView] = useState<'login' | 'forgot' | 'verify' | 'reset'>('login');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    
+
     // Estados para recuperación
     const [forgotEmail, setForgotEmail] = useState('');
     const [resetCode, setResetCode] = useState('');
@@ -550,8 +555,12 @@ export const LoginScreen: React.FC = () => {
         const savedUsers = localStorage.getItem('app_users');
         const usersList = savedUsers ? JSON.parse(savedUsers) : [];
         const foundUser = usersList.find((u: any) => u.email === email && u.password === password);
-        
+
         if (foundUser) {
+            // Limpiamos sesión anterior
+            logout();
+
+            // Establecemos nueva sesión
             localStorage.setItem('userRole', foundUser.role);
             localStorage.setItem('userName', foundUser.name);
             updateUser(foundUser);
@@ -596,7 +605,7 @@ export const LoginScreen: React.FC = () => {
 
     const handlePasswordReset = (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         // Validación Robusta (Mismo nivel que el registro)
         const passwordRegex = /[!@#$%^&*(),.?":{}|<>]/.test(newPassword);
         const upperRegex = /[A-Z]/.test(newPassword);
@@ -610,7 +619,7 @@ export const LoginScreen: React.FC = () => {
         const savedUsers = localStorage.getItem('app_users');
         if (savedUsers) {
             const users = JSON.parse(savedUsers);
-            const updatedUsers = users.map((u: any) => 
+            const updatedUsers = users.map((u: any) =>
                 u.email === forgotEmail ? { ...u, password: newPassword } : u
             );
             localStorage.setItem('app_users', JSON.stringify(updatedUsers));
@@ -623,7 +632,7 @@ export const LoginScreen: React.FC = () => {
 
     return (
         <div className="relative flex min-h-screen w-full flex-col bg-background-light dark:bg-background-dark overflow-hidden">
-            
+
             {/* Simulación Push */}
             {showPushNotice && (
                 <div className="fixed top-2 left-4 right-4 z-[5000] animate-slide-up">
@@ -640,8 +649,8 @@ export const LoginScreen: React.FC = () => {
                 </div>
             )}
 
-            <button 
-                onClick={handleBack} 
+            <button
+                onClick={handleBack}
                 className="absolute top-4 left-4 z-50 flex size-12 items-center justify-center rounded-full bg-white dark:bg-accent-dark text-text-light dark:text-dark shadow-md border border-border-light dark:border-border-dark active:scale-90 transition-transform"
                 aria-label="Volver"
             >
@@ -649,7 +658,7 @@ export const LoginScreen: React.FC = () => {
             </button>
 
             <div className="flex-1 flex flex-col items-center justify-center p-6 max-w-md mx-auto w-full animate-fade-in overflow-y-auto">
-                
+
                 {view === 'login' && (
                     <div className="w-full space-y-8 animate-slide-up">
                         <header className="w-full text-center">
@@ -661,20 +670,20 @@ export const LoginScreen: React.FC = () => {
                                 <label className="text-sm font-medium block text-text-light dark:text-text-dark ml-1">Correo Electrónico</label>
                                 <div className="relative">
                                     <Icon name="mail" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-light/50 dark:text-text-dark/50" />
-                                    <input 
-                                        required 
+                                    <input
+                                        required
                                         value={email}
                                         onChange={e => setEmail(e.target.value)}
-                                        className="form-input w-full rounded-2xl border border-border-light bg-white dark:bg-background-dark dark:border-border-dark text-text-light dark:text-text-dark h-14 pl-10 pr-3 text-base placeholder:text-text-light/30 outline-none focus:ring-2 focus:ring-primary/20" 
-                                        placeholder="tu@email.com" 
-                                        type="email" 
+                                        className="form-input w-full rounded-2xl border border-border-light bg-white dark:bg-background-dark dark:border-border-dark text-text-light dark:text-text-dark h-14 pl-10 pr-3 text-base placeholder:text-text-light/30 outline-none focus:ring-2 focus:ring-primary/20"
+                                        placeholder="tu@email.com"
+                                        type="email"
                                     />
                                 </div>
                             </div>
                             <div className="space-y-1">
                                 <div className="flex justify-between items-end mb-1">
                                     <label className="text-sm font-medium block text-text-light dark:text-text-dark ml-1">Contraseña</label>
-                                    <button 
+                                    <button
                                         type="button"
                                         onClick={() => setView('forgot')}
                                         className="text-xs text-primary font-bold hover:underline"
@@ -684,18 +693,18 @@ export const LoginScreen: React.FC = () => {
                                 </div>
                                 <div className="relative">
                                     <Icon name="lock" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-light/50 dark:text-text-dark/50" />
-                                    <input 
-                                        required 
+                                    <input
+                                        required
                                         value={password}
                                         onChange={e => setPassword(e.target.value)}
-                                        className="form-input w-full rounded-2xl border border-border-light bg-white dark:bg-background-dark dark:border-border-dark text-text-light dark:text-text-dark h-14 pl-10 pr-3 text-base placeholder:text-text-light/30 outline-none focus:ring-2 focus:ring-primary/20" 
-                                        placeholder="••••••••" 
-                                        type="password" 
+                                        className="form-input w-full rounded-2xl border border-border-light bg-white dark:bg-background-dark dark:border-border-dark text-text-light dark:text-text-dark h-14 pl-10 pr-3 text-base placeholder:text-text-light/30 outline-none focus:ring-2 focus:ring-primary/20"
+                                        placeholder="••••••••"
+                                        type="password"
                                     />
                                 </div>
                             </div>
                             <button type="submit" className="w-full h-16 bg-primary text-white font-black uppercase tracking-widest rounded-2xl shadow-xl active:scale-95 transition-all mt-4">Entrar</button>
-                            
+
                             <div className="relative py-4 flex items-center">
                                 <div className="flex-grow border-t border-border-light dark:border-border-dark"></div>
                                 <span className="flex-shrink mx-4 text-xs text-text-subtle-light uppercase font-bold tracking-widest">O accede con</span>
@@ -708,7 +717,7 @@ export const LoginScreen: React.FC = () => {
                                     Google
                                 </button>
                                 <button type="button" onClick={() => handleSocialAuth('Apple')} className="flex items-center justify-center gap-2 h-14 rounded-2xl border border-border-light dark:border-border-dark bg-white dark:bg-accent-dark text-sm font-bold text-text-light dark:text-text-dark active:scale-95 transition-transform">
-                                    <svg viewBox="0 0 384 512" className="size-5 fill-current"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>
+                                    <svg viewBox="0 0 384 512" className="size-5 fill-current"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z" /></svg>
                                     Apple
                                 </button>
                             </div>
@@ -733,13 +742,13 @@ export const LoginScreen: React.FC = () => {
                         <form onSubmit={handleForgotRequest} className="space-y-6">
                             <div className="relative">
                                 <Icon name="mail" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-light/50 dark:text-text-dark/50" />
-                                <input 
-                                    required 
+                                <input
+                                    required
                                     value={forgotEmail}
                                     onChange={e => setForgotEmail(e.target.value)}
-                                    className="form-input w-full rounded-2xl border border-border-light bg-white dark:bg-background-dark dark:border-border-dark text-text-light dark:text-text-dark h-14 pl-10 pr-3 text-base placeholder:text-text-light/30 outline-none focus:ring-2 focus:ring-primary/20" 
-                                    placeholder="tu@email.com" 
-                                    type="email" 
+                                    className="form-input w-full rounded-2xl border border-border-light bg-white dark:bg-background-dark dark:border-border-dark text-text-light dark:text-text-dark h-14 pl-10 pr-3 text-base placeholder:text-text-light/30 outline-none focus:ring-2 focus:ring-primary/20"
+                                    placeholder="tu@email.com"
+                                    type="email"
                                 />
                             </div>
                             <button type="submit" className="w-full h-16 bg-primary text-white font-black uppercase tracking-widest rounded-2xl shadow-xl active:scale-95 transition-all">Enviar código</button>
@@ -754,11 +763,11 @@ export const LoginScreen: React.FC = () => {
                         </div>
                         <header className="space-y-2">
                             <h2 className="text-2xl font-bold text-text-light dark:text-text-dark">Confirma tu identidad</h2>
-                            <p className="text-sm text-text-subtle-light">Introduce el código que hemos enviado a <br/><span className="font-bold text-text-light dark:text-white">{forgotEmail}</span></p>
+                            <p className="text-sm text-text-subtle-light">Introduce el código que hemos enviado a <br /><span className="font-bold text-text-light dark:text-white">{forgotEmail}</span></p>
                         </header>
                         <form onSubmit={handleVerifyReset} className="space-y-6">
-                            <input 
-                                type="text" 
+                            <input
+                                type="text"
                                 maxLength={6}
                                 value={resetCode}
                                 onChange={e => setResetCode(e.target.value.replace(/\D/g, ''))}
@@ -787,15 +796,15 @@ export const LoginScreen: React.FC = () => {
                                 <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light ml-1">Contraseña nueva</label>
                                 <div className="relative">
                                     <Icon name="lock" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-light/50 dark:text-text-dark/50" />
-                                    <input 
-                                        required 
+                                    <input
+                                        required
                                         value={newPassword}
                                         onChange={e => setNewPassword(e.target.value)}
-                                        className="form-input w-full rounded-2xl border border-border-light bg-white dark:bg-background-dark dark:border-border-dark text-text-light dark:text-text-dark h-14 pl-10 pr-12 text-base outline-none focus:ring-2 focus:ring-primary/20" 
-                                        placeholder="Mín. 6 caracteres" 
-                                        type={showNewPassword ? "text" : "password"} 
+                                        className="form-input w-full rounded-2xl border border-border-light bg-white dark:bg-background-dark dark:border-border-dark text-text-light dark:text-text-dark h-14 pl-10 pr-12 text-base outline-none focus:ring-2 focus:ring-primary/20"
+                                        placeholder="Mín. 6 caracteres"
+                                        type={showNewPassword ? "text" : "password"}
                                     />
-                                    <button 
+                                    <button
                                         type="button"
                                         onClick={() => setShowNewPassword(!showNewPassword)}
                                         className="absolute right-3 top-1/2 -translate-y-1/2 text-text-subtle-light"

@@ -115,7 +115,7 @@ const ProductDetailScreen: React.FC = () => {
     };
 
     const shareButton = (
-        <button 
+        <button
             onClick={handleShare}
             className="size-10 flex items-center justify-center text-text-light dark:text-text-dark active:scale-90 transition-transform"
             aria-label="Compartir"
@@ -127,18 +127,18 @@ const ProductDetailScreen: React.FC = () => {
     return (
         <div className="pb-24 bg-background-light dark:bg-background-dark min-h-screen">
             <DetailHeader title="Detalles del Producto" rightAction={shareButton} />
-            
+
             <div className="p-4 space-y-6">
                 {/* Carrusel de Imágenes */}
                 <div className="relative group">
-                    <div 
+                    <div
                         ref={scrollRef}
                         onScroll={handleScroll}
                         className="aspect-[3/4] flex overflow-x-auto snap-x snap-mandatory [-ms-scrollbar-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden rounded-3xl shadow-xl border border-border-light dark:border-border-dark"
                     >
                         {productImages.map((img, idx) => (
-                            <div 
-                                key={idx} 
+                            <div
+                                key={idx}
                                 className="w-full h-full flex-shrink-0 snap-center bg-cover bg-center"
                                 style={{ backgroundImage: `url(${img})` }}
                             />
@@ -149,20 +149,22 @@ const ProductDetailScreen: React.FC = () => {
                     {productImages.length > 1 && (
                         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-1.5 px-3 py-1.5 bg-black/20 backdrop-blur-md rounded-full">
                             {productImages.map((_, idx) => (
-                                <div 
-                                    key={idx} 
+                                <div
+                                    key={idx}
                                     className={`size-1.5 rounded-full transition-all duration-300 ${activeImageIndex === idx ? 'w-4 bg-white' : 'bg-white/40'}`}
                                 />
                             ))}
                         </div>
                     )}
 
-                    <button 
-                        onClick={() => toggleFavorite(product.id)} 
-                        className="absolute top-4 right-4 size-12 rounded-full bg-white/90 dark:bg-black/40 backdrop-blur-md flex items-center justify-center shadow-lg transition-transform active:scale-90"
-                    >
-                        <Icon name="favorite" filled={isFavorite(product.id)} className={isFavorite(product.id) ? 'text-red-500' : 'text-text-light dark:text-text-dark'} />
-                    </button>
+                    {!isCollab && (
+                        <button
+                            onClick={() => toggleFavorite(product.id)}
+                            className="absolute top-4 right-4 size-12 rounded-full bg-white/90 dark:bg-black/40 backdrop-blur-md flex items-center justify-center shadow-lg transition-transform active:scale-90"
+                        >
+                            <Icon name="favorite" filled={isFavorite(product.id)} className={isFavorite(product.id) ? 'text-red-500' : 'text-text-light dark:text-text-dark'} />
+                        </button>
+                    )}
                 </div>
 
                 <div className="flex justify-between items-start">
@@ -202,7 +204,7 @@ const ProductDetailScreen: React.FC = () => {
                         </h3>
                         <div className="flex flex-wrap gap-2">
                             {availableSizes.map(size => (
-                                <button 
+                                <button
                                     key={size}
                                     onClick={() => setSelectedSize(size)}
                                     className={`size-12 rounded-xl border-2 font-bold transition-all active:scale-95 ${selectedSize === size ? 'bg-primary border-primary text-white shadow-md' : 'border-border-light dark:border-border-dark text-text-light dark:text-text-dark'}`}
@@ -221,7 +223,7 @@ const ProductDetailScreen: React.FC = () => {
                                 Cantidad
                             </h3>
                             <div className="flex items-center gap-6 bg-accent-light dark:bg-accent-dark w-fit p-2 rounded-2xl border border-border-light dark:border-border-dark">
-                                <button 
+                                <button
                                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
                                     className="size-10 flex items-center justify-center text-primary active:scale-90 transition-transform disabled:opacity-30"
                                     disabled={quantity <= 1}
@@ -229,7 +231,7 @@ const ProductDetailScreen: React.FC = () => {
                                     <Icon name="remove_circle" className="text-3xl" />
                                 </button>
                                 <span className="text-xl font-black text-text-light dark:text-text-dark min-w-[30px] text-center">{quantity}</span>
-                                <button 
+                                <button
                                     onClick={() => setQuantity(Math.min(effectiveStock, quantity + 1))}
                                     className="size-10 flex items-center justify-center text-primary active:scale-90 transition-transform disabled:opacity-30"
                                     disabled={quantity >= effectiveStock}
@@ -241,7 +243,7 @@ const ProductDetailScreen: React.FC = () => {
                     )}
 
                     {!isCollab ? (
-                        <button 
+                        <button
                             onClick={handleAddToCart}
                             disabled={effectiveStock === 0}
                             className="w-full h-16 bg-primary text-white font-bold rounded-2xl shadow-xl active:scale-95 disabled:bg-gray-300 transition-all flex items-center justify-center gap-3 text-lg"
