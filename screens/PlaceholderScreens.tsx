@@ -9,10 +9,15 @@ import { GoogleGenAI } from "@google/genai";
 import { SPANISH_PROVINCES } from './AuthScreens';
 import { CLOTHING_CATEGORIES } from '../data';
 
-const Placeholder = ({ title }: { title: string }) => (
+const Placeholder = ({ title, backTo = "/" }: { title: string; backTo?: string }) => (
     <div className="bg-background-light dark:bg-background-dark min-h-screen">
-        <div className="flex items-center justify-center h-96">
-            <h2 className="text-2xl text-text-subtle-light dark:text-text-subtle-dark font-bold">{title} Screen Coming Soon!</h2>
+        <DetailHeader title={title} backTo={backTo} />
+        <div className="flex flex-col items-center justify-center h-96 p-8 text-center space-y-4">
+            <div className="size-20 bg-primary/10 rounded-full flex items-center justify-center animate-pulse">
+                <Icon name="construction" className="text-4xl text-primary" />
+            </div>
+            <h2 className="text-2xl text-text-light dark:text-text-dark font-black tracking-tight">{title}</h2>
+            <p className="text-text-subtle-light dark:text-text-subtle-dark max-w-xs uppercase text-[10px] font-black tracking-[0.2em]">Próximamente disponible</p>
         </div>
     </div>
 );
@@ -99,7 +104,7 @@ export const ManageCatalogScreen: React.FC = () => {
 
     return (
         <div className="bg-background-light dark:bg-background-dark min-h-screen pb-20">
-            <DetailHeader title="Gestionar mi Catálogo" />
+            <DetailHeader title="Gestionar mi Catálogo" backTo="/profile" />
             <main className="p-4 space-y-4 animate-fade-in">
                 {myProducts.length === 0 ? (
                     <div className="text-center py-20">
@@ -202,7 +207,7 @@ export const MyReviewsScreen: React.FC = () => {
     return (
         <div className="bg-background-light dark:bg-background-dark min-h-screen pb-20">
             <span className="sr-only">Reviews</span>
-            <DetailHeader title={isCollab ? "Reseñas de Clientes" : "Mis Reseñas"} />
+            <DetailHeader title={isCollab ? "Reseñas de Clientes" : "Mis Reseñas"} backTo="/profile" />
 
             <main className="p-4 space-y-6 animate-fade-in">
                 {isCollab && (
@@ -630,7 +635,7 @@ export const HelpScreen: React.FC = () => {
     return (
         <div className="bg-background-light dark:bg-background-dark min-h-screen pb-10">
             <span className="sr-only">Help</span>
-            <DetailHeader title={isCollab ? "Centro de Ayuda Partner" : "Ayuda y Soporte"} />
+            <DetailHeader title={isCollab ? "Centro de Ayuda Partner" : "Ayuda y Soporte"} backTo="/profile" />
 
             <div className="flex px-4 border-b border-border-light dark:border-border-dark bg-white dark:bg-background-dark sticky top-16 z-10">
                 <button
@@ -883,7 +888,7 @@ export const AppSettingsScreen: React.FC = () => {
     return (
         <div className="bg-background-light dark:bg-background-dark min-h-screen pb-20">
             <span className="sr-only">Settings</span>
-            <DetailHeader title="Ajustes de la App" />
+            <DetailHeader title="Ajustes de la App" backTo="/profile" />
             <main className="pt-4">
                 <SettingsSection title="Preferencias">
                     <SettingsToggle
@@ -1113,10 +1118,10 @@ export const ProfileScreen: React.FC = () => {
 
     return (
         <div className="bg-background-light dark:bg-background-dark min-h-screen pb-20">
-            <header className="bg-primary pt-12 pb-16 px-4">
-                <div className="flex items-center justify-between mb-8">
-                    <h1 className="text-2xl font-black text-white tracking-tight">Mi Perfil</h1>
-                    <Link to="/settings" className="text-white active:scale-90 transition-transform">
+            <DetailHeader title="Mi Perfil" />
+            <header className="bg-primary/5 dark:bg-primary/10 pt-8 pb-16 px-4 border-b border-primary/10">
+                <div className="flex items-center justify-end mb-4">
+                    <Link to="/settings" className="text-primary active:scale-90 transition-transform">
                         <Icon name="settings" className="text-2xl" />
                     </Link>
                 </div>
@@ -1130,12 +1135,12 @@ export const ProfileScreen: React.FC = () => {
                             initials
                         )}
                     </div>
-                    <div className="text-white">
+                    <div className="text-text-light dark:text-white">
                         <div className="flex items-center gap-2">
                             <h2 className="text-2xl font-black tracking-tight leading-none">{displayInfo.title}</h2>
-                            {isCollab && <Icon name="verified" className="text-white/80 text-sm" filled />}
+                            {isCollab && <Icon name="verified" className="text-primary/80 text-sm" filled />}
                         </div>
-                        <p className="text-white/80 text-xs font-bold uppercase tracking-widest mt-1">{displayInfo.subtitle}</p>
+                        <p className="text-text-subtle-light dark:text-text-subtle-dark text-xs font-bold uppercase tracking-widest mt-1">{displayInfo.subtitle}</p>
                     </div>
                 </div>
             </header>
@@ -1197,7 +1202,7 @@ export const FavoritesScreen: React.FC = () => {
             <span className="sr-only">Favoritos</span>
             <DetailHeader title="Mis Favoritos" />
 
-            <div className="flex px-4 border-b border-border-light dark:border-border-dark bg-white dark:bg-background-dark sticky top-16 z-10">
+            <div className="flex px-4 border-b border-border-light dark:border-border-dark bg-white dark:bg-background-dark sticky top-16 z-[120]">
                 <button
                     onClick={() => setActiveTab('products')}
                     className={`flex-1 py-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all ${activeTab === 'products' ? 'border-primary text-primary' : 'border-transparent text-text-subtle-light'}`}
@@ -1352,7 +1357,7 @@ export const OrdersScreen: React.FC = () => {
     return (
         <div className="bg-background-light dark:bg-background-dark min-h-screen pb-20">
             <span className="sr-only">Orders</span>
-            <DetailHeader title={isCollab ? "Mis Ventas" : "Mis Pedidos"} />
+            <DetailHeader title={isCollab ? "Mis Ventas" : "Mis Pedidos"} backTo="/profile" />
             <main className="p-4 space-y-4 animate-fade-in">
 
                 {isCollab && displayedOrders.length > 0 && (
@@ -1722,7 +1727,7 @@ export const PaymentScreen: React.FC = () => {
     );
 };
 
-export const PurchaseHistoryScreen: React.FC = () => <Placeholder title="Historial" />;
+export const PurchaseHistoryScreen: React.FC = () => <Placeholder title="Historial" backTo="/profile" />;
 
 export const CollaboratorRegistrationScreen: React.FC = () => <Placeholder title="Registro de Colaborador" />;
 
@@ -1804,7 +1809,7 @@ export const PaymentMethodsScreen: React.FC = () => {
     if (!isCollab) {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen pb-24">
-                <DetailHeader title="Métodos de Pago" />
+                <DetailHeader title="Métodos de Pago" backTo="/profile" />
                 <main className="p-4 space-y-6 animate-fade-in">
                     <div className="bg-white dark:bg-accent-dark p-6 rounded-[32px] border border-border-light dark:border-border-dark shadow-sm space-y-6">
                         <div className="flex items-center gap-3 mb-2">
@@ -1898,7 +1903,7 @@ export const PaymentMethodsScreen: React.FC = () => {
 
     return (
         <div className="bg-background-light dark:bg-background-dark min-h-screen pb-24">
-            <DetailHeader title="Configuración de Cobros" />
+            <DetailHeader title="Configuración de Cobros" backTo="/profile" />
             <main className="p-4 space-y-6 animate-fade-in">
                 <div className="bg-primary/5 dark:bg-primary/10 border border-primary/20 p-5 rounded-[24px] flex gap-4 items-start">
                     <div className="size-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0 mt-0.5">
@@ -2067,7 +2072,7 @@ export const EditCustomerProfileScreen: React.FC = () => {
     return (
         <div className="bg-background-light dark:bg-background-dark min-h-screen pb-24">
             <span className="sr-only">Edit Profile</span>
-            <DetailHeader title={isCollab ? "Datos de Empresa" : "Datos Personales"} />
+            <DetailHeader title={isCollab ? "Datos de Empresa" : "Datos Personales"} backTo="/profile" />
             <form onSubmit={handleSubmit} className="p-4 space-y-6 animate-fade-in">
                 <div className="flex flex-col items-center">
                     {isCollab ? (

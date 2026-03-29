@@ -194,7 +194,7 @@ const DiscoverScreen: React.FC = () => {
                 </div>
             </div>
 
-            <div className="sticky top-16 z-10 bg-white/95 dark:bg-background-dark/95 backdrop-blur-md pt-6 shadow-sm pb-2">
+            <div className="sticky top-16 z-50 bg-white/95 dark:bg-background-dark/95 backdrop-blur-md pt-6 shadow-sm pb-2">
                 <div className="px-4 mb-4">
                     <div className="relative flex items-center h-12 w-full rounded-xl bg-accent-light dark:bg-accent-dark border border-border-light dark:border-border-dark shadow-sm focus-within:ring-2 focus-within:ring-primary/20 transition-all">
                         <div className="absolute left-4 text-text-subtle-light dark:text-text-subtle-dark">

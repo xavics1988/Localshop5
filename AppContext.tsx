@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Product, OrderItem, Order, OrderStatus, Review, Store, BankAccount, PaymentCard, PlatformAccount, OrderContextType, OrderEvent, UserProfile } from './types';
 import { products as initialProducts, orders as initialOrders, stores as initialStores } from './data';
 
@@ -227,38 +227,60 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }, []);
 
     const [paymentMethods, setPaymentMethods] = useState<PaymentCard[]>([]);
+    const [paymentMethodsLoadedUser, setPaymentMethodsLoadedUser] = useState<string | null>(null);
 
     // Carga reactiva de métodos de pago
     useEffect(() => {
-        if (!user?.id) return;
-        const key = getStorageKey('payment_methods', user.id);
-        const saved = localStorage.getItem(key);
-        setPaymentMethods(saved ? JSON.parse(saved) : []);
+        if (!user?.id) {
+            setPaymentMethods([]);
+            setPaymentMethodsLoadedUser(null);
+            return;
+        }
+        try {
+            const key = getStorageKey('payment_methods', user.id);
+            const saved = localStorage.getItem(key);
+            setPaymentMethods(saved ? JSON.parse(saved) : []);
+        } catch (e) {
+            setPaymentMethods([]);
+        } finally {
+            setPaymentMethodsLoadedUser(user.id);
+        }
     }, [user.id]);
 
     // Persistencia de métodos de pago
     useEffect(() => {
-        if (!user?.id) return;
+        if (!user?.id || paymentMethodsLoadedUser !== user.id) return;
         const key = getStorageKey('payment_methods', user.id);
         safeStorageSet(key, paymentMethods);
-    }, [paymentMethods, user.id]);
+    }, [paymentMethods, user.id, paymentMethodsLoadedUser]);
 
     const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+    const [bankAccountsLoadedUser, setBankAccountsLoadedUser] = useState<string | null>(null);
 
     // Carga reactiva de cuentas bancarias
     useEffect(() => {
-        if (!user?.id) return;
-        const key = getStorageKey('bank_accounts', user.id);
-        const saved = localStorage.getItem(key);
-        setBankAccounts(saved ? JSON.parse(saved) : []);
+        if (!user?.id) {
+            setBankAccounts([]);
+            setBankAccountsLoadedUser(null);
+            return;
+        }
+        try {
+            const key = getStorageKey('bank_accounts', user.id);
+            const saved = localStorage.getItem(key);
+            setBankAccounts(saved ? JSON.parse(saved) : []);
+        } catch (e) {
+            setBankAccounts([]);
+        } finally {
+            setBankAccountsLoadedUser(user.id);
+        }
     }, [user.id]);
 
     // Persistencia de cuentas bancarias
     useEffect(() => {
-        if (!user?.id) return;
+        if (!user?.id || bankAccountsLoadedUser !== user.id) return;
         const key = getStorageKey('bank_accounts', user.id);
         safeStorageSet(key, bankAccounts);
-    }, [bankAccounts, user.id]);
+    }, [bankAccounts, user.id, bankAccountsLoadedUser]);
 
     useEffect(() => safeStorageSet('user_profile', user), [user]);
 
@@ -392,22 +414,34 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }, [notify]);
 
     // Estados inicializados vacíos - se cargan reactivamente al cambiar user.id
+    // Estados inicializados vacíos - se cargan reactivamente al cambiar user.id
     const [cartItems, setCartItems] = useState<OrderItem[]>([]);
+    const [cartLoadedUser, setCartLoadedUser] = useState<string | null>(null);
 
     // Carga reactiva del carrito cuando cambia el usuario
     useEffect(() => {
-        if (!user?.id) return;
-        const key = getStorageKey('cart', user.id);
-        const saved = localStorage.getItem(key);
-        setCartItems(saved ? JSON.parse(saved) : []);
+        if (!user?.id) {
+            setCartItems([]);
+            setCartLoadedUser(null);
+            return;
+        }
+        try {
+            const key = getStorageKey('cart', user.id);
+            const saved = localStorage.getItem(key);
+            setCartItems(saved ? JSON.parse(saved) : []);
+        } catch (e) {
+            setCartItems([]);
+        } finally {
+            setCartLoadedUser(user.id);
+        }
     }, [user.id]);
 
     // Persistencia del carrito con clave de usuario
     useEffect(() => {
-        if (!user?.id) return;
+        if (!user?.id || cartLoadedUser !== user.id) return;
         const key = getStorageKey('cart', user.id);
         safeStorageSet(key, cartItems);
-    }, [cartItems, user.id]);
+    }, [cartItems, user.id, cartLoadedUser]);
 
     const addToCart = useCallback((product: Product, variant: string | null, quantity: number = 1) => {
         setCartItems(prev => {
@@ -419,21 +453,38 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }, []);
 
     const [favorites, setFavorites] = useState<string[]>([]);
+    const [favoritesLoadedUser, setFavoritesLoadedUser] = useState<string | null>(null);
 
     // Carga reactiva de favoritos cuando cambia el usuario
     useEffect(() => {
-        if (!user?.id) return;
-        const key = getStorageKey('favorites', user.id);
-        const saved = localStorage.getItem(key);
-        setFavorites(saved ? JSON.parse(saved) : []);
+        if (!user?.id) {
+            setFavorites([]);
+            setFavoritesLoadedUser(null);
+            return;
+        }
+
+        try {
+            const key = getStorageKey('favorites', user.id);
+            const saved = localStorage.getItem(key);
+            console.log(`[FAVORITES] Loading for ${user.id}:`, saved);
+            setFavorites(saved ? JSON.parse(saved) : []);
+        } catch (e) {
+            console.warn("Error loading favorites", e);
+            setFavorites([]);
+        } finally {
+            setFavoritesLoadedUser(user.id);
+        }
     }, [user.id]);
 
-    // Persistencia de favoritos con clave de usuario
+    // Persistencia de favoritos con clave de usuario - SOLO si coincide el usuario cargado
     useEffect(() => {
-        if (!user?.id) return;
+        if (!user?.id || favoritesLoadedUser !== user.id) return;
+
+        console.log(`[FAVORITES] Saving for ${user.id}:`, favorites);
         const key = getStorageKey('favorites', user.id);
         safeStorageSet(key, favorites);
-    }, [favorites, user.id]);
+    }, [favorites, user.id, favoritesLoadedUser]);
+
     const isFavorite = useCallback((id: string) => favorites.includes(id), [favorites]);
     const toggleFavorite = useCallback((id: string) => {
         // [SEGURIDAD] Solo los clientes pueden tener favoritos
@@ -442,21 +493,37 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }, [user.role]);
 
     const [followedIds, setFollowedIds] = useState<string[]>([]);
+    const [followedStoresLoadedUser, setFollowedStoresLoadedUser] = useState<string | null>(null);
 
     // Carga reactiva de tiendas seguidas cuando cambia el usuario
     useEffect(() => {
-        if (!user?.id) return;
-        const key = getStorageKey('followedStores', user.id);
-        const saved = localStorage.getItem(key);
-        setFollowedIds(saved ? JSON.parse(saved) : []);
+        if (!user?.id) {
+            setFollowedIds([]);
+            setFollowedStoresLoadedUser(null);
+            return;
+        }
+
+        try {
+            const key = getStorageKey('followedStores', user.id);
+            const saved = localStorage.getItem(key);
+            console.log(`[STORES] Loading for ${user.id}:`, saved);
+            setFollowedIds(saved ? JSON.parse(saved) : []);
+        } catch (e) {
+            console.warn("Error loading followed stores", e);
+            setFollowedIds([]);
+        } finally {
+            setFollowedStoresLoadedUser(user.id);
+        }
     }, [user.id]);
 
-    // Persistencia de tiendas seguidas con clave de usuario
+    // Persistencia de tiendas seguidas con clave de usuario - SOLO si coincide el usuario cargado
     useEffect(() => {
-        if (!user?.id) return;
+        if (!user?.id || followedStoresLoadedUser !== user.id) return;
+
+        console.log(`[STORES] Saving for ${user.id}:`, followedIds);
         const key = getStorageKey('followedStores', user.id);
         safeStorageSet(key, followedIds);
-    }, [followedIds, user.id]);
+    }, [followedIds, user.id, followedStoresLoadedUser]);
 
     const isFollowing = useCallback((id: string) => followedIds.includes(id), [followedIds]);
     const toggleFollow = useCallback((id: string) => {
@@ -464,21 +531,32 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }, []);
 
     const [orders, setOrders] = useState<Order[]>([]);
+    const [ordersLoadedUser, setOrdersLoadedUser] = useState<string | null>(null);
 
     // Carga reactiva de pedidos cuando cambia el usuario
     useEffect(() => {
-        if (!user?.id) return;
-        const key = getStorageKey('orders', user.id);
-        const saved = localStorage.getItem(key);
-        setOrders(saved ? JSON.parse(saved) : []);
+        if (!user?.id) {
+            setOrders([]);
+            setOrdersLoadedUser(null);
+            return;
+        }
+        try {
+            const key = getStorageKey('orders', user.id);
+            const saved = localStorage.getItem(key);
+            setOrders(saved ? JSON.parse(saved) : []);
+        } catch (e) {
+            setOrders([]);
+        } finally {
+            setOrdersLoadedUser(user.id);
+        }
     }, [user.id]);
 
     // Persistencia de pedidos con clave de usuario
     useEffect(() => {
-        if (!user?.id) return;
+        if (!user?.id || ordersLoadedUser !== user.id) return;
         const key = getStorageKey('orders', user.id);
         safeStorageSet(key, orders);
-    }, [orders, user.id]);
+    }, [orders, user.id, ordersLoadedUser]);
 
     const createEvent = useCallback((status: OrderStatus, label: string): OrderEvent => ({
         date: new Date().toISOString(),
@@ -691,20 +769,14 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     // Función de logout atómico - resetea todos los estados de React
     const logout = useCallback(() => {
-        // 1. Reset atómico de todos los estados de usuario
-        setCartItems([]);
-        setFavorites([]);
-        setFollowedIds([]);
-        setOrders([]);
-        setPaymentMethods([]);
-        setBankAccounts([]);
-
-        // 2. Limpiar datos de sesión (no borramos datos de usuarios en localStorage)
+        // 1. Limpiar datos de sesión (no borramos datos de usuarios en localStorage)
         localStorage.removeItem('userRole');
         localStorage.removeItem('userName');
         localStorage.removeItem('user_profile');
 
-        // 3. Reset usuario a estado inicial
+        // 2. Reset usuario a estado inicial
+        // Al cambiar el usuario, los useEffects dependientes de user.id se encargarán 
+        // de limpiar los estados (favorites, cart, etc.) sin disparar un guardado accidental.
         setUser(INITIAL_USER_PROFILE);
 
         notify('Sesión cerrada', 'Has cerrado sesión correctamente.', 'logout');

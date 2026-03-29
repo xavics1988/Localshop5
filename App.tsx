@@ -26,7 +26,6 @@ const AppContent: React.FC = () => {
         '/signup', 
         '/login', 
         '/publish', 
-        '/cart', 
         '/payment', 
         '/collaborator-registration', 
         '/edit-profile',

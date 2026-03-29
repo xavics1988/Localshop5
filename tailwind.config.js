@@ -10,38 +10,24 @@ export default {
     theme: {
         extend: {
             colors: {
-                primary: '#C29B88', // Tono Terracota/Nude elegante
-                secondary: '#A67C52', // Marrón suave
-                olive: '#8A9A5B', // Verde Oliva para toques eco
-                text: {
-                    light: '#2D2D2D', // Gris casi negro para texto principal
-                    dark: '#E0E0E0',
-                    subtle: {
-                        light: '#757575',
-                        dark: '#9E9E9E'
-                    }
-                },
-                background: {
-                    light: '#FAFAFA', // Blanco roto
-                    dark: '#121212'   // Negro profundo
-                },
-                surface: {
-                    light: '#FFFFFF',
-                    dark: '#1E1E1E'
-                },
-                border: {
-                    light: '#E0E0E0',
-                    dark: '#333333'
-                },
-                accent: {
-                    light: '#F5F5F0', // Beige muy claro para fondos de sección
-                    dark: '#1E1E1E'
-                }
+                'primary': '#c29b88',          // Color principal (marrón suave/tierra)
+                'mustard': '#d4b4a3',          // Mostaza suave
+                'olive': '#a67c68',            // Oliva/marrón oscuro
+                'background-light': '#f8f9fa', // Fondo claro
+                'background-dark': '#1c1816',  // Fondo oscuro
+                'text-light': '#6B7785',       // Texto principal claro
+                'text-dark': '#F0F2F4',        // Texto principal oscuro
+                'text-subtle-light': '#8E8E93',// Texto sutil claro
+                'text-subtle-dark': '#94a3b8', // Texto sutil oscuro
+                'border-light': '#f1f5f9',     // Bordes claros
+                'border-dark': '#2d2d2d',      // Bordes oscuros
+                'accent-light': '#ffffff',     // Acento claro
+                'accent-dark': '#252525',      // Acento oscuro
             },
             fontFamily: {
-                sans: ['Inter', 'sans-serif'], // Moderno y legible
-                serif: ['Playfair Display', 'serif'], // Para titulares elegantes
-                display: ['Outfit', 'sans-serif'] // Para UI moderna
+                sans: ['Inter', 'sans-serif'],
+                serif: ['Playfair Display', 'serif'],
+                display: ['Inter', 'sans-serif'],
             },
             animation: {
                 'fade-in': 'fadeIn 0.5s ease-out',
@@ -57,8 +43,8 @@ export default {
                     '100%': { transform: 'translateY(0)', opacity: '1' },
                 },
             }
-        },
+        }
     },
     plugins: [],
-    darkMode: 'media', // o 'class'
+    darkMode: 'class',
 }
