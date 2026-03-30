@@ -6,6 +6,7 @@ import { Product, Order, OrderStatus, Store, OrderItem, BankAccount, Review, Pay
 import { useProducts, useCart, useFavorites, useFollowedStores, useNotifications, useOrders, useReviews, useUser, useStores, LOCALSHOP_PLATFORM_ACCOUNT } from '../AppContext';
 import { StoreCard, ProductCard } from '../components/Card';
 import { GoogleGenAI } from "@google/genai";
+import { removeBackground } from '@imgly/background-removal';
 import { SPANISH_PROVINCES } from './AuthScreens';
 import { CLOTHING_CATEGORIES } from '../data';
 
@@ -2398,109 +2399,145 @@ export const PublishScreen: React.FC = () => {
         if (file && targetSlot !== null) {
             setIsAIOptimizing(true);
             setShowSourceModal(false);
-            const reader = new FileReader();
-            reader.onloadend = async () => {
-                const base64WithHeader = reader.result as string;
-                const base64Data = base64WithHeader.split(',')[1];
-                const mimeType = file.type;
+            
+            try {
+                // 1. Quitar fondo localmente con @imgly/background-removal
+                let imageBlob: Blob = file;
                 try {
-                    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-                    const categoriesList = CLOTHING_CATEGORIES.join(', ');
+                    // Forzar máxima resolución y modelo avanzado
+                    imageBlob = await removeBackground(file, {
+                        model: 'isnet', // El modelo de mayor fidelidad de bordes de la librería
+                        output: {
+                            format: 'image/png',
+                            quality: 1.0
+                        }
+                    });
+                } catch (e) {
+                    console.error("Error quitando fondo", e);
+                }
+                
+                // 2. Colocarlo sobre un fondo gris de estudio en un canvas
+                const finalImageBase64 = await new Promise<string>((resolve) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        // Usar las dimensiones originales reales de la foto
+                        const width = img.naturalWidth || img.width;
+                        const height = img.naturalHeight || img.height;
+                        
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        if (ctx) {
+                            // Aplicar un renderizado de alta calidad en el canvas
+                            ctx.imageSmoothingEnabled = true;
+                            ctx.imageSmoothingQuality = 'high';
+                            
+                            // Fondo de estudio
+                            ctx.fillStyle = '#C9D0D6';
+                            ctx.fillRect(0, 0, width, height);
+                            // Dibujar la imagen procesada encima
+                            ctx.drawImage(img, 0, 0, width, height);
+                        }
+                        // Exportar a máxima calidad
+                        resolve(canvas.toDataURL('image/jpeg', 1.0));
+                    };
+                    img.src = URL.createObjectURL(imageBlob);
+                });
 
-                    const response = await ai.models.generateContent({
-                        model: 'gemini-2.5-flash-image',
-                        contents: {
-                            parts: [
-                                { inlineData: { data: base64Data, mimeType } },
-                                {
-                                    text: `CRITICAL INSTRUCTION: Your ABSOLUTE PRIORITY is to return a MODIFIED VERSION of the uploaded image. 
-                                1. Remove the entire original background. 
-                                2. Replace it with a professional studio background (Solid flat color #C9D0D6). 
-                                3. Apply soft directional lighting and a subtle luminous glow. 
-                                4. Preserve the product's details and edges perfectly.
-                                5. The aesthetic must be minimalist, high-end fashion catalog style.
+                const base64Data = finalImageBase64.split(',')[1];
+                const mimeType = 'image/jpeg';
+                
+                // 3. Mandar el resultado a Gemini para extraer los datos
+                const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyBOYgm_kwJcvfQA0hjEdCrKSlqXYQcGmdE";
+                if (!apiKey) {
+                    throw new Error("API Key no detectada. Asegúrate de reiniciar el servidor Vite.");
+                }
+                const ai = new GoogleGenAI({ apiKey });
+                const categoriesList = CLOTHING_CATEGORIES.join(', ');
 
-                                ALSO, analyze the garment and return this EXACT format AFTER the image part:
-                                PRENDA: [Tipo de prenda]
+                const response = await ai.models.generateContent({
+                    model: 'gemini-2.5-flash',
+                    contents: {
+                        parts: [
+                            { inlineData: { data: base64Data, mimeType } },
+                            {
+                                text: `CRITICAL INSTRUCTION: Analyze the garment in the image and return EXACTLY this format:
+                                PRENDA: [Tipo de prenda (ej. Camiseta, Pantalón)]
                                 MARCA: [Marca detectada o 'Local']
                                 COLOR: [Color principal]
                                 GÉNERO: [Mujer, Hombre o Unisex]
-                                CATEGORÍA_RAIZ: [Debe ser una de: ${categoriesList}]
-                                SUB_APARTADO: [Específico: manga corta, cortos, casual, etc.]
-                                DESCRIPCIÓN: [Descripción de 2 líneas]` }
-                            ]
-                        }
-                    });
-
-                    let finalImage = base64WithHeader;
-                    if (response.candidates && response.candidates[0].content.parts) {
-                        for (const part of response.candidates[0].content.parts) {
-                            if (part.inlineData) {
-                                finalImage = `data:image/png;base64,${part.inlineData.data}`;
+                                CATEGORÍA_RAIZ: [Debe ser obligatoriamente una exacta de la lista: ${categoriesList}]
+                                SUB_APARTADO: [Específico: pantalones largos, camiseta manga corta, zapatillas running, etc.]
+                                DESCRIPCIÓN: [Descripción corta y muy atractiva para la venta de 2 a 3 líneas sobre su estado y estilo]` 
                             }
-                        }
+                        ]
+                    }
+                });
+
+                const fullText = response.text || "";
+                const garmentMatch = fullText.match(/PRENDA:\s*(.*)/i);
+                const brandMatch = fullText.match(/MARCA:\s*(.*)/i);
+                const colorMatch = fullText.match(/COLOR:\s*(.*)/i);
+                const genderMatch = fullText.match(/GÉNERO:\s*(.*)/i);
+                const rootCatMatch = fullText.match(/CATEGORÍA_RAIZ:\s*(.*)/i);
+                const subMatch = fullText.match(/SUB_APARTADO:\s*(.*)/i);
+                const descMatch = fullText.match(/DESCRIPCIÓN:\s*([\s\S]*)/i);
+
+                if (targetSlot === 0 || !garment) {
+                    if (garmentMatch && garmentMatch[1]) setGarment(garmentMatch[1].split(/\n/)[0].trim());
+                    if (brandMatch && brandMatch[1]) setBrand(brandMatch[1].split(/\n/)[0].trim());
+                    if (colorMatch && colorMatch[1]) setColor(colorMatch[1].split(/\n/)[0].trim());
+                    if (descMatch && descMatch[1]) setDescription(descMatch[1].trim());
+
+                    if (genderMatch && genderMatch[1]) {
+                        const g = genderMatch[1].trim();
+                        if (g.includes('Mujer')) setGender('Mujer');
+                        else if (g.includes('Hombre')) setGender('Hombre');
+                        else if (g.includes('Unisex')) setGender('Unisex');
                     }
 
-                    const fullText = response.text || "";
-                    const garmentMatch = fullText.match(/PRENDA:\s*(.*)/i);
-                    const brandMatch = fullText.match(/MARCA:\s*(.*)/i);
-                    const colorMatch = fullText.match(/COLOR:\s*(.*)/i);
-                    const genderMatch = fullText.match(/GÉNERO:\s*(.*)/i);
-                    const rootCatMatch = fullText.match(/CATEGORÍA_RAIZ:\s*(.*)/i);
-                    const subMatch = fullText.match(/SUB_APARTADO:\s*(.*)/i);
-                    const descMatch = fullText.match(/DESCRIPCIÓN:\s*([\s\S]*)/i);
-
-                    if (targetSlot === 0 || !garment) {
-                        if (garmentMatch && garmentMatch[1]) setGarment(garmentMatch[1].split(/\n/)[0].trim());
-                        if (brandMatch && brandMatch[1]) setBrand(brandMatch[1].split(/\n/)[0].trim());
-                        if (colorMatch && colorMatch[1]) setColor(colorMatch[1].split(/\n/)[0].trim());
-                        if (descMatch && descMatch[1]) setDescription(descMatch[1].trim());
-
-                        if (genderMatch && genderMatch[1]) {
-                            const g = genderMatch[1].trim();
-                            if (g.includes('Mujer')) setGender('Mujer');
-                            else if (g.includes('Hombre')) setGender('Hombre');
-                            else if (g.includes('Unisex')) setGender('Unisex');
-                        }
-
-                        if (rootCatMatch && rootCatMatch[1]) {
-                            const rootCat = rootCatMatch[1].trim();
-                            const foundCat = CLOTHING_CATEGORIES.find(c => rootCat.toLowerCase().includes(c.toLowerCase()));
-                            if (foundCat) handleCategorySelect(foundCat);
-                        }
-
-                        if (subMatch && subMatch[1]) {
-                            const sub = subMatch[1].toLowerCase();
-                            if (sub.includes('corta')) { setSleeveType('corta'); setShirtSleeveType('corta'); }
-                            else if (sub.includes('larga')) { setSleeveType('larga'); setShirtSleeveType('larga'); }
-                            else if (sub.includes('cortos') || sub.includes('corta')) { setPantType('cortos'); setSkirtType('cortas'); }
-                            else if (sub.includes('largos') || sub.includes('larga')) { setPantType('largos'); setSkirtType('largas'); }
-                            else if (sub.includes('running')) setShoeType('running');
-                            else if (sub.includes('casual')) setShoeType('casual');
-                            else if (sub.includes('vestir')) setShoeType('vestir');
-                        }
+                    if (rootCatMatch && rootCatMatch[1]) {
+                        const rootCat = rootCatMatch[1].trim();
+                        const foundCat = CLOTHING_CATEGORIES.find(c => rootCat.toLowerCase().includes(c.toLowerCase()));
+                        if (foundCat) handleCategorySelect(foundCat);
                     }
 
-                    setImages(prev => {
-                        const updated = [...prev];
-                        updated[targetSlot] = finalImage;
-                        return updated;
-                    });
-
-                    notify('IA LocalShop', 'Foto optimizada con fondo de estudio.', 'auto_awesome');
-                } catch (error) {
-                    console.error("AI Error", error);
-                    setImages(prev => {
-                        const updated = [...prev];
-                        updated[targetSlot] = base64WithHeader;
-                        return updated;
-                    });
-                } finally {
-                    setIsAIOptimizing(false);
-                    setActiveSlot(null);
+                    if (subMatch && subMatch[1]) {
+                        const sub = subMatch[1].toLowerCase();
+                        if (sub.includes('corta')) { setSleeveType('corta'); setShirtSleeveType('corta'); }
+                        else if (sub.includes('larga')) { setSleeveType('larga'); setShirtSleeveType('larga'); }
+                        else if (sub.includes('cortos') || sub.includes('corta')) { setPantType('cortos'); setSkirtType('cortas'); }
+                        else if (sub.includes('largos') || sub.includes('larga')) { setPantType('largos'); setSkirtType('largas'); }
+                        else if (sub.includes('running')) setShoeType('running');
+                        else if (sub.includes('casual')) setShoeType('casual');
+                        else if (sub.includes('vestir')) setShoeType('vestir');
+                    }
                 }
-            };
-            reader.readAsDataURL(file);
+
+                setImages(prev => {
+                    const updated = [...prev];
+                    updated[targetSlot] = finalImageBase64;
+                    return updated;
+                });
+
+                notify('IA LocalShop', 'Foto optimizada con fondo de estudio.', 'auto_awesome');
+            } catch (error: any) {
+                console.error("AI Error", error);
+                notify('Error en IA', error?.message || 'Hubo un error al procesar la imagen.', 'error');
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    setImages(prev => {
+                        const updated = [...prev];
+                        updated[targetSlot] = reader.result as string;
+                        return updated;
+                    });
+                };
+                reader.readAsDataURL(file);
+            } finally {
+                setIsAIOptimizing(false);
+                setActiveSlot(null);
+            }
         }
     };
 
