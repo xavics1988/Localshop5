@@ -25,9 +25,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
     return (
         <div className="flex flex-col gap-2">
-            <Link to={`/product/${product.id}`} className="relative w-full aspect-[3/4] block">
+            <Link to={`/product/${product.id}`} className="group relative w-full aspect-[3/4] block overflow-hidden rounded-2xl transform transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lg">
                 <div
-                    className="absolute inset-0 w-full h-full bg-center bg-no-repeat bg-cover rounded-2xl border border-border-light dark:border-border-dark"
+                    className="absolute inset-0 w-full h-full bg-center bg-no-repeat bg-cover rounded-2xl border border-border-light dark:border-border-dark transition-transform duration-500 ease-out group-hover:scale-110"
                     style={{ backgroundImage: `url("${product.imageUrl}")` }}>
                 </div>
                 {user.role !== 'colaborador' && (
@@ -37,7 +37,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
                             e.stopPropagation();
                             toggleFavorite(product.id);
                         }}
-                        className={`absolute top-2 right-2 z-10 flex items-center justify-center size-9 rounded-full bg-white/60 backdrop-blur-sm dark:bg-black/30 transition-colors ${active ? 'text-red-500' : 'text-text-light dark:text-text-dark'}`}
+                        className={`absolute top-2 right-2 z-10 flex items-center justify-center size-9 rounded-full bg-white/60 backdrop-blur-sm dark:bg-black/30 transition-all duration-200 hover:scale-110 active:scale-[0.75] ${active ? 'text-red-500' : 'text-text-light dark:text-text-dark'}`}
                     >
                         <Icon name="favorite" filled={active} className="text-lg" />
                     </button>
@@ -64,32 +64,34 @@ export const StoreCard: React.FC<StoreCardProps> = ({ store }) => {
     const isAnonymous = !store.imageUrl || store.imageUrl.includes('placeholder') || store.name.startsWith('LS-');
 
     return (
-        <div className="flex h-full flex-col gap-0 rounded-[28px] bg-white dark:bg-accent-dark border border-border-light dark:border-border-dark shadow-sm min-w-[240px] relative overflow-hidden group">
+        <div className="flex h-full flex-col gap-0 rounded-[28px] bg-white dark:bg-accent-dark border border-border-light dark:border-border-dark shadow-sm min-w-[240px] relative overflow-hidden group transform transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl">
             {!isAnonymous ? (
-                <Link to={`/store/${store.id}`} className="w-full bg-center bg-no-repeat aspect-[1.8/1] bg-cover relative"
-                    style={{ backgroundImage: `url("${store.imageUrl}")` }}>
+                <Link to={`/store/${store.id}`} className="relative w-full aspect-[1.8/1] block overflow-hidden">
+                    <div className="absolute inset-0 w-full h-full bg-center bg-no-repeat bg-cover transition-transform duration-500 ease-out group-hover:scale-110"
+                        style={{ backgroundImage: `url("${store.imageUrl}")` }}>
+                    </div>
                     <button
                         onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
                             toggleFollow(store.id);
                         }}
-                        className={`absolute top-3 right-3 z-20 flex items-center justify-center size-9 rounded-full bg-white/80 backdrop-blur-md dark:bg-black/40 shadow-sm transition-all active:scale-90 ${active ? 'text-red-500' : 'text-text-light dark:text-text-dark'}`}
+                        className={`absolute top-3 right-3 z-20 flex items-center justify-center size-9 rounded-full bg-white/80 backdrop-blur-md dark:bg-black/40 shadow-sm transition-all duration-200 hover:scale-110 active:scale-[0.75] ${active ? 'text-red-500' : 'text-text-light dark:text-text-dark'}`}
                     >
                         <Icon name="favorite" filled={active} className="text-xl" />
                     </button>
                 </Link>
             ) : (
-                <Link to={`/store/${store.id}`} className="w-full aspect-[1.8/1] bg-gradient-to-br from-primary/10 to-mustard/10 flex flex-col items-center justify-center relative overflow-hidden group border-b border-primary/5">
-                    <Logo showText={false} className="h-12 opacity-30 group-hover:scale-110 transition-transform mb-1" />
-                    <span className="text-[8px] font-black text-primary/40 tracking-[0.2em] uppercase italic">Identidad Protegida</span>
+                <Link to={`/store/${store.id}`} className="w-full aspect-[1.8/1] bg-gradient-to-br from-primary/10 to-mustard/10 flex flex-col items-center justify-center relative overflow-hidden border-b border-primary/5">
+                    <Logo showText={false} className="h-12 opacity-30 group-hover:scale-110 transition-transform duration-500 ease-out mb-1" />
+                    <span className="text-[8px] font-black text-primary/40 tracking-[0.2em] uppercase italic transition-transform duration-500 group-hover:translate-y-1">Identidad Protegida</span>
                     <button
                         onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
                             toggleFollow(store.id);
                         }}
-                        className={`absolute top-3 right-3 z-20 flex items-center justify-center size-9 rounded-full bg-white/80 backdrop-blur-md shadow-sm active:scale-90 ${active ? 'text-red-500' : 'text-text-light'}`}
+                        className={`absolute top-3 right-3 z-20 flex items-center justify-center size-9 rounded-full bg-white/80 backdrop-blur-md shadow-sm transition-all duration-200 hover:scale-110 active:scale-[0.75] ${active ? 'text-red-500' : 'text-text-light'}`}
                     >
                         <Icon name="favorite" filled={active} className="text-xl" />
                     </button>
