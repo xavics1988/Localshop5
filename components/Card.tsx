@@ -1,9 +1,14 @@
 
-import React from 'react';
+import React, { useRef } from 'react';
 import { Product, Store } from '../types';
 import { Link } from 'react-router-dom';
 import { useFavorites, useFollowedStores, useUser } from '../AppContext';
 import { Logo } from './Layout';
+import gsap from 'gsap';
+import { useGSAP } from '@gsap/react';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+gsap.registerPlugin(useGSAP, ScrollTrigger);
 
 const Icon = ({ name, filled, className }: { name: string; filled?: boolean; className?: string }) => (
     <span
@@ -22,9 +27,26 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     const { isFavorite, toggleFavorite } = useFavorites();
     const { user } = useUser();
     const active = isFavorite(product.id);
+    const cardRef = useRef<HTMLDivElement>(null);
+
+    useGSAP(() => {
+        gsap.from(cardRef.current, {
+            scrollTrigger: {
+                trigger: cardRef.current,
+                start: "top 85%",
+                toggleActions: "play none none reverse",
+            },
+            y: 50,
+            opacity: 0,
+            scale: 0.95,
+            duration: 0.6,
+            ease: "back.out(1.5)",
+            clearProps: "all"
+        });
+    }, { scope: cardRef });
 
     return (
-        <div className="flex flex-col gap-2">
+        <div ref={cardRef} className="flex flex-col gap-2">
             <Link to={`/product/${product.id}`} className="group relative w-full aspect-[3/4] block overflow-hidden rounded-2xl transform transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lg">
                 <div
                     className="absolute inset-0 w-full h-full bg-center bg-no-repeat bg-cover rounded-2xl border border-border-light dark:border-border-dark transition-transform duration-500 ease-out group-hover:scale-110"
@@ -58,13 +80,31 @@ type StoreCardProps = {
 export const StoreCard: React.FC<StoreCardProps> = ({ store }) => {
     const { isFollowing, toggleFollow } = useFollowedStores();
     const active = isFollowing(store.id);
+    const cardRef = useRef<HTMLDivElement>(null);
+
+    useGSAP(() => {
+        gsap.from(cardRef.current, {
+            scrollTrigger: {
+                trigger: cardRef.current,
+                start: "top 85%",
+                toggleActions: "play none none reverse",
+            },
+            y: 60,
+            opacity: 0,
+            scale: 0.9,
+            rotationX: 5,
+            duration: 0.7,
+            ease: "power3.out",
+            clearProps: "all"
+        });
+    }, { scope: cardRef });
 
     // Lógica de anonimato: Las tiendas con ID numérico (LS-) o sin imagen 
     // usan automáticamente la Identidad Visual Generativa.
     const isAnonymous = !store.imageUrl || store.imageUrl.includes('placeholder') || store.name.startsWith('LS-');
 
     return (
-        <div className="flex h-full flex-col gap-0 rounded-[28px] bg-white dark:bg-accent-dark border border-border-light dark:border-border-dark shadow-sm min-w-[240px] relative overflow-hidden group transform transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl">
+        <div ref={cardRef} className="flex h-full flex-col gap-0 rounded-[28px] bg-white dark:bg-accent-dark border border-border-light dark:border-border-dark shadow-sm min-w-[240px] relative overflow-hidden group transform transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl" style={{ perspective: "1000px" }}>
             {!isAnonymous ? (
                 <Link to={`/store/${store.id}`} className="relative w-full aspect-[1.8/1] block overflow-hidden">
                     <div className="absolute inset-0 w-full h-full bg-center bg-no-repeat bg-cover transition-transform duration-500 ease-out group-hover:scale-110"

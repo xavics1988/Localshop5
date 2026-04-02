@@ -1413,10 +1413,10 @@ export const OrdersScreen: React.FC = () => {
                                         <p className="text-[10px] text-text-subtle-light font-bold uppercase mt-1">{new Date(order.date).toLocaleDateString()}</p>
                                     </div>
                                     <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest ${order.status === 'Nuevo' ? 'bg-primary/10 text-primary' :
-                                            order.status === 'Completado' ? 'bg-green-500/10 text-green-600' :
-                                                order.status === 'Devolución Solicitada' ? 'bg-purple-100 text-purple-700' :
-                                                    order.status === 'Devuelto' || order.status === 'Cancelado' ? 'bg-gray-200 text-gray-600' :
-                                                        'bg-gray-100 text-gray-500'
+                                        order.status === 'Completado' ? 'bg-green-500/10 text-green-600' :
+                                            order.status === 'Devolución Solicitada' ? 'bg-purple-100 text-purple-700' :
+                                                order.status === 'Devuelto' || order.status === 'Cancelado' ? 'bg-gray-200 text-gray-600' :
+                                                    'bg-gray-100 text-gray-500'
                                         }`}>{order.status}</span>
                                 </div>
 
@@ -2399,56 +2399,25 @@ export const PublishScreen: React.FC = () => {
         if (file && targetSlot !== null) {
             setIsAIOptimizing(true);
             setShowSourceModal(false);
-            
+
             try {
-                // 1. Quitar fondo localmente con @imgly/background-removal
-                let imageBlob: Blob = file;
-                try {
-                    // Forzar máxima resolución y modelo avanzado
-                    imageBlob = await removeBackground(file, {
-                        model: 'isnet', // El modelo de mayor fidelidad de bordes de la librería
-                        output: {
-                            format: 'image/png',
-                            quality: 1.0
+                // 1. Obtener base64 de la imagen original
+                const [mimeType, base64Data] = await new Promise<[string, string]>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        const str = reader.result as string;
+                        const match = str.match(/^data:(.*?);base64,(.*)$/);
+                        if (match) {
+                            resolve([match[1], match[2]]);
+                        } else {
+                            reject(new Error("Formato inválido"));
                         }
-                    });
-                } catch (e) {
-                    console.error("Error quitando fondo", e);
-                }
-                
-                // 2. Colocarlo sobre un fondo gris de estudio en un canvas
-                const finalImageBase64 = await new Promise<string>((resolve) => {
-                    const img = new Image();
-                    img.onload = () => {
-                        // Usar las dimensiones originales reales de la foto
-                        const width = img.naturalWidth || img.width;
-                        const height = img.naturalHeight || img.height;
-                        
-                        const canvas = document.createElement('canvas');
-                        canvas.width = width;
-                        canvas.height = height;
-                        const ctx = canvas.getContext('2d');
-                        if (ctx) {
-                            // Aplicar un renderizado de alta calidad en el canvas
-                            ctx.imageSmoothingEnabled = true;
-                            ctx.imageSmoothingQuality = 'high';
-                            
-                            // Fondo de estudio
-                            ctx.fillStyle = '#C9D0D6';
-                            ctx.fillRect(0, 0, width, height);
-                            // Dibujar la imagen procesada encima
-                            ctx.drawImage(img, 0, 0, width, height);
-                        }
-                        // Exportar a máxima calidad
-                        resolve(canvas.toDataURL('image/jpeg', 1.0));
                     };
-                    img.src = URL.createObjectURL(imageBlob);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
                 });
 
-                const base64Data = finalImageBase64.split(',')[1];
-                const mimeType = 'image/jpeg';
-                
-                // 3. Mandar el resultado a Gemini para extraer los datos
+                // 2. Mandar el resultado a Gemini para procesar imagen y extraer los datos
                 const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyBOYgm_kwJcvfQA0hjEdCrKSlqXYQcGmdE";
                 if (!apiKey) {
                     throw new Error("API Key no detectada. Asegúrate de reiniciar el servidor Vite.");
@@ -2457,23 +2426,45 @@ export const PublishScreen: React.FC = () => {
                 const categoriesList = CLOTHING_CATEGORIES.join(', ');
 
                 const response = await ai.models.generateContent({
-                    model: 'gemini-2.5-flash',
+                    model: 'gemini-2.5-flash-image',
                     contents: {
                         parts: [
                             { inlineData: { data: base64Data, mimeType } },
                             {
-                                text: `CRITICAL INSTRUCTION: Analyze the garment in the image and return EXACTLY this format:
-                                PRENDA: [Tipo de prenda (ej. Camiseta, Pantalón)]
-                                MARCA: [Marca detectada o 'Local']
-                                COLOR: [Color principal]
-                                GÉNERO: [Mujer, Hombre o Unisex]
-                                CATEGORÍA_RAIZ: [Debe ser obligatoriamente una exacta de la lista: ${categoriesList}]
-                                SUB_APARTADO: [Específico: pantalones largos, camiseta manga corta, zapatillas running, etc.]
-                                DESCRIPCIÓN: [Descripción corta y muy atractiva para la venta de 2 a 3 líneas sobre su estado y estilo]` 
-                            }
+                                text: `CRITICAL INSTRUCTION: Your ABSOLUTE PRIORITY is to return a MODIFIED VERSION of the uploaded image. 
+            1. Remove the entire original background completely, with clean and precise edges around the product. Do NOT add any rim light, edge glow, or highlight around the silhouette of the product.
+            2. Replace it with a warm terracotta studio background. Use a rich, earthy warm brown tone (hex #8B5535) that gradually transitions slightly lighter toward the center behind the product, creating a smooth, even gradient without any harsh lines.
+            3. Apply soft, natural studio lighting from slightly above-left. The lighting must be subtle and even — NO luminous glow, NO rim glow, NO edge highlights. The product should look naturally lit as in a professional fashion catalog.
+            4. Add a soft, realistic shadow directly beneath the product on the ground surface. The shadow should be subtle, slightly blurred, and fade outward naturally — giving the product a grounded, realistic appearance.
+            5. Preserve all product details, textures and colors perfectly.
+            6. The aesthetic must be minimalist, warm-toned, high-end fashion catalog style — similar to editorial shoots on terracotta or cognac studio backdrops.
+            
+            ALSO, analyze the garment and return this EXACT format AFTER the image part:
+            PRENDA: [Tipo de prenda (ej. Camiseta, Pantalón)]
+            MARCA: [Marca detectada o 'Local']
+            COLOR: [Color principal]
+            GÉNERO: [Mujer, Hombre o Unisex]
+            CATEGORÍA_RAIZ: [Debe ser obligatoriamente una exacta de la lista: ${categoriesList}]
+            SUB_APARTADO: [Específico: pantalones largos, camiseta manga corta, zapatillas running, etc.]
+            DESCRIPCIÓN: [Descripción corta y muy atractiva para la venta de 2 a 3 líneas sobre su estado y estilo]` }
                         ]
                     }
                 });
+
+                // 3. Extraer la imagen modificada
+                let finalImageBase64 = "";
+                if (response.candidates && response.candidates[0].content.parts) {
+                    for (const part of response.candidates[0].content.parts) {
+                        if (part.inlineData) {
+                            finalImageBase64 = `data:image/png;base64,${part.inlineData.data}`;
+                        }
+                    }
+                }
+
+                // Fallback por si la API no devuelve imagen
+                if (!finalImageBase64) {
+                    finalImageBase64 = `data:${mimeType};base64,${base64Data}`;
+                }
 
                 const fullText = response.text || "";
                 const garmentMatch = fullText.match(/PRENDA:\s*(.*)/i);
