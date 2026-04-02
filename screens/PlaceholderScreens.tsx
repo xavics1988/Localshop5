@@ -2431,15 +2431,32 @@ export const PublishScreen: React.FC = () => {
                         parts: [
                             { inlineData: { data: base64Data, mimeType } },
                             {
-                                text: `CRITICAL INSTRUCTION: Your ABSOLUTE PRIORITY is to return a MODIFIED VERSION of the uploaded image. 
-            1. Remove the entire original background completely, with clean and precise edges around the product. Do NOT add any rim light, edge glow, or highlight around the silhouette of the product.
-            2. Replace it with a warm terracotta studio background. Use a rich, earthy warm brown tone (hex #8B5535) that gradually transitions slightly lighter toward the center behind the product, creating a smooth, even gradient without any harsh lines.
-            3. Apply soft, natural studio lighting from slightly above-left. The lighting must be subtle and even — NO luminous glow, NO rim glow, NO edge highlights. The product should look naturally lit as in a professional fashion catalog.
-            4. Add a soft, realistic shadow directly beneath the product on the ground surface. The shadow should be subtle, slightly blurred, and fade outward naturally — giving the product a grounded, realistic appearance.
-            5. Preserve all product details, textures and colors perfectly.
-            6. The aesthetic must be minimalist, warm-toned, high-end fashion catalog style — similar to editorial shoots on terracotta or cognac studio backdrops.
+                                text: `CRITICAL INSTRUCTION: Your ABSOLUTE PRIORITY is to return a MODIFIED VERSION of the uploaded image. ONLY the background must change — nothing else.
+
+            STRICT RULES — YOU MUST FOLLOW ALL OF THESE WITHOUT EXCEPTION:
+            - The garment/product MUST appear 100% complete in the output image. NEVER crop, cut or hide any part of it.
+            - Do NOT move, rotate, scale or reposition the garment in any way. It must remain in the exact same position, size and angle as in the original photo.
+            - Do NOT alter the garment's colors, tones, brightness or saturation. The product must look exactly as it does in the original photo.
+            - Do NOT add any rim light, edge glow, halo or highlight around the silhouette of the product.
+
+            BACKGROUND REPLACEMENT STEPS:
+            1. Remove the entire original background cleanly and precisely, respecting the exact edges of the product.
+            2. Replace it with a warm terracotta studio background. Use a rich, earthy warm brown tone (hex #8B5535) that subtly transitions slightly lighter toward the center, creating a smooth gradient without harsh lines.
+            3. Apply soft, natural studio lighting from slightly above-left. The lighting must be subtle and even — NO luminous glow, NO rim glow, NO edge highlights.
+            4. Add a soft, realistic shadow directly beneath the product on the ground. The shadow must be subtle, slightly blurred and fade outward naturally.
+            5. The aesthetic must be minimalist, warm-toned, high-end fashion catalog style — similar to editorial shoots on terracotta or cognac studio backdrops.
             
+            FIRST, before doing anything else, determine if the image contains a valid product for a fashion marketplace.
+            Valid products are ONLY: clothing items (shirts, trousers, dresses, jackets, shoes, socks, underwear, swimwear, sportswear, etc.), jewellery (rings, necklaces, bracelets, earrings), accessories (bags, handbags, belts, hats, scarves, sunglasses, watches, ties, wallets).
+            If the image does NOT contain one of these valid product types (for example: animals, people without clothing focus, food, vehicles, furniture, documents, landscapes, electronics, etc.), you MUST:
+            - Return PRODUCTO_VALIDO: NO
+            - Do NOT generate a modified image
+            - Return only the text format below and nothing else.
+
+            If the image IS valid, return PRODUCTO_VALIDO: SI and proceed with background replacement.
+
             ALSO, analyze the garment and return this EXACT format AFTER the image part:
+            PRODUCTO_VALIDO: [SI o NO]
             PRENDA: [Tipo de prenda (ej. Camiseta, Pantalón)]
             MARCA: [Marca detectada o 'Local']
             COLOR: [Color principal]
@@ -2467,6 +2484,19 @@ export const PublishScreen: React.FC = () => {
                 }
 
                 const fullText = response.text || "";
+
+                // Validación: comprobar si la IA considera el producto válido
+                const validMatch = fullText.match(/PRODUCTO_VALIDO:\s*(SI|NO)/i);
+                const isValidProduct = !validMatch || validMatch[1].toUpperCase() === 'SI';
+                if (!isValidProduct) {
+                    notify(
+                        'Producto no permitido',
+                        'Solo puedes subir prendas de vestir, bisutería o accesorios de moda.',
+                        'block'
+                    );
+                    return;
+                }
+
                 const garmentMatch = fullText.match(/PRENDA:\s*(.*)/i);
                 const brandMatch = fullText.match(/MARCA:\s*(.*)/i);
                 const colorMatch = fullText.match(/COLOR:\s*(.*)/i);
