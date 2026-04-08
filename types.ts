@@ -21,6 +21,7 @@ export interface Product {
   images?: string[];
   category?: string;
   gender?: 'Hombre' | 'Mujer' | 'Niños';
+  color?: string;
   stock?: number;
   stockPerSize?: Record<string, number>;
 }

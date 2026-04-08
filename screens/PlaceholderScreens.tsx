@@ -2613,6 +2613,7 @@ export const PublishScreen: React.FC = () => {
             description,
             category: finalCategory,
             gender: gender,
+            color: color || undefined,
             stock: totalStock,
             stockPerSize,
             sizes: Object.keys(stockPerSize)

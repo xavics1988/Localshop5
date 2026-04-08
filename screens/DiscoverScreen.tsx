@@ -7,6 +7,28 @@ import { CLOTHING_CATEGORIES } from '../data';
 import { Logo } from '../components/Layout';
 import { AssistantChat } from '../components/AssistantChat';
 
+const COLOR_MAP: Record<string, string> = {
+    'Todos': 'transparent',
+    'Negro': '#1a1a1a',
+    'Blanco': '#f5f5f5',
+    'Gris': '#9e9e9e',
+    'Rojo': '#e53935',
+    'Azul': '#1e88e5',
+    'Azul Marino': '#1a237e',
+    'Verde': '#43a047',
+    'Amarillo': '#fdd835',
+    'Naranja': '#fb8c00',
+    'Rosa': '#ec407a',
+    'Morado': '#8e24aa',
+    'Marrón': '#6d4c41',
+    'Beige': '#d7ccc8',
+    'Burdeos': '#800020',
+    'Turquesa': '#00acc1',
+    'Dorado': '#c8a415',
+    'Plateado': '#b0bec5',
+    'Multicolor': 'linear-gradient(135deg, #e53935, #fdd835, #43a047, #1e88e5)'
+};
+
 const Icon = ({ name, className, filled }: { name: string; className?: string; filled?: boolean }) => (
     <span className={`material-symbols-outlined ${className}`} style={{ fontVariationSettings: filled ? "'FILL' 1" : "'FILL' 0" }}>{name}</span>
 );
@@ -26,8 +48,6 @@ const SIZE_GROUPS: Record<string, string[]> = {
     'ROPA INTERIOR': ['XS', 'S', 'M', 'L', 'XL'],
     'PIJAMAS': ['XS', 'S', 'M', 'L', 'XL'],
     'ROPA DE BAÑO': ['XS', 'S', 'M', 'L', 'XL'],
-    'BEBÉ': ['0-1 mes', '2-4 meses', '4-6 meses', '6-9 meses', '9-12 meses'],
-    'NIÑOS': ['2 años', '3 años', '4 años', '5 años', '6 años', '7 años', '8 años', '9 años', '10 años', '11 años', '12 años'],
     'ACCESORIOS': ['Talla Única', 'Ajustable', 'Pequeño', 'Mediano', 'Grande', 'Pack']
 };
 
@@ -58,8 +78,6 @@ const CATEGORY_TO_SIZE_GROUP: Record<string, string> = {
     'Ropa Interior': 'ROPA INTERIOR',
     'Pijamas': 'PIJAMAS',
     'Ropa de Baño': 'ROPA DE BAÑO',
-    'Bebé': 'BEBÉ',
-    'Niños': 'NIÑOS',
     'Accesorios': 'ACCESORIOS'
 };
 
@@ -81,7 +99,11 @@ const DiscoverScreen: React.FC = () => {
         sleeveType: 'Todos', // 'corta' | 'larga' | 'Todos' (Camisetas)
         shirtSleeveType: 'Todos', // 'corta' | 'larga' | 'Todos' (Camisas)
         skirtType: 'Todos', // 'cortas' | 'largas' | 'Todos'
-        shoeType: 'Todos' // 'running' | 'casual' | 'vestir' | 'otro' | 'Todos'
+        shoeType: 'Todos', // 'running' | 'casual' | 'vestir' | 'otro' | 'Todos'
+        color: 'Todos', // Color filter
+        minPrice: 0, // Price filter min
+        maxPrice: 200, // Price filter max (0-200+)
+        sortPrice: 'none' as 'none' | 'asc' | 'desc' // Price sort
     });
 
     const userRole = localStorage.getItem('userRole') || 'cliente';
@@ -172,6 +194,20 @@ const DiscoverScreen: React.FC = () => {
                 }
             }
 
+            // Filtrado por color
+            let matchesColor = true;
+            if (selectedFilters.color !== 'Todos') {
+                matchesColor = !!product.color && product.color.toLowerCase().includes(selectedFilters.color.toLowerCase());
+            }
+
+            // Filtrado por precio
+            let matchesPrice = true;
+            if (selectedFilters.minPrice > 0 || selectedFilters.maxPrice < 200) {
+                const meetsMin = product.price >= selectedFilters.minPrice;
+                const meetsMax = selectedFilters.maxPrice >= 200 || product.price <= selectedFilters.maxPrice;
+                matchesPrice = meetsMin && meetsMax;
+            }
+
             const query = searchQuery.toLowerCase().trim();
             const matchesSearch = !query || 
                 product.name.toLowerCase().includes(query) ||
@@ -179,12 +215,44 @@ const DiscoverScreen: React.FC = () => {
                 product.category?.toLowerCase().includes(query) ||
                 product.storeName.toLowerCase().includes(query);
             
-            return matchesGender && matchesProduct && matchesSub && matchesStore && matchesSize && matchesSearch;
+            return matchesGender && matchesProduct && matchesSub && matchesStore && matchesSize && matchesColor && matchesPrice && matchesSearch;
         });
     }, [selectedFilters, products, searchQuery]);
 
-    const getTallaOptions = () => {
+    // Ordenar productos
+    const sortedProducts = useMemo(() => {
+        if (selectedFilters.sortPrice === 'asc') return [...filteredProducts].sort((a, b) => a.price - b.price);
+        if (selectedFilters.sortPrice === 'desc') return [...filteredProducts].sort((a, b) => b.price - a.price);
+        return filteredProducts;
+    }, [filteredProducts, selectedFilters.sortPrice]);
+
+    const getTallaOptions = (): Record<string, string[]> => {
         const category = selectedFilters.product;
+        const isNinos = selectedFilters.gender === 'Niños';
+
+        // Tallas específicas para niños
+        if (isNinos) {
+            const ninosEdades = ['0-1 mes', '2-4 meses', '4-6 meses', '6-9 meses', '9-12 meses', '1 año', '2 años', '3 años', '4 años', '5 años', '6 años', '7 años', '8 años', '9 años', '10 años', '11 años', '12 años'];
+            const ninosCalzado = ['19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36'];
+            const ninosAccesorios = ['Talla Única', 'Ajustable', 'Pequeño', 'Mediano', 'Grande', 'Pack'];
+
+            // Si hay categoría específica seleccionada
+            if (category !== 'Todos') {
+                const groupKey = CATEGORY_TO_SIZE_GROUP[category];
+                if (groupKey === 'CALZADO') return { 'CALZADO NIÑOS': ninosCalzado };
+                if (groupKey === 'ACCESORIOS') return { 'ACCESORIOS': ninosAccesorios };
+                if (groupKey) return { [groupKey]: ninosEdades };
+            }
+
+            // Todas las categorías de niños
+            return {
+                'ROPA (TODAS)': ninosEdades,
+                'CALZADO': ninosCalzado,
+                'ACCESORIOS': ninosAccesorios
+            };
+        }
+
+        // Adultos: lógica original
         const groupKey = CATEGORY_TO_SIZE_GROUP[category];
         if (groupKey) return { [groupKey]: SIZE_GROUPS[groupKey] };
         return SIZE_GROUPS;
@@ -215,9 +283,9 @@ const DiscoverScreen: React.FC = () => {
                         {selectedFilters.gender === 'Todos' ? 'Género' : selectedFilters.gender}
                         <Icon name="expand_more" className="text-lg" />
                     </button>
-                    <button onClick={() => setActiveFilter('Talla')} className={`flex h-11 shrink-0 items-center justify-center gap-x-2 rounded-xl px-4 text-sm font-bold uppercase tracking-tight transition-colors ${selectedFilters.size !== 'Todas' ? 'bg-primary text-white' : 'bg-primary/20 text-text-light'}`}>
-                        <Icon name="straighten" className="text-lg" />
-                        {selectedFilters.size === 'Todas' ? 'Talla' : selectedFilters.size}
+                    <button onClick={() => setActiveFilter('Filtros')} className={`flex h-11 shrink-0 items-center justify-center gap-x-2 rounded-xl px-4 text-sm font-bold uppercase tracking-tight transition-colors ${selectedFilters.size !== 'Todas' || selectedFilters.color !== 'Todos' || selectedFilters.minPrice > 0 || selectedFilters.maxPrice < 200 ? 'bg-primary text-white' : 'bg-primary/20 text-text-light'}`}>
+                        <Icon name="search" className="text-lg" />
+                        {selectedFilters.size !== 'Todas' ? selectedFilters.size : selectedFilters.color !== 'Todos' ? selectedFilters.color : (selectedFilters.minPrice > 0 || selectedFilters.maxPrice < 200) ? `${selectedFilters.minPrice}€-${selectedFilters.maxPrice >= 200 ? '+200' : selectedFilters.maxPrice}€` : 'Filtros'}
                         <Icon name="expand_more" className="text-lg" />
                     </button>
                 </div>
@@ -304,13 +372,13 @@ const DiscoverScreen: React.FC = () => {
             </div>
             
             <main className="grid grid-cols-2 sm:grid-cols-4 gap-4 px-4 pt-4 pb-24 min-h-[400px]">
-                {filteredProducts.length > 0 ? (
-                    filteredProducts.map(product => <ProductCard key={product.id} product={product} />)
+                {sortedProducts.length > 0 ? (
+                    sortedProducts.map(product => <ProductCard key={product.id} product={product} />)
                 ) : (
                     <div className="col-span-full py-20 text-center">
                         <Icon name="search_off" className="text-5xl text-text-subtle-light mb-4" />
                         <p className="text-text-subtle-light font-medium italic">Sin resultados para esos filtros.</p>
-                        <button onClick={() => { setSearchQuery(''); setSelectedFilters({ product: 'Todos', store: 'Todas', size: 'Todas', gender: 'Todos', pantType: 'Todos', sleeveType: 'Todos', shirtSleeveType: 'Todos', skirtType: 'Todos', shoeType: 'Todos' }); }} className="mt-6 text-primary font-bold underline">Limpiar filtros</button>
+                        <button onClick={() => { setSearchQuery(''); setSelectedFilters({ product: 'Todos', store: 'Todas', size: 'Todas', gender: 'Todos', pantType: 'Todos', sleeveType: 'Todos', shirtSleeveType: 'Todos', skirtType: 'Todos', shoeType: 'Todos', color: 'Todos', minPrice: 0, maxPrice: 200, sortPrice: 'none' as 'none' | 'asc' | 'desc' }); }} className="mt-6 text-primary font-bold underline">Limpiar filtros</button>
                     </div>
                 )}
             </main>
@@ -348,30 +416,150 @@ const DiscoverScreen: React.FC = () => {
                                         </button>
                                     ))}
                                 </div>
-                            ) : activeFilter === 'Talla' ? (
-                                <div className="space-y-6">
-                                    <button 
-                                        onClick={() => handleFilterSelect('size', 'Todas')}
-                                        className={`w-full text-left p-4 rounded-2xl text-base font-bold transition-all ${selectedFilters.size === 'Todas' ? 'bg-primary text-white shadow-md' : 'bg-background-light dark:bg-background-dark text-text-light'}`}
-                                    >
-                                        Todas las tallas
-                                    </button>
-                                    {Object.entries(getTallaOptions()).map(([group, tallas]) => (
-                                        <div key={group} className="space-y-3">
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-primary/60 px-1">{group}</p>
-                                            <div className="grid grid-cols-3 gap-2">
-                                                {tallas.map(t => (
-                                                    <button 
-                                                        key={t}
-                                                        onClick={() => handleFilterSelect('size', t)}
-                                                        className={`h-12 flex items-center justify-center rounded-xl text-sm font-bold border transition-all ${selectedFilters.size === t ? 'bg-primary border-primary text-white shadow-sm' : 'bg-white dark:bg-background-dark border-border-light dark:border-border-dark text-text-light'}`}
-                                                    >
-                                                        {t}
-                                                    </button>
-                                                ))}
+                            ) : activeFilter === 'Filtros' ? (
+                                <div className="space-y-8">
+                                    {/* Sección de Talla */}
+                                    <div className="space-y-4">
+                                        <p className="text-xs font-black uppercase tracking-widest text-text-light dark:text-white flex items-center gap-2"><Icon name="straighten" className="text-primary text-base" /> Talla</p>
+                                        <button 
+                                            onClick={() => handleFilterSelect('size', 'Todas')}
+                                            className={`w-full text-left p-4 rounded-2xl text-base font-bold transition-all ${selectedFilters.size === 'Todas' ? 'bg-primary text-white shadow-md' : 'bg-background-light dark:bg-background-dark text-text-light'}`}
+                                        >
+                                            Todas las tallas
+                                        </button>
+                                        {Object.entries(getTallaOptions()).map(([group, tallas]) => (
+                                            <div key={group} className="space-y-3">
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-primary/60 px-1">{group}</p>
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    {tallas.map(t => (
+                                                        <button 
+                                                            key={t}
+                                                            onClick={() => handleFilterSelect('size', t)}
+                                                            className={`h-12 flex items-center justify-center rounded-xl text-sm font-bold border transition-all ${selectedFilters.size === t ? 'bg-primary border-primary text-white shadow-sm' : 'bg-white dark:bg-background-dark border-border-light dark:border-border-dark text-text-light'}`}
+                                                        >
+                                                            {t}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Separador */}
+                                    <div className="border-t border-border-light dark:border-border-dark"></div>
+
+                                    {/* Sección de Color */}
+                                    <div className="space-y-4">
+                                        <p className="text-xs font-black uppercase tracking-widest text-text-light dark:text-white flex items-center gap-2"><Icon name="palette" className="text-primary text-base" /> Color</p>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {Object.entries(COLOR_MAP).map(([colorName, hex]) => (
+                                                <button
+                                                    key={colorName}
+                                                    onClick={() => { setSelectedFilters(prev => ({ ...prev, color: colorName })); if (colorName !== 'Todos') setActiveFilter(null); }}
+                                                    className={`flex items-center gap-3 p-4 rounded-2xl text-sm font-bold transition-all ${selectedFilters.color === colorName ? 'bg-primary text-white shadow-lg' : 'bg-background-light dark:bg-background-dark text-text-light dark:text-text-dark hover:bg-white dark:hover:bg-border-dark'}`}
+                                                >
+                                                    {colorName !== 'Todos' ? (
+                                                        <span
+                                                            className="size-5 rounded-full border-2 border-white/50 shadow-sm shrink-0"
+                                                            style={{ background: hex }}
+                                                        />
+                                                    ) : (
+                                                        <span className="size-5 rounded-full border-2 border-dashed border-gray-400 shrink-0" />
+                                                    )}
+                                                    {colorName}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Separador */}
+                                    <div className="border-t border-border-light dark:border-border-dark"></div>
+
+                                    {/* Sección de Precio */}
+                                    <div className="space-y-4">
+                                        <p className="text-xs font-black uppercase tracking-widest text-text-light dark:text-white flex items-center gap-2"><Icon name="euro" className="text-primary text-base" /> Precio</p>
+                                        <div className="bg-background-light dark:bg-background-dark rounded-2xl p-5 space-y-5">
+                                            <div className="flex justify-between items-baseline">
+                                                <span className="text-2xl font-black text-primary">
+                                                    {selectedFilters.minPrice === 0 && selectedFilters.maxPrice >= 200 ? 'Todos' : `${selectedFilters.minPrice}€ — ${selectedFilters.maxPrice >= 200 ? '+200' : selectedFilters.maxPrice}€`}
+                                                </span>
+                                                {(selectedFilters.minPrice > 0 || selectedFilters.maxPrice < 200) && (
+                                                    <button onClick={() => setSelectedFilters(prev => ({ ...prev, minPrice: 0, maxPrice: 200 }))} className="text-xs font-bold text-primary/60 underline">Resetear</button>
+                                                )}
+                                            </div>
+                                            {/* Dual range slider */}
+                                            <div className="relative h-8 flex items-center">
+                                                {/* Track background */}
+                                                <div className="absolute left-0 right-0 h-2 rounded-full bg-gray-300 dark:bg-gray-600" />
+                                                {/* Active range highlight */}
+                                                <div
+                                                    className="absolute h-2 rounded-full bg-primary"
+                                                    style={{
+                                                        left: `${(selectedFilters.minPrice / 200) * 100}%`,
+                                                        right: `${100 - (selectedFilters.maxPrice / 200) * 100}%`
+                                                    }}
+                                                />
+                                                {/* Min slider */}
+                                                <input
+                                                    type="range"
+                                                    min={0}
+                                                    max={200}
+                                                    step={5}
+                                                    value={selectedFilters.minPrice}
+                                                    onChange={e => {
+                                                        const val = parseInt(e.target.value);
+                                                        if (val <= selectedFilters.maxPrice - 5) {
+                                                            setSelectedFilters(prev => ({ ...prev, minPrice: val }));
+                                                        }
+                                                    }}
+                                                    className="absolute w-full h-2 appearance-none bg-transparent pointer-events-none z-10 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:size-7 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:border-4 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:cursor-grab [&::-webkit-slider-thumb]:active:scale-110 [&::-webkit-slider-thumb]:active:cursor-grabbing [&::-webkit-slider-thumb]:transition-transform [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:size-7 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-primary [&::-moz-range-thumb]:border-4 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:shadow-lg [&::-moz-range-thumb]:cursor-grab"
+                                                />
+                                                {/* Max slider */}
+                                                <input
+                                                    type="range"
+                                                    min={0}
+                                                    max={200}
+                                                    step={5}
+                                                    value={selectedFilters.maxPrice}
+                                                    onChange={e => {
+                                                        const val = parseInt(e.target.value);
+                                                        if (val >= selectedFilters.minPrice + 5) {
+                                                            setSelectedFilters(prev => ({ ...prev, maxPrice: val }));
+                                                        }
+                                                    }}
+                                                    className="absolute w-full h-2 appearance-none bg-transparent pointer-events-none z-20 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:size-7 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:border-4 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:cursor-grab [&::-webkit-slider-thumb]:active:scale-110 [&::-webkit-slider-thumb]:active:cursor-grabbing [&::-webkit-slider-thumb]:transition-transform [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:size-7 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-primary [&::-moz-range-thumb]:border-4 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:shadow-lg [&::-moz-range-thumb]:cursor-grab"
+                                                />
+                                            </div>
+                                            <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-text-subtle-light">
+                                                <span>0€</span>
+                                                <span>+ 200€</span>
                                             </div>
                                         </div>
-                                    ))}
+                                    </div>
+
+                                    {/* Separador */}
+                                    <div className="border-t border-border-light dark:border-border-dark"></div>
+
+                                    {/* Sección de Ordenar */}
+                                    <div className="space-y-4">
+                                        <p className="text-xs font-black uppercase tracking-widest text-text-light dark:text-white flex items-center gap-2"><Icon name="sort" className="text-primary text-base" /> Ordenar por precio</p>
+                                        <div className="grid grid-cols-1 gap-2">
+                                            {[
+                                                { key: 'none', label: 'Sin ordenar', icon: 'remove' },
+                                                { key: 'asc', label: 'Precio: menor a mayor', icon: 'arrow_upward' },
+                                                { key: 'desc', label: 'Precio: mayor a menor', icon: 'arrow_downward' }
+                                            ].map(opt => (
+                                                <button
+                                                    key={opt.key}
+                                                    onClick={() => { setSelectedFilters(prev => ({ ...prev, sortPrice: opt.key as 'none' | 'asc' | 'desc' })); setActiveFilter(null); }}
+                                                    className={`flex items-center gap-3 p-4 rounded-2xl text-sm font-bold transition-all ${selectedFilters.sortPrice === opt.key ? 'bg-primary text-white shadow-lg' : 'bg-background-light dark:bg-background-dark text-text-light dark:text-text-dark hover:bg-white dark:hover:bg-border-dark'}`}
+                                                >
+                                                    <Icon name={opt.icon} className="text-lg" />
+                                                    {opt.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
                                 </div>
                             ) : (
                                 <div className="space-y-2">
