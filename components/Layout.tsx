@@ -68,12 +68,12 @@ export const BottomNav: React.FC<{ activePath: string }> = ({ activePath }) => {
     
     const items = userRole === 'colaborador' 
         ? [ 
-            { path: '/', icon: 'search', label: 'EXPLORAR' }, 
+            { path: '/', icon: 'home', label: 'HOME' }, 
             { path: '/publish', icon: 'add_circle', label: 'PUBLICAR' }, 
             { path: '/profile', icon: 'person', label: 'PERFIL' } 
           ]
         : [ 
-            { path: '/', icon: 'search', label: 'EXPLORAR' }, 
+            { path: '/', icon: 'home', label: 'HOME' }, 
             { path: '/favorites', icon: 'favorite', label: 'FAVORITOS' }, 
             { path: '/cart', icon: 'shopping_cart', label: 'CESTA' }, 
             { path: '/profile', icon: 'person', label: 'PERFIL' } 

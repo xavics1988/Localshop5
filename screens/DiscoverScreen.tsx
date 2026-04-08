@@ -110,10 +110,8 @@ const DiscoverScreen: React.FC = () => {
             setSelectedFilters(prev => ({ ...prev, [type]: value }));
         }
         
-        // No cerramos el modal automáticamente si hay sub-filtros para permitir selección múltiple en el mismo nivel
-        const hasSubFilters = ['Pantalones', 'Camisetas', 'Camisas', 'Faldas', 'Calzado'].includes(value) || 
-                            ['pantType', 'sleeveType', 'shirtSleeveType', 'skirtType', 'shoeType'].includes(type) ||
-                            type === 'gender';
+        // Solo mantenemos abierto si estamos seleccionando una categoría principal que tiene sub-categorías
+        const hasSubFilters = type === 'product' && ['Pantalones', 'Camisetas', 'Camisas', 'Faldas', 'Calzado'].includes(value);
         
         if (!hasSubFilters) {
             setActiveFilter(null);
@@ -195,26 +193,7 @@ const DiscoverScreen: React.FC = () => {
             </div>
 
             <div className="sticky top-16 z-50 bg-white/95 dark:bg-background-dark/95 backdrop-blur-md pt-6 shadow-sm pb-2">
-                <div className="px-4 mb-4">
-                    <div className="relative flex items-center h-12 w-full rounded-xl bg-accent-light dark:bg-accent-dark border border-border-light dark:border-border-dark shadow-sm focus-within:ring-2 focus-within:ring-primary/20 transition-all">
-                        <div className="absolute left-4 text-text-subtle-light dark:text-text-subtle-dark">
-                            <Icon name="search" className="text-xl" />
-                        </div>
-                        <input 
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full h-full bg-transparent pl-12 pr-12 text-text-light dark:text-text-dark placeholder:text-text-subtle-light text-sm focus:outline-none" 
-                            placeholder="Busca artículos únicos..." 
-                        />
-                        {searchQuery && (
-                            <button onClick={() => setSearchQuery('')} className="absolute right-4 text-text-subtle-light hover:text-primary">
-                                <Icon name="cancel" className="text-xl" />
-                            </button>
-                        )}
-                    </div>
-                </div>
-
-                <div className="flex gap-3 px-4 py-2 overflow-x-auto [-ms-scrollbar-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="flex gap-3 px-4 mb-4 overflow-x-auto [-ms-scrollbar-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     <button onClick={() => setActiveFilter('Género')} className={`flex h-11 shrink-0 items-center justify-center gap-x-2 rounded-xl px-4 text-sm font-bold uppercase tracking-tight transition-colors ${selectedFilters.gender !== 'Todos' ? 'bg-primary text-white' : 'bg-primary/20 text-text-light'}`}>
                         <Icon name="wc" className="text-lg" />
                         {selectedFilters.gender === 'Todos' ? 'Género' : selectedFilters.gender}
@@ -237,6 +216,25 @@ const DiscoverScreen: React.FC = () => {
                         {selectedFilters.size === 'Todas' ? 'Talla' : selectedFilters.size}
                         <Icon name="expand_more" className="text-lg" />
                     </button>
+                </div>
+
+                <div className="px-4 mb-2">
+                    <div className="relative flex items-center h-12 w-full rounded-xl bg-accent-light dark:bg-accent-dark border border-border-light dark:border-border-dark shadow-sm focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+                        <div className="absolute left-4 text-text-subtle-light dark:text-text-subtle-dark">
+                            <Icon name="search" className="text-xl" />
+                        </div>
+                        <input 
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full h-full bg-transparent pl-12 pr-12 text-text-light dark:text-text-dark placeholder:text-text-subtle-light text-sm focus:outline-none" 
+                            placeholder="Busca artículos únicos..." 
+                        />
+                        {searchQuery && (
+                            <button onClick={() => setSearchQuery('')} className="absolute right-4 text-text-subtle-light hover:text-primary">
+                                <Icon name="cancel" className="text-xl" />
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
             
@@ -400,12 +398,6 @@ const DiscoverScreen: React.FC = () => {
                                 </div>
                             )}
                         </div>
-                        
-                        {activeFilter && (['Pantalones', 'Camisetas', 'Camisas', 'Faldas', 'Calzado', 'Género'].includes(selectedFilters.product) || activeFilter === 'Género') && (
-                            <div className="pt-6 border-t border-border-light dark:border-border-dark">
-                                <button onClick={() => setActiveFilter(null)} className="w-full h-14 bg-primary text-white font-black uppercase rounded-2xl shadow-lg">Aplicar Filtros</button>
-                            </div>
-                        )}
                     </div>
                 </div>
             )}
