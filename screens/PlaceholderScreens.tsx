@@ -1146,8 +1146,6 @@ export const ProfileScreen: React.FC = () => {
                 </div>
             </header>
             <main className="px-4 -mt-8 space-y-4">
-                {!isCollab && <ReferralCard />}
-
                 <div className="bg-white dark:bg-accent-dark p-2 rounded-[40px] border border-border-light dark:border-border-dark shadow-2xl overflow-hidden">
                     <SettingsLink icon="person" label={isCollab ? "Datos de la Empresa" : "Mis Datos Personales"} to="/edit-profile" />
                     {isCollab && <SettingsLink icon="inventory_2" label="Gestionar mi Catálogo" to="/manage-catalog" />}
@@ -1157,6 +1155,8 @@ export const ProfileScreen: React.FC = () => {
                     {!isCollab && <SettingsLink icon="favorite" label="Mis Favoritos" to="/favorites" />}
                     <SettingsLink icon="help" label="Ayuda y Soporte" to="/help" />
                 </div>
+
+                {!isCollab && <ReferralCard />}
 
                 <div className="pt-10 pb-4 text-center">
                     <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-text-subtle-light dark:text-text-subtle-dark mb-6">
@@ -2222,8 +2222,6 @@ const SIZE_GROUPS: Record<string, string[]> = {
     'ROPA INTERIOR': ['XS', 'S', 'M', 'L', 'XL'],
     'PIJAMAS': ['XS', 'S', 'M', 'L', 'XL'],
     'ROPA DE BAÑO': ['XS', 'S', 'M', 'L', 'XL'],
-    'BEBÉ': ['0-1 mes', '2-4 meses', '4-6 meses', '6-9 meses', '9-12 meses'],
-    'NIÑOS': ['2 años', '3 años', '4 años', '5 años', '6 años', '7 años', '8 años', '9 años', '10 años', '11 años', '12 años'],
     'ACCESORIOS': ['Talla Única', 'Ajustable', 'Pequeño', 'Mediano', 'Grande', 'Pack']
 };
 
@@ -2241,7 +2239,7 @@ export const PublishScreen: React.FC = () => {
     const hasBankAccount = bankAccounts.length > 0;
 
     // Estados específicos para los nuevos campos
-    const [gender, setGender] = useState<'Hombre' | 'Mujer' | 'Unisex'>('Mujer');
+    const [gender, setGender] = useState<'Hombre' | 'Mujer' | 'Niños'>('Mujer');
     const [garment, setGarment] = useState('');
     const [brand, setBrand] = useState('');
     const [color, setColor] = useState('');
@@ -2460,7 +2458,7 @@ export const PublishScreen: React.FC = () => {
             PRENDA: [Tipo de prenda (ej. Camiseta, Pantalón)]
             MARCA: [Marca detectada o 'Local']
             COLOR: [Color principal]
-            GÉNERO: [Mujer, Hombre o Unisex]
+            GÉNERO: [Mujer, Hombre o Niños]
             CATEGORÍA_RAIZ: [Debe ser obligatoriamente una exacta de la lista: ${categoriesList}]
             SUB_APARTADO: [Específico: pantalones largos, camiseta manga corta, zapatillas running, etc.]
             DESCRIPCIÓN: [Descripción corta y muy atractiva para la venta de 2 a 3 líneas sobre su estado y estilo]` }
@@ -2515,7 +2513,7 @@ export const PublishScreen: React.FC = () => {
                         const g = genderMatch[1].trim();
                         if (g.includes('Mujer')) setGender('Mujer');
                         else if (g.includes('Hombre')) setGender('Hombre');
-                        else if (g.includes('Unisex')) setGender('Unisex');
+                        else if (g.includes('Niño') || g.includes('Niños')) setGender('Niños');
                     }
 
                     if (rootCatMatch && rootCatMatch[1]) {
@@ -2645,8 +2643,6 @@ export const PublishScreen: React.FC = () => {
         if (SIZE_GROUPS[upperC]) setActiveGroup(upperC);
         else if (c === 'Pantalones') setActiveGroup('PANTALONES');
         else if (c === 'Calzado') setActiveGroup('CALZADO');
-        else if (c === 'Bebé') setActiveGroup('BEBÉ');
-        else if (c === 'Niños') setActiveGroup('NIÑOS');
         else if (c === 'Accesorios') setActiveGroup('ACCESORIOS');
         else setActiveGroup('CAMISETAS');
         setShowCategoryModal(false);
@@ -2809,11 +2805,11 @@ export const PublishScreen: React.FC = () => {
                         Hombre
                     </button>
                     <button
-                        onClick={() => setGender('Unisex')}
-                        className={`flex-1 h-12 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${gender === 'Unisex' ? 'bg-primary text-white shadow-lg' : 'text-text-subtle-light dark:text-text-subtle-dark'}`}
+                        onClick={() => setGender('Niños')}
+                        className={`flex-1 h-12 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${gender === 'Niños' ? 'bg-primary text-white shadow-lg' : 'text-text-subtle-light dark:text-text-subtle-dark'}`}
                     >
-                        <Icon name="wc" filled={gender === 'Unisex'} />
-                        Unisex
+                        <Icon name="child_care" filled={gender === 'Niños'} />
+                        Niños
                     </button>
                 </div>
 
@@ -2826,7 +2822,13 @@ export const PublishScreen: React.FC = () => {
                         ref={categoryScrollRef}
                         className="flex overflow-x-auto gap-2 pb-2 [-ms-scrollbar-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                     >
-                        {Object.keys(SIZE_GROUPS).map(g => (
+                        {Object.keys(SIZE_GROUPS)
+                            .filter(g => {
+                                if (gender === 'Hombre' && (g === 'FALDAS' || g === 'VESTIDOS')) return false;
+                                if (gender === 'Mujer' && g === 'TRAJES') return false;
+                                return true;
+                            })
+                            .map(g => (
                             <button
                                 key={g}
                                 data-active={activeGroup === g}
@@ -2941,7 +2943,16 @@ export const PublishScreen: React.FC = () => {
                     )}
 
                     <div className="flex flex-wrap gap-2">
-                        {SIZE_GROUPS[activeGroup].map(size => {
+                        {(() => {
+                            const availableSizes = gender === 'Niños'
+                                ? (activeGroup === 'ACCESORIOS' 
+                                    ? SIZE_GROUPS[activeGroup]
+                                    : activeGroup === 'CALZADO'
+                                        ? ['19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36']
+                                        : ['0-1 mes', '2-4 meses', '4-6 meses', '6-9 meses', '9-12 meses', '1 año', '2 años', '3 años', '4 años', '5 años', '6 años', '7 años', '8 años', '9 años', '10 años', '11 años', '12 años'])
+                                : SIZE_GROUPS[activeGroup];
+                            
+                            return availableSizes.map(size => {
                             const isSelected = stockPerSize[size] !== undefined;
                             return (
                                 <div key={size} className="relative group">
@@ -2961,7 +2972,8 @@ export const PublishScreen: React.FC = () => {
                                     )}
                                 </div>
                             );
-                        })}
+                        });
+                        })()}
                     </div>
                 </div>
 

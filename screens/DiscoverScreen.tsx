@@ -76,7 +76,7 @@ const DiscoverScreen: React.FC = () => {
         product: 'Todos',
         store: 'Todas',
         size: 'Todas',
-        gender: 'Todos', // 'Hombre' | 'Mujer' | 'Unisex' | 'Todos'
+        gender: 'Mujer', // 'Hombre' | 'Mujer' | 'Niños' | 'Todos'
         pantType: 'Todos', // 'cortos' | 'largos' | 'Todos'
         sleeveType: 'Todos', // 'corta' | 'larga' | 'Todos' (Camisetas)
         shirtSleeveType: 'Todos', // 'corta' | 'larga' | 'Todos' (Camisas)
@@ -87,8 +87,14 @@ const DiscoverScreen: React.FC = () => {
     const userRole = localStorage.getItem('userRole') || 'cliente';
 
     const productCategories = useMemo(() => {
-        return ['Todos', ...CLOTHING_CATEGORIES];
-    }, []);
+        let categories = CLOTHING_CATEGORIES;
+        if (selectedFilters.gender === 'Hombre') {
+            categories = categories.filter(c => c !== 'Faldas' && c !== 'Vestidos');
+        } else if (selectedFilters.gender === 'Mujer') {
+            categories = categories.filter(c => c !== 'Trajes');
+        }
+        return ['Todos', ...categories];
+    }, [selectedFilters.gender]);
 
     const storeNames = useMemo(() => {
         return ['Todas', ...Array.from(new Set(stores.map(s => s.name)))];
@@ -106,6 +112,16 @@ const DiscoverScreen: React.FC = () => {
                 skirtType: 'Todos',
                 shoeType: 'Todos'
             }));
+        } else if (type === 'gender') {
+            setSelectedFilters(prev => {
+                let newProduct = prev.product;
+                if (value === 'Hombre' && (newProduct === 'Faldas' || newProduct === 'Vestidos')) {
+                    newProduct = 'Todos';
+                } else if (value === 'Mujer' && newProduct === 'Trajes') {
+                    newProduct = 'Todos';
+                }
+                return { ...prev, gender: value, product: newProduct, size: 'Todas', skirtType: 'Todos' };
+            });
         } else {
             setSelectedFilters(prev => ({ ...prev, [type]: value }));
         }
@@ -193,22 +209,10 @@ const DiscoverScreen: React.FC = () => {
             </div>
 
             <div className="sticky top-16 z-50 bg-white/95 dark:bg-background-dark/95 backdrop-blur-md pt-6 shadow-sm pb-2">
-                <div className="flex gap-3 px-4 mb-4 overflow-x-auto [-ms-scrollbar-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="flex gap-3 px-4 mb-2 overflow-x-auto [-ms-scrollbar-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     <button onClick={() => setActiveFilter('Género')} className={`flex h-11 shrink-0 items-center justify-center gap-x-2 rounded-xl px-4 text-sm font-bold uppercase tracking-tight transition-colors ${selectedFilters.gender !== 'Todos' ? 'bg-primary text-white' : 'bg-primary/20 text-text-light'}`}>
                         <Icon name="wc" className="text-lg" />
                         {selectedFilters.gender === 'Todos' ? 'Género' : selectedFilters.gender}
-                        <Icon name="expand_more" className="text-lg" />
-                    </button>
-                    <button onClick={() => setActiveFilter('Producto')} className={`flex h-11 shrink-0 items-center justify-center gap-x-2 rounded-xl px-4 text-sm font-bold uppercase tracking-tight transition-colors ${selectedFilters.product !== 'Todos' ? 'bg-primary text-white' : 'bg-primary/20 text-text-light'}`}>
-                        <Icon name="sell" className="text-lg" />
-                        {selectedFilters.product === 'Todos' ? 'Categoría' : 
-                         (selectedFilters.product === 'Pantalones' && selectedFilters.pantType !== 'Todos' ? `Pant. ${selectedFilters.pantType}` : 
-                          selectedFilters.product === 'Camisetas' && selectedFilters.sleeveType !== 'Todos' ? `Cam. M.${selectedFilters.sleeveType}` : 
-                          selectedFilters.product === 'Camisetas' && selectedFilters.sleeveType !== 'Todos' ? `Cam. M.${selectedFilters.sleeveType}` : 
-                          selectedFilters.product === 'Camisas' && selectedFilters.shirtSleeveType !== 'Todos' ? `Cam. M.${selectedFilters.shirtSleeveType}` :
-                          selectedFilters.product === 'Faldas' && selectedFilters.skirtType !== 'Todos' ? `Faldas ${selectedFilters.skirtType}` :
-                          selectedFilters.product === 'Calzado' && selectedFilters.shoeType !== 'Todos' ? `Calz. ${selectedFilters.shoeType}` :
-                          selectedFilters.product)}
                         <Icon name="expand_more" className="text-lg" />
                     </button>
                     <button onClick={() => setActiveFilter('Talla')} className={`flex h-11 shrink-0 items-center justify-center gap-x-2 rounded-xl px-4 text-sm font-bold uppercase tracking-tight transition-colors ${selectedFilters.size !== 'Todas' ? 'bg-primary text-white' : 'bg-primary/20 text-text-light'}`}>
@@ -216,6 +220,67 @@ const DiscoverScreen: React.FC = () => {
                         {selectedFilters.size === 'Todas' ? 'Talla' : selectedFilters.size}
                         <Icon name="expand_more" className="text-lg" />
                     </button>
+                </div>
+
+                <div className="px-4 mb-4">
+                    <div className="flex gap-2 overflow-x-auto [-ms-scrollbar-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                        {productCategories.map(cat => (
+                            <button
+                                key={cat}
+                                onClick={() => handleFilterSelect('product', cat)}
+                                className={`flex h-9 shrink-0 items-center justify-center rounded-xl px-4 text-xs font-bold uppercase tracking-tight transition-colors border ${selectedFilters.product === cat ? 'bg-primary text-white border-primary shadow-md' : 'bg-background-light dark:bg-background-dark text-text-subtle-light border-border-light dark:border-border-dark hover:bg-white dark:hover:bg-accent-dark'}`}
+                            >
+                                {cat}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Subcategorías dinámicas si aplica */}
+                    {selectedFilters.product === 'Pantalones' && (
+                        <div className="flex gap-2 mt-2 overflow-x-auto [-ms-scrollbar-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                            {['Todos', 'cortos', 'largos'].map(type => (
+                                <button key={type} onClick={() => handleFilterSelect('pantType', type)} className={`flex h-8 shrink-0 items-center justify-center rounded-lg px-3 text-[10px] font-black uppercase tracking-tight transition-colors ${selectedFilters.pantType === type ? 'bg-primary/20 text-primary' : 'bg-background-light dark:bg-background-dark text-text-subtle-light'}`}>
+                                    {type}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                    {selectedFilters.product === 'Camisetas' && (
+                        <div className="flex gap-2 mt-2 overflow-x-auto [-ms-scrollbar-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                            {['Todos', 'corta', 'larga'].map(type => (
+                                <button key={type} onClick={() => handleFilterSelect('sleeveType', type)} className={`flex h-8 shrink-0 items-center justify-center rounded-lg px-3 text-[10px] font-black uppercase tracking-tight transition-colors ${selectedFilters.sleeveType === type ? 'bg-primary/20 text-primary' : 'bg-background-light dark:bg-background-dark text-text-subtle-light'}`}>
+                                    {type === 'Todos' ? 'Todas' : `M. ${type.charAt(0).toUpperCase() + type.slice(1)}`}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                    {selectedFilters.product === 'Camisas' && (
+                        <div className="flex gap-2 mt-2 overflow-x-auto [-ms-scrollbar-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                            {['Todos', 'corta', 'larga'].map(type => (
+                                <button key={type} onClick={() => handleFilterSelect('shirtSleeveType', type)} className={`flex h-8 shrink-0 items-center justify-center rounded-lg px-3 text-[10px] font-black uppercase tracking-tight transition-colors ${selectedFilters.shirtSleeveType === type ? 'bg-primary/20 text-primary' : 'bg-background-light dark:bg-background-dark text-text-subtle-light'}`}>
+                                    {type === 'Todos' ? 'Todas' : `M. ${type.charAt(0).toUpperCase() + type.slice(1)}`}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                    {selectedFilters.product === 'Faldas' && (
+                        <div className="flex gap-2 mt-2 overflow-x-auto [-ms-scrollbar-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                            {['Todos', 'cortas', 'largas'].map(type => (
+                                <button key={type} onClick={() => handleFilterSelect('skirtType', type)} className={`flex h-8 shrink-0 items-center justify-center rounded-lg px-3 text-[10px] font-black uppercase tracking-tight transition-colors ${selectedFilters.skirtType === type ? 'bg-primary/20 text-primary' : 'bg-background-light dark:bg-background-dark text-text-subtle-light'}`}>
+                                    {type === 'Todos' ? 'Todas' : type.charAt(0).toUpperCase() + type.slice(1)}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                    {selectedFilters.product === 'Calzado' && (
+                        <div className="flex gap-2 mt-2 overflow-x-auto [-ms-scrollbar-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                            {(['Todos', 'running', 'casual', 'vestir', 'otro'] as const).map(type => (
+                                <button key={type} onClick={() => handleFilterSelect('shoeType', type)} className={`flex h-8 shrink-0 items-center justify-center rounded-lg px-3 text-[10px] font-black uppercase tracking-tight transition-colors ${selectedFilters.shoeType === type ? 'bg-primary/20 text-primary' : 'bg-background-light dark:bg-background-dark text-text-subtle-light'}`}>
+                                    {type === 'vestir' ? 'Vestir' : type}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 <div className="px-4 mb-2">
@@ -273,7 +338,7 @@ const DiscoverScreen: React.FC = () => {
                         <div className="overflow-y-auto pr-1 custom-scrollbar scroll-smooth">
                             {activeFilter === 'Género' ? (
                                 <div className="grid grid-cols-1 gap-2">
-                                    {['Todos', 'Mujer', 'Hombre', 'Unisex'].map(g => (
+                                    {['Todos', 'Mujer', 'Hombre', 'Niños'].map(g => (
                                         <button 
                                             key={g}
                                             onClick={() => handleFilterSelect('gender', g)}

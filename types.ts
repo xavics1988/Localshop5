@@ -20,7 +20,7 @@ export interface Product {
   isFavorite?: boolean;
   images?: string[];
   category?: string;
-  gender?: 'Hombre' | 'Mujer' | 'Unisex';
+  gender?: 'Hombre' | 'Mujer' | 'Niños';
   stock?: number;
   stockPerSize?: Record<string, number>;
 }
