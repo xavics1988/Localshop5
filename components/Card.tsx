@@ -52,6 +52,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
                     className="absolute inset-0 w-full h-full bg-center bg-no-repeat bg-cover rounded-2xl border border-border-light dark:border-border-dark transition-transform duration-500 ease-out group-hover:scale-110"
                     style={{ backgroundImage: `url("${product.imageUrl}")` }}>
                 </div>
+                {(product.storeCount ?? 1) > 1 && (
+                    <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-sm">
+                        <Icon name="storefront" className="text-white text-xs" />
+                        <span className="text-white text-[10px] font-black">{product.storeCount} tiendas</span>
+                    </div>
+                )}
                 {user.role !== 'colaborador' && (
                     <button
                         onClick={(e) => {

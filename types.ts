@@ -24,6 +24,8 @@ export interface Product {
   color?: string;
   stock?: number;
   stockPerSize?: Record<string, number>;
+  barcode?: string;
+  storeCount?: number;
 }
 
 export interface Store {

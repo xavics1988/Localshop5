@@ -13,7 +13,7 @@ const Icon = ({ name, filled, className }: { name: string; filled?: boolean; cla
 const ProductDetailScreen: React.FC = () => {
     const { productId } = useParams();
     const navigate = useNavigate();
-    const { getProductById } = useProducts();
+    const { getProductById, products } = useProducts();
     const { addToCart, cartItems } = useCart();
     const { isFavorite, toggleFavorite } = useFavorites();
     const { notify } = useNotifications();
@@ -33,6 +33,11 @@ const ProductDetailScreen: React.FC = () => {
         const allImages = [product.imageUrl, ...(product.images || [])];
         return Array.from(new Set(allImages)).filter(Boolean);
     }, [product]);
+
+    const otherStores = useMemo(() => {
+        if (!product?.barcode) return [];
+        return products.filter(p => p.barcode === product.barcode && p.id !== product.id && (p.stock ?? 1) > 0);
+    }, [products, product]);
 
     const availableSizes = React.useMemo(() => {
         if (!product) return [];
@@ -192,6 +197,38 @@ const ProductDetailScreen: React.FC = () => {
                         <span className="text-xs font-bold px-3 py-1 rounded-full bg-red-500/10 border border-red-500 text-red-500">Agotado</span>
                     )}
                 </div>
+
+                {otherStores.length > 0 && (
+                    <div className="space-y-2">
+                        <h3 className="font-bold text-xs uppercase tracking-widest text-text-light dark:text-text-dark flex items-center gap-2">
+                            <Icon name="storefront" className="text-base text-primary" />
+                            También disponible en {otherStores.length} tienda{otherStores.length > 1 ? 's' : ''} más
+                        </h3>
+                        <div className="space-y-2">
+                            {otherStores.map(other => (
+                                <Link
+                                    key={other.id}
+                                    to={`/product/${other.id}`}
+                                    className="flex items-center justify-between p-3 rounded-2xl bg-accent-light dark:bg-accent-dark border border-border-light dark:border-border-dark active:scale-[0.98] transition-transform"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                                            <Icon name="storefront" className="text-primary text-lg" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-text-light dark:text-text-dark leading-tight">{other.storeName}</p>
+                                            <p className="text-[11px] text-text-subtle-light dark:text-text-subtle-dark">{other.stock ?? '—'} uds. disponibles</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-base font-black text-primary">€{other.price.toFixed(2)}</span>
+                                        <Icon name="chevron_right" className="text-text-subtle-light text-lg" />
+                                    </div>
+                                </Link>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {product.description && (
                     <p className="text-text-subtle-light dark:text-text-subtle-dark leading-relaxed text-sm">

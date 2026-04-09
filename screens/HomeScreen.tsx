@@ -1,5 +1,6 @@
 
 import React, { useRef, useState, useEffect, useMemo } from 'react';
+import { Product } from '../types';
 import { stores } from '../data';
 import { ProductCard, StoreCard } from '../components/Card';
 import { Link } from 'react-router-dom';
@@ -28,7 +29,28 @@ const HomeScreen: React.FC = () => {
         }
     }, [categories]);
 
-    const filteredProducts = products.filter(p => p.category === activeCategory);
+    const groupedProducts = useMemo((): Product[] => {
+        const byBarcode = new Map<string, Product>();
+        const noBarcode: Product[] = [];
+
+        for (const product of products) {
+            const bc = product.barcode?.trim();
+            if (bc) {
+                const existing = byBarcode.get(bc);
+                if (!existing || product.price < existing.price) {
+                    byBarcode.set(bc, { ...product, storeCount: (existing?.storeCount ?? 0) + 1 });
+                } else {
+                    byBarcode.set(bc, { ...existing, storeCount: (existing.storeCount ?? 1) + 1 });
+                }
+            } else {
+                noBarcode.push(product);
+            }
+        }
+
+        return [...byBarcode.values(), ...noBarcode];
+    }, [products]);
+
+    const filteredProducts = groupedProducts.filter(p => p.category === activeCategory);
     
     const handleScroll = (direction: 'left' | 'right') => {
         if (scrollContainerRef.current) {
@@ -142,7 +164,7 @@ const HomeScreen: React.FC = () => {
             
             <h2 className="text-text-light dark:text-text-dark text-lg font-bold px-4 pb-2 pt-4">Novedades recientes</h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4">
-                {products.slice(0, 4).map(product => <ProductCard key={product.id} product={product} />)}
+                {groupedProducts.slice(0, 4).map(product => <ProductCard key={product.id} product={product} />)}
             </div>
         </div>
     );

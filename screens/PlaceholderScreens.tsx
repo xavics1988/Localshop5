@@ -2260,6 +2260,7 @@ export const PublishScreen: React.FC = () => {
     const [brand, setBrand] = useState('');
     const [color, setColor] = useState('');
     const [model, setModel] = useState('');
+    const [barcode, setBarcode] = useState('');
 
     const [price, setPrice] = useState('');
     const [category, setCategory] = useState('Camisetas');
@@ -2277,8 +2278,11 @@ export const PublishScreen: React.FC = () => {
     const [isAIOptimizing, setIsAIOptimizing] = useState(false);
     const [showSourceModal, setShowSourceModal] = useState(false);
     const [activeSlot, setActiveSlot] = useState<number | null>(null);
+    const [isBarcodeScanning, setIsBarcodeScanning] = useState(false);
     const cameraInputRef = useRef<HTMLInputElement>(null);
     const galleryInputRef = useRef<HTMLInputElement>(null);
+    const barcodeCameraRef = useRef<HTMLInputElement>(null);
+    const barcodeGalleryRef = useRef<HTMLInputElement>(null);
     const categoryScrollRef = useRef<HTMLDivElement>(null);
 
     // Cargar datos si estamos en modo edición
@@ -2321,6 +2325,7 @@ export const PublishScreen: React.FC = () => {
                     setCategory(prod.category || 'Camisetas');
                 }
 
+                setBarcode(prod.barcode || '');
                 setImages([prod.imageUrl, ...(prod.images || []), null, null].slice(0, 3));
             }
         }
@@ -2466,7 +2471,7 @@ export const PublishScreen: React.FC = () => {
                 });
 
                 // 2. Mandar el resultado a Gemini para procesar imagen y extraer los datos
-                const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyBOYgm_kwJcvfQA0hjEdCrKSlqXYQcGmdE";
+                const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
                 if (!apiKey) {
                     throw new Error("API Key no detectada. Asegúrate de reiniciar el servidor Vite.");
                 }
@@ -2617,6 +2622,53 @@ export const PublishScreen: React.FC = () => {
         if (file) processFile(file);
     };
 
+    const processBarcodeFile = async (file: File) => {
+        setIsBarcodeScanning(true);
+        try {
+            const bitmap = await createImageBitmap(file);
+
+            // Intento 1: BarcodeDetector nativo (Chrome/Android, instantáneo)
+            if ('BarcodeDetector' in window) {
+                const detector = new (window as any).BarcodeDetector();
+                const codes = await detector.detect(bitmap);
+                if (codes.length > 0) {
+                    setBarcode(codes[0].rawValue);
+                    notify('Código detectado', `Código: ${codes[0].rawValue}`, 'qr_code_scanner');
+                    return;
+                }
+            }
+
+            // Intento 2: @zxing/browser como fallback (Safari, Firefox — carga ~100KB solo la primera vez)
+            const { BrowserMultiFormatReader } = await import('@zxing/browser');
+            const url = URL.createObjectURL(file);
+            try {
+                const img = new Image();
+                img.src = url;
+                await new Promise<void>(resolve => { img.onload = () => resolve(); });
+                const reader = new BrowserMultiFormatReader();
+                const result = await reader.decodeFromImageElement(img);
+                setBarcode(result.getText());
+                notify('Código detectado', `Código: ${result.getText()}`, 'qr_code_scanner');
+            } finally {
+                URL.revokeObjectURL(url);
+            }
+        } catch {
+            notify('No detectado', 'No se encontró ningún código de barras. Puedes escribirlo manualmente.', 'info');
+        } finally {
+            setIsBarcodeScanning(false);
+        }
+    };
+
+    const handleBarcodeCameraChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) processBarcodeFile(file);
+    };
+
+    const handleBarcodeGalleryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) processBarcodeFile(file);
+    };
+
     const toggleSize = (size: string) => {
         setStockPerSize(prev => {
             const newStock = { ...prev };
@@ -2662,7 +2714,8 @@ export const PublishScreen: React.FC = () => {
             color: color || undefined,
             stock: totalStock,
             stockPerSize,
-            sizes: Object.keys(stockPerSize)
+            sizes: Object.keys(stockPerSize),
+            barcode: barcode.trim() || undefined,
         };
 
         if (isEditMode && productId) {
@@ -2751,6 +2804,8 @@ export const PublishScreen: React.FC = () => {
 
                 <input type="file" ref={cameraInputRef} accept="image/*" capture="environment" className="hidden" onChange={handleCameraChange} />
                 <input type="file" ref={galleryInputRef} accept="image/*" className="hidden" onChange={handleGalleryChange} />
+                <input type="file" ref={barcodeCameraRef} accept="image/*" capture="environment" className="hidden" onChange={handleBarcodeCameraChange} />
+                <input type="file" ref={barcodeGalleryRef} accept="image/*" className="hidden" onChange={handleBarcodeGalleryChange} />
 
                 {/* Sección Identidad del Artículo (IA) */}
                 <div className="space-y-4">
@@ -2820,6 +2875,32 @@ export const PublishScreen: React.FC = () => {
                                 placeholder="Ej: Slim Fit, Colección Verano 24..."
                                 className={`w-full h-11 border rounded-xl px-4 text-sm font-bold text-text-light dark:text-white outline-none transition-all placeholder:text-text-subtle-light/40 ${model.trim() ? 'bg-[#c8e6c9]/10 border-[#c8e6c9] focus:ring-[#c8e6c9]/20' : 'bg-[#ffcdd2]/5 border-[#ffcdd2]/30 focus:ring-[#ffcdd2]/20'}`}
                             />
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Código de Barras <span className="text-primary italic normal-case font-bold">(Opcional)</span></label>
+                            <div className="flex gap-2 items-center">
+                                <input
+                                    value={barcode}
+                                    onChange={e => setBarcode(e.target.value)}
+                                    placeholder="Ej: 8410510000003"
+                                    className={`flex-1 h-11 border rounded-xl px-4 text-sm font-bold text-text-light dark:text-white outline-none transition-all placeholder:text-text-subtle-light/40 ${barcode.trim() ? 'bg-[#c8e6c9]/10 border-[#c8e6c9] focus:ring-[#c8e6c9]/20' : 'bg-[#ffcdd2]/5 border-[#ffcdd2]/30 focus:ring-[#ffcdd2]/20'}`}
+                                />
+                                {isBarcodeScanning ? (
+                                    <div className="size-11 flex items-center justify-center shrink-0">
+                                        <div className="size-5 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <button type="button" onClick={() => barcodeCameraRef.current?.click()} className="size-11 shrink-0 flex items-center justify-center rounded-xl bg-accent-light dark:bg-accent-dark border border-border-light dark:border-border-dark text-text-subtle-light hover:text-primary transition-colors active:scale-90">
+                                            <Icon name="photo_camera" className="text-xl" />
+                                        </button>
+                                        <button type="button" onClick={() => barcodeGalleryRef.current?.click()} className="size-11 shrink-0 flex items-center justify-center rounded-xl bg-accent-light dark:bg-accent-dark border border-border-light dark:border-border-dark text-text-subtle-light hover:text-primary transition-colors active:scale-90">
+                                            <Icon name="image" className="text-xl" />
+                                        </button>
+                                    </>
+                                )}
+                            </div>
                         </div>
 
                         <div className="flex gap-4">

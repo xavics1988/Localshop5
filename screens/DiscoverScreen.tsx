@@ -4,6 +4,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { ProductCard, StoreCard } from '../components/Card';
 import { useFollowedStores, useNotifications, useProducts, useStores } from '../AppContext';
 import { CLOTHING_CATEGORIES } from '../data';
+import { Product } from '../types';
 import { Logo } from '../components/Layout';
 import { AssistantChat } from '../components/AssistantChat';
 
@@ -156,8 +157,29 @@ const DiscoverScreen: React.FC = () => {
         }
     };
     
+    const groupedProducts = useMemo((): Product[] => {
+        const byBarcode = new Map<string, Product>();
+        const noBarcode: Product[] = [];
+
+        for (const product of products) {
+            const bc = product.barcode?.trim();
+            if (bc) {
+                const existing = byBarcode.get(bc);
+                if (!existing || product.price < existing.price) {
+                    byBarcode.set(bc, { ...product, storeCount: (existing?.storeCount ?? 0) + 1 });
+                } else {
+                    byBarcode.set(bc, { ...existing, storeCount: (existing.storeCount ?? 1) + 1 });
+                }
+            } else {
+                noBarcode.push(product);
+            }
+        }
+
+        return [...byBarcode.values(), ...noBarcode];
+    }, [products]);
+
     const filteredProducts = useMemo(() => {
-        return products.filter(product => {
+        return groupedProducts.filter(product => {
             // Filtrado por stock (solo mostrar productos con stock disponible)
             const hasStock = product.stock !== undefined ? product.stock > 0 : true;
             if (!hasStock) return false;
@@ -217,7 +239,7 @@ const DiscoverScreen: React.FC = () => {
             
             return matchesGender && matchesProduct && matchesSub && matchesStore && matchesSize && matchesColor && matchesPrice && matchesSearch;
         });
-    }, [selectedFilters, products, searchQuery]);
+    }, [selectedFilters, groupedProducts, searchQuery]);
 
     // Ordenar productos
     const sortedProducts = useMemo(() => {
