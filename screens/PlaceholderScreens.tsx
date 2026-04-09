@@ -2208,9 +2208,18 @@ export const EditCustomerProfileScreen: React.FC = () => {
     );
 };
 
+// Fecha de lanzamiento oficial de la app — cambiar cuando se publique
+const APP_LAUNCH_DATE = new Date('2026-04-09');
+const LAUNCH_OFFER_END = new Date(APP_LAUNCH_DATE);
+LAUNCH_OFFER_END.setMonth(LAUNCH_OFFER_END.getMonth() + 2);
+const REGULAR_PRICE = 7.99;
+const DISCOUNTED_PRICE = (REGULAR_PRICE * 0.5).toFixed(2); // 3,99€ de por vida
+
+const isInLaunchPeriod = () => new Date() < LAUNCH_OFFER_END;
+
 const GROUP_TO_CATEGORY: Record<string, string> = {
     'CAMISETAS': 'Camisetas', 'CAMISAS': 'Camisas', 'SUDADERAS': 'Sudaderas',
-    'PANTALONES': 'Pantalones', 'FALDAS': 'Faldas', 'MONOS/PETOS': 'Monos/Petos',
+    'PANTALONES': 'Pantalones', 'FALDAS': 'Faldas',
     'CHAQUETAS/ABRIGOS': 'Chaquetas/Abrigos', 'TRAJES': 'Trajes', 'VESTIDOS': 'Vestidos',
     'CALZADO': 'Calzado', 'ROPA INTERIOR': 'Ropa Interior', 'PIJAMAS': 'Pijamas',
     'ROPA DE BAÑO': 'Ropa de Baño', 'ACCESORIOS': 'Accesorios'
@@ -2222,7 +2231,6 @@ const SIZE_GROUPS: Record<string, string[]> = {
     'SUDADERAS': ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
     'PANTALONES': ['34', '36', '38', '40', '42', '44', '46', '48', '50'],
     'FALDAS': ['34', '36', '38', '40', '42', '44', '46', '48'],
-    'MONOS/PETOS': ['XS', 'S', 'M', 'L', 'XL'],
     'CHAQUETAS/ABRIGOS': ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
     'TRAJES': ['44', '46', '48', '50', '52', '54', '56', '58'],
     'VESTIDOS': ['34', '36', '38', '40', '42', '44', '46', '48'],
@@ -2255,7 +2263,7 @@ export const PublishScreen: React.FC = () => {
 
     const [price, setPrice] = useState('');
     const [category, setCategory] = useState('Camisetas');
-    const [pantType, setPantType] = useState<'cortos' | 'largos'>('largos');
+    const [pantType, setPantType] = useState<'cortos' | 'largos' | 'monos/petos'>('largos');
     const [sleeveType, setSleeveType] = useState<'corta' | 'larga'>('corta');
     const [shirtSleeveType, setShirtSleeveType] = useState<'corta' | 'larga'>('larga');
     const [skirtType, setSkirtType] = useState<'cortas' | 'largas'>('cortas');
@@ -2305,6 +2313,10 @@ export const PublishScreen: React.FC = () => {
                     const type = prod.category.split(' ')[1] as any;
                     if (type) setShoeType(type);
                     setActiveGroup('CALZADO');
+                } else if (prod.category === 'Monos/Petos') {
+                    setCategory('Monos/Petos');
+                    setPantType('monos/petos');
+                    setActiveGroup('PANTALONES');
                 } else {
                     setCategory(prod.category || 'Camisetas');
                 }
@@ -2336,6 +2348,7 @@ export const PublishScreen: React.FC = () => {
 
     // UI de Bloqueo por falta de cuenta bancaria
     if (isCollab && !hasBankAccount) {
+        const launchOffer = isInLaunchPeriod();
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen pb-32">
                 <DetailHeader title="Activación de Escaparate" />
@@ -2346,17 +2359,49 @@ export const PublishScreen: React.FC = () => {
                     <h2 className="text-2xl font-black text-text-light dark:text-white uppercase tracking-tight mb-4 leading-tight">
                         Configura tus Cobros
                     </h2>
-                    <div className="bg-white dark:bg-accent-dark p-6 rounded-[32px] border border-primary/20 shadow-xl space-y-4 max-w-sm">
+
+                    <div className="bg-white dark:bg-accent-dark p-6 rounded-[32px] border border-primary/20 shadow-xl space-y-4 max-w-sm w-full">
+                        {launchOffer && (
+                            <div className="flex items-center justify-center gap-2 bg-mustard/10 border border-mustard/30 rounded-2xl px-4 py-2">
+                                <Icon name="rocket_launch" className="text-mustard text-lg" />
+                                <span className="text-[11px] font-black uppercase tracking-widest text-mustard">Oferta de Lanzamiento</span>
+                            </div>
+                        )}
+
                         <p className="text-sm text-text-subtle-light dark:text-text-subtle-dark leading-relaxed font-medium">
                             Para empezar a publicar artículos es obligatorio configurar tu cuenta bancaria.
                         </p>
-                        <div className="py-3 border-y border-border-light dark:border-border-dark space-y-2">
-                            <div className="flex justify-between items-center">
-                                <span className="text-xs font-bold text-text-light dark:text-gray-400">Suscripción Mensual</span>
-                                <span className="text-sm font-black text-primary">2,49€</span>
+
+                        {launchOffer ? (
+                            <div className="py-3 border-y border-border-light dark:border-border-dark space-y-3">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-xs font-bold text-text-light dark:text-gray-400">Primeros 6 meses</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] line-through text-text-subtle-light">{REGULAR_PRICE.toFixed(2).replace('.', ',')}€</span>
+                                        <span className="text-sm font-black text-olive bg-olive/10 px-2 py-0.5 rounded-lg">GRATIS</span>
+                                    </div>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-xs font-bold text-text-light dark:text-gray-400">A partir del mes 7 <span className="text-mustard">(de por vida)</span></span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] line-through text-text-subtle-light">{REGULAR_PRICE.toFixed(2).replace('.', ',')}€</span>
+                                        <span className="text-sm font-black text-primary">{DISCOUNTED_PRICE.replace('.', ',')}€/mes</span>
+                                    </div>
+                                </div>
+                                <p className="text-[10px] text-mustard font-bold text-center">
+                                    ¡50% de descuento permanente por registrarte en el lanzamiento!
+                                </p>
                             </div>
-                            <p className="text-[10px] text-text-subtle-light italic">Se cobrará mensualmente a la cuenta configurada.</p>
-                        </div>
+                        ) : (
+                            <div className="py-3 border-y border-border-light dark:border-border-dark space-y-2">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-xs font-bold text-text-light dark:text-gray-400">Suscripción Mensual</span>
+                                    <span className="text-sm font-black text-primary">{REGULAR_PRICE.toFixed(2).replace('.', ',')}€</span>
+                                </div>
+                                <p className="text-[10px] text-text-subtle-light italic">Se cobrará mensualmente a la cuenta configurada.</p>
+                            </div>
+                        )}
+
                         <p className="text-xs text-text-subtle-light font-bold">
                             Los ingresos de tus ventas se depositarán automáticamente en esta cuenta.
                         </p>
@@ -2644,6 +2689,7 @@ export const PublishScreen: React.FC = () => {
         const upperC = c.toUpperCase();
         if (SIZE_GROUPS[upperC]) setActiveGroup(upperC);
         else if (c === 'Pantalones') setActiveGroup('PANTALONES');
+        else if (c === 'Monos/Petos') { setActiveGroup('PANTALONES'); setPantType('monos/petos'); }
         else if (c === 'Calzado') setActiveGroup('CALZADO');
         else if (c === 'Accesorios') setActiveGroup('ACCESORIOS');
         else setActiveGroup('CAMISETAS');
@@ -2861,18 +2907,24 @@ export const PublishScreen: React.FC = () => {
                     {activeGroup === 'PANTALONES' && (
                         <div className="flex items-center gap-2 p-2 bg-primary/5 rounded-2xl border border-primary/10 animate-fade-in">
                             <span className="text-[9px] font-black uppercase tracking-widest text-primary/60 px-2 shrink-0">Tipo:</span>
-                            <div className="flex-1 grid grid-cols-2 gap-2">
+                            <div className="flex-1 grid grid-cols-3 gap-2">
                                 <button
                                     onClick={() => { setPantType('cortos'); setCategory('Pantalones'); }}
                                     className={`h-9 rounded-xl text-[10px] font-black uppercase transition-all ${pantType === 'cortos' ? 'bg-primary text-white shadow-sm' : 'bg-white/50 text-primary/40'}`}
                                 >
-                                    Pantalón Corto
+                                    Corto
                                 </button>
                                 <button
                                     onClick={() => { setPantType('largos'); setCategory('Pantalones'); }}
                                     className={`h-9 rounded-xl text-[10px] font-black uppercase transition-all ${pantType === 'largos' ? 'bg-primary text-white shadow-sm' : 'bg-white/50 text-primary/40'}`}
                                 >
-                                    Pantalón Largo
+                                    Largo
+                                </button>
+                                <button
+                                    onClick={() => { setPantType('monos/petos'); setCategory('Monos/Petos'); }}
+                                    className={`h-9 rounded-xl text-[10px] font-black uppercase transition-all ${pantType === 'monos/petos' ? 'bg-primary text-white shadow-sm' : 'bg-white/50 text-primary/40'}`}
+                                >
+                                    Monos/Petos
                                 </button>
                             </div>
                         </div>
@@ -2967,8 +3019,10 @@ export const PublishScreen: React.FC = () => {
                                     : activeGroup === 'CALZADO'
                                         ? ['19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36']
                                         : ['0-1 mes', '2-4 meses', '4-6 meses', '6-9 meses', '9-12 meses', '1 año', '2 años', '3 años', '4 años', '5 años', '6 años', '7 años', '8 años', '9 años', '10 años', '11 años', '12 años'])
-                                : SIZE_GROUPS[activeGroup];
-                            
+                                : (activeGroup === 'PANTALONES' && pantType === 'monos/petos')
+                    ? ['XS', 'S', 'M', 'L', 'XL']
+                    : SIZE_GROUPS[activeGroup];
+
                             return availableSizes.map(size => {
                             const isSelected = stockPerSize[size] !== undefined;
                             return (
