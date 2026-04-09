@@ -2,8 +2,8 @@
 import { Store, Product, Order } from './types';
 
 export const CLOTHING_CATEGORIES = [
-  'Camisetas', 'Camisas', 'Sudaderas', 'Pantalones', 'Faldas', 'Monos/Petos', 
-  'Chaquetas/Abrigos', 'Trajes', 'Vestidos', 'Calzado', 'Ropa Interior', 
+  'Camisetas', 'Camisas', 'Sudaderas', 'Pantalones', 'Faldas',
+  'Chaquetas/Abrigos', 'Trajes', 'Vestidos', 'Calzado', 'Ropa Interior',
   'Pijamas', 'Ropa de Baño', 'Accesorios'
 ];
 

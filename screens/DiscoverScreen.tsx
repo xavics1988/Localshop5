@@ -67,7 +67,6 @@ const CATEGORY_TO_SIZE_GROUP: Record<string, string> = {
     'Faldas': 'FALDAS',
     'Faldas cortas': 'FALDAS',
     'Faldas largas': 'FALDAS',
-    'Monos/Petos': 'MONOS/PETOS',
     'Chaquetas/Abrigos': 'CHAQUETAS/ABRIGOS',
     'Trajes': 'TRAJES',
     'Vestidos': 'VESTIDOS',
@@ -187,14 +186,19 @@ const DiscoverScreen: React.FC = () => {
             // Filtrado por género
             const matchesGender = selectedFilters.gender === 'Todos' || product.gender === selectedFilters.gender;
 
-            const matchesProduct = selectedFilters.product === 'Todos' || 
+            const matchesProduct = selectedFilters.product === 'Todos' ||
                 product.category === selectedFilters.product ||
-                product.category?.startsWith(selectedFilters.product);
+                product.category?.startsWith(selectedFilters.product) ||
+                (selectedFilters.product === 'Pantalones' && product.category === 'Monos/Petos');
             
             // Lógica específica para sub-categorías
             let matchesSub = true;
             if (selectedFilters.product === 'Pantalones' && selectedFilters.pantType !== 'Todos') {
-                matchesSub = product.category === `Pantalones ${selectedFilters.pantType}`;
+                if (selectedFilters.pantType === 'monos/petos') {
+                    matchesSub = product.category === 'Monos/Petos';
+                } else {
+                    matchesSub = product.category === `Pantalones ${selectedFilters.pantType}`;
+                }
             } else if (selectedFilters.product === 'Camisetas' && selectedFilters.sleeveType !== 'Todos') {
                 matchesSub = product.category === `Camisetas manga ${selectedFilters.sleeveType}`;
             } else if (selectedFilters.product === 'Camisas' && selectedFilters.shirtSleeveType !== 'Todos') {
@@ -275,6 +279,9 @@ const DiscoverScreen: React.FC = () => {
         }
 
         // Adultos: lógica original
+        if (category === 'Pantalones' && selectedFilters.pantType === 'monos/petos') {
+            return { 'MONOS/PETOS': SIZE_GROUPS['MONOS/PETOS'] };
+        }
         const groupKey = CATEGORY_TO_SIZE_GROUP[category];
         if (groupKey) return { [groupKey]: SIZE_GROUPS[groupKey] };
         return SIZE_GROUPS;
@@ -328,9 +335,9 @@ const DiscoverScreen: React.FC = () => {
                     {/* Subcategorías dinámicas si aplica */}
                     {selectedFilters.product === 'Pantalones' && (
                         <div className="flex gap-2 mt-2 overflow-x-auto [-ms-scrollbar-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                            {['Todos', 'cortos', 'largos'].map(type => (
+                            {(['Todos', 'cortos', 'largos', 'monos/petos'] as const).map(type => (
                                 <button key={type} onClick={() => handleFilterSelect('pantType', type)} className={`flex h-8 shrink-0 items-center justify-center rounded-lg px-3 text-[10px] font-black uppercase tracking-tight transition-colors ${selectedFilters.pantType === type ? 'bg-primary/20 text-primary' : 'bg-background-light dark:bg-background-dark text-text-subtle-light'}`}>
-                                    {type}
+                                    {type === 'monos/petos' ? 'Monos/Petos' : type}
                                 </button>
                             ))}
                         </div>
@@ -596,14 +603,14 @@ const DiscoverScreen: React.FC = () => {
                                             
                                             {/* Sub-apartado exclusivo para Pantalones en Explore */}
                                             {activeFilter === 'Producto' && option === 'Pantalones' && selectedFilters.product === 'Pantalones' && (
-                                                <div className="grid grid-cols-3 gap-2 px-2 pb-4 animate-fade-in">
-                                                    {['Todos', 'cortos', 'largos'].map(type => (
-                                                        <button 
+                                                <div className="grid grid-cols-4 gap-2 px-2 pb-4 animate-fade-in">
+                                                    {(['Todos', 'cortos', 'largos', 'monos/petos'] as const).map(type => (
+                                                        <button
                                                             key={type}
                                                             onClick={() => handleFilterSelect('pantType', type)}
                                                             className={`h-10 rounded-xl text-[10px] font-black uppercase transition-all ${selectedFilters.pantType === type ? 'bg-primary text-white shadow-sm' : 'bg-background-light dark:bg-background-dark text-text-subtle-light'}`}
                                                         >
-                                                            {type}
+                                                            {type === 'monos/petos' ? 'Monos/Petos' : type}
                                                         </button>
                                                     ))}
                                                 </div>
