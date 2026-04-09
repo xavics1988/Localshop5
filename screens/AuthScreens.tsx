@@ -54,7 +54,7 @@ export const OnboardingScreen: React.FC = () => {
                             </button>
                         </div>
                     </div>
-                    <p onClick={() => handleNavigation('/')} className="text-text-subtle-light dark:text-text-subtle-dark text-sm pt-6 pb-3 px-4 text-center underline cursor-pointer">Explorar sin registro</p>
+                    <p onClick={() => handleNavigation('/')} className="text-text-subtle-light dark:text-text-subtle-dark text-sm pt-6 pb-3 px-4 text-center underline cursor-pointer">Ver como invitado</p>
                 </div>
             </div>
         </div>

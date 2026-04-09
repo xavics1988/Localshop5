@@ -2253,7 +2253,6 @@ export const PublishScreen: React.FC = () => {
     const [skirtType, setSkirtType] = useState<'cortas' | 'largas'>('cortas');
     const [shoeType, setShoeType] = useState<'running' | 'casual' | 'vestir' | 'otro'>('casual');
 
-    const [description, setDescription] = useState('');
     const [activeGroup, setActiveGroup] = useState('CAMISETAS');
     const [stockPerSize, setStockPerSize] = useState<Record<string, number>>({});
 
@@ -2275,7 +2274,6 @@ export const PublishScreen: React.FC = () => {
                 setGarment(prod.name.split(' ')[0] || '');
                 setBrand(prod.storeName === 'Retrospect Vintage' || prod.storeName === 'The Modernist' ? 'Local' : (prod.name.split(' ')[1] || ''));
                 setPrice(prod.price.toString());
-                setDescription(prod.description || '');
                 setGender(prod.gender || 'Mujer');
                 setStockPerSize(prod.stockPerSize || {});
 
@@ -2460,8 +2458,7 @@ export const PublishScreen: React.FC = () => {
             COLOR: [Color principal]
             GÉNERO: [Mujer, Hombre o Niños]
             CATEGORÍA_RAIZ: [Debe ser obligatoriamente una exacta de la lista: ${categoriesList}]
-            SUB_APARTADO: [Específico: pantalones largos, camiseta manga corta, zapatillas running, etc.]
-            DESCRIPCIÓN: [Descripción corta y muy atractiva para la venta de 2 a 3 líneas sobre su estado y estilo]` }
+            SUB_APARTADO: [Específico: pantalones largos, camiseta manga corta, zapatillas running, etc.]` }
                         ]
                     }
                 });
@@ -2501,13 +2498,11 @@ export const PublishScreen: React.FC = () => {
                 const genderMatch = fullText.match(/GÉNERO:\s*(.*)/i);
                 const rootCatMatch = fullText.match(/CATEGORÍA_RAIZ:\s*(.*)/i);
                 const subMatch = fullText.match(/SUB_APARTADO:\s*(.*)/i);
-                const descMatch = fullText.match(/DESCRIPCIÓN:\s*([\s\S]*)/i);
 
                 if (targetSlot === 0 || !garment) {
                     if (garmentMatch && garmentMatch[1]) setGarment(garmentMatch[1].split(/\n/)[0].trim());
                     if (brandMatch && brandMatch[1]) setBrand(brandMatch[1].split(/\n/)[0].trim());
                     if (colorMatch && colorMatch[1]) setColor(colorMatch[1].split(/\n/)[0].trim());
-                    if (descMatch && descMatch[1]) setDescription(descMatch[1].trim());
 
                     if (genderMatch && genderMatch[1]) {
                         const g = genderMatch[1].trim();
@@ -2610,7 +2605,6 @@ export const PublishScreen: React.FC = () => {
             price: parseFloat(price),
             imageUrl: validImages[0],
             images: validImages.slice(1),
-            description,
             category: finalCategory,
             gender: gender,
             color: color || undefined,
@@ -2659,10 +2653,15 @@ export const PublishScreen: React.FC = () => {
                 {/* Sección de Imágenes */}
                 <div className="space-y-3">
                     <div className="flex justify-between items-center px-1">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">
-                            Fotos del artículo (mín. 1 - máx. 3)
-                        </label>
-                        <span className="text-[10px] font-black uppercase text-red-500">{uploadedCount}/3 seleccionadas</span>
+                        <div className="flex items-center gap-2">
+                            <Icon name="collections" className={uploadedCount > 0 ? "text-[#4caf50] text-sm" : "text-[#f44336] text-sm"} />
+                            <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">
+                                Fotos del artículo (mín. 1 - máx. 3)
+                            </label>
+                        </div>
+                        <span className={`text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-tighter animate-pulse shadow-sm ${uploadedCount > 0 ? 'bg-[#c8e6c9] text-[#1b5e20]' : 'bg-[#ffcdd2] text-[#b71c1c]'}`}>
+                            {uploadedCount > 0 ? 'Fotos Listas' : 'Subir Fotos'}
+                        </span>
                     </div>
                     <div className="grid grid-cols-3 gap-3">
                         {images.map((img, idx) => (
@@ -2750,37 +2749,42 @@ export const PublishScreen: React.FC = () => {
 
                 {/* Sección Modelo (Manual) */}
                 <div className="space-y-4">
-                    <div className="flex items-center gap-2 px-1">
-                        <Icon name="edit_note" className="text-text-subtle-light text-sm" />
-                        <h3 className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Detalles Manuales</h3>
+                    <div className="flex items-center justify-between px-1">
+                        <div className="flex items-center gap-2">
+                            <Icon name="edit_note" className={price && totalStock > 0 ? "text-[#4caf50] text-sm" : "text-[#f44336] text-sm"} />
+                            <h3 className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Detalles Manuales</h3>
+                        </div>
+                        <span className={`text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-tighter animate-pulse shadow-sm ${price && totalStock > 0 ? 'bg-[#c8e6c9] text-[#1b5e20]' : 'bg-[#ffcdd2] text-[#b71c1c]'}`}>
+                            {price && totalStock > 0 ? 'Completado' : 'Acción Requerida'}
+                        </span>
                     </div>
 
-                    <div className="bg-white dark:bg-accent-dark p-6 rounded-[32px] border border-border-light dark:border-border-dark shadow-sm space-y-4">
+                    <div className={`bg-white dark:bg-accent-dark p-6 rounded-[32px] border-2 shadow-md space-y-4 relative transition-all duration-500 ${price && totalStock > 0 ? 'border-[#c8e6c9]' : 'border-[#ffcdd2]'}`}>
                         <div className="space-y-1.5">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Modelo / Colección</label>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Modelo / Colección <span className="text-primary italic normal-case font-bold">(Opcional)</span></label>
                             <input
                                 value={model}
                                 onChange={e => setModel(e.target.value)}
                                 placeholder="Ej: Slim Fit, Colección Verano 24..."
-                                className="w-full h-11 bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded-xl px-4 text-sm font-bold text-text-light dark:text-white outline-none focus:ring-2 focus:ring-primary/20"
+                                className={`w-full h-11 border rounded-xl px-4 text-sm font-bold text-text-light dark:text-white outline-none transition-all placeholder:text-text-subtle-light/40 ${model.trim() ? 'bg-[#c8e6c9]/10 border-[#c8e6c9] focus:ring-[#c8e6c9]/20' : 'bg-[#ffcdd2]/5 border-[#ffcdd2]/30 focus:ring-[#ffcdd2]/20'}`}
                             />
                         </div>
 
                         <div className="flex gap-4">
                             <div className="flex-1 space-y-1.5">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Precio (€)</label>
+                                <label className={`text-[10px] font-black uppercase tracking-widest ${price ? 'text-[#1b5e20]' : 'text-[#b71c1c]'}`}>Precio (€)</label>
                                 <input
                                     type="number"
                                     value={price}
                                     onChange={e => setPrice(e.target.value)}
                                     placeholder="0.00"
-                                    className="w-full h-11 bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded-xl px-4 text-sm font-bold text-text-light dark:text-white outline-none focus:ring-2 focus:ring-primary/20"
+                                    className={`w-full h-11 border-2 rounded-xl px-4 text-base font-black text-text-light dark:text-white outline-none transition-all shadow-sm placeholder:opacity-50 ${price ? 'bg-[#c8e6c9]/10 border-[#4caf50] ring-4 ring-[#c8e6c9]/20' : 'bg-white border-[#f44336] ring-4 ring-[#ffcdd2]/30'}`}
                                 />
                             </div>
                             <div className="flex-1 space-y-1.5">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Stock Total</label>
-                                <div className="w-full h-11 border border-border-light dark:border-border-dark rounded-xl flex items-center justify-center bg-background-light dark:bg-background-dark">
-                                    <span className={`text-lg font-black ${totalStock > 0 ? 'text-red-500' : 'text-text-subtle-light/40'}`}>
+                                <div className={`w-full h-11 border rounded-xl flex items-center justify-center transition-colors ${totalStock > 0 ? 'bg-[#c8e6c9]/20 border-[#c8e6c9]/50' : 'bg-background-light dark:bg-background-dark border-border-light'}`}>
+                                    <span className={`text-lg font-black ${totalStock > 0 ? 'text-[#1b5e20]' : 'text-text-subtle-light/40'}`}>
                                         {totalStock}
                                     </span>
                                 </div>
@@ -2814,10 +2818,16 @@ export const PublishScreen: React.FC = () => {
                     </button>
                 </div>
 
-                {/* Gestión de Tallas y Sub-apartados (Sincronizados con IA) */}
+                {/* Gestión de Tallas y Sub-apartados (Manual + IA) */}
                 <div className="space-y-4">
                     <div className="flex justify-between items-center px-1">
-                        <h3 className="text-[10px] font-black uppercase tracking-widest text-primary/60">Categoría Seleccionada: {activeGroup}</h3>
+                        <div className="flex items-center gap-2">
+                            <Icon name="straighten" className={totalStock > 0 ? "text-[#4caf50] text-sm" : "text-[#f44336] text-sm"} />
+                            <h3 className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Selección de Tallas y Stock</h3>
+                        </div>
+                        <span className={`text-[10px] font-black px-4 py-1.5 rounded-full shadow-lg uppercase tracking-tighter animate-pulse ${totalStock > 0 ? 'bg-[#c8e6c9] text-[#1b5e20]' : 'bg-[#ffcdd2] text-[#b71c1c]'}`}>
+                            {totalStock > 0 ? 'Tallas Listas' : 'Indispensable'}
+                        </span>
                     </div>
                     <div
                         ref={categoryScrollRef}
@@ -2943,7 +2953,7 @@ export const PublishScreen: React.FC = () => {
                         </div>
                     )}
 
-                    <div className="flex flex-wrap gap-2">
+                    <div className={`flex flex-wrap gap-2 p-4 rounded-3xl border-2 shadow-inner transition-colors duration-500 ${totalStock > 0 ? 'bg-[#c8e6c9]/10 border-[#c8e6c9]' : 'bg-[#ffcdd2]/5 border-[#ffcdd2]'}`}>
                         {(() => {
                             const availableSizes = gender === 'Niños'
                                 ? (activeGroup === 'ACCESORIOS' 
@@ -2956,19 +2966,19 @@ export const PublishScreen: React.FC = () => {
                             return availableSizes.map(size => {
                             const isSelected = stockPerSize[size] !== undefined;
                             return (
-                                <div key={size} className="relative group">
+                                <div key={size} className="relative group scale-up-sm transition-transform">
                                     <button
                                         type="button"
                                         onClick={() => toggleSize(size)}
-                                        className={`h-11 px-6 rounded-xl border-2 font-black text-sm transition-all flex items-center gap-2 ${isSelected ? 'bg-primary/20 border-primary text-primary' : 'bg-white dark:bg-accent-dark border-border-light dark:border-border-dark text-text-light dark:text-white'}`}
+                                        className={`h-11 px-6 rounded-xl border-2 font-black text-sm transition-all flex items-center gap-2 ${isSelected ? 'bg-primary border-primary text-white shadow-lg scale-105' : 'bg-white dark:bg-accent-dark border-secondary-light/20 text-text-light dark:text-white hover:border-[#f44336]/30'}`}
                                     >
                                         {size}
-                                        {isSelected && <span className="text-[10px] bg-primary text-white size-5 rounded-full flex items-center justify-center">{stockPerSize[size]}</span>}
+                                        {isSelected && <span className="text-[10px] bg-white text-primary size-5 rounded-full flex items-center justify-center font-black animate-scale-up">{stockPerSize[size]}</span>}
                                     </button>
                                     {isSelected && (
                                         <div className="absolute -top-3 -right-3 flex flex-col gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button type="button" onClick={() => updateStockForSize(size, true)} className="size-6 bg-primary text-white rounded-full shadow-lg flex items-center justify-center"><Icon name="add" className="text-xs" /></button>
-                                            <button type="button" onClick={() => updateStockForSize(size, false)} className="size-6 bg-white border border-border-light text-primary rounded-full shadow-lg flex items-center justify-center"><Icon name="remove" className="text-xs" /></button>
+                                            <button type="button" onClick={() => updateStockForSize(size, true)} className="size-6 bg-primary text-white rounded-full shadow-lg flex items-center justify-center border-2 border-white"><Icon name="add" className="text-xs" /></button>
+                                            <button type="button" onClick={() => updateStockForSize(size, false)} className="size-6 bg-white border-2 border-primary text-primary rounded-full shadow-lg flex items-center justify-center"><Icon name="remove" className="text-xs" /></button>
                                         </div>
                                     )}
                                 </div>
@@ -2978,7 +2988,6 @@ export const PublishScreen: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Categoría Raíz Sincronizada */}
                 <div className={`bg-white dark:bg-accent-dark p-6 rounded-[32px] border shadow-sm space-y-6 transition-all duration-700 ${category && !isAIOptimizing ? 'border-primary/30' : 'border-border-light dark:border-border-dark'}`}>
                     <div className="space-y-1.5 relative">
                         <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Categoría Principal (Sinc. IA)</label>
@@ -2999,19 +3008,6 @@ export const PublishScreen: React.FC = () => {
                             </span>
                             <Icon name="expand_more" className="text-text-subtle-light" />
                         </button>
-                    </div>
-
-                    <div className="space-y-1.5 relative">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Descripción Generativa</label>
-                        <div className="relative">
-                            <textarea
-                                value={isAIOptimizing ? "" : description}
-                                disabled={isAIOptimizing}
-                                onChange={e => setDescription(e.target.value)}
-                                placeholder={isAIOptimizing ? "" : "Describe el estado, material o por qué es especial..."}
-                                className={`w-full h-32 bg-white dark:bg-accent-dark border border-border-light dark:border-border-dark rounded-xl p-4 text-sm font-medium outline-none focus:ring-2 focus:ring-primary/20 resize-none text-text-light dark:text-white transition-all ${isAIOptimizing ? 'opacity-40' : 'opacity-100'}`}
-                            />
-                        </div>
                     </div>
                 </div>
 
