@@ -2470,7 +2470,7 @@ export const PublishScreen: React.FC = () => {
                     reader.readAsDataURL(file);
                 });
 
-                // 2. Mandar el resultado a Gemini para procesar imagen y extraer los datos
+                // 2. Llamadas a Gemini separadas: texto e imagen por separado para máxima fiabilidad
                 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
                 if (!apiKey) {
                     throw new Error("API Key no detectada. Asegúrate de reiniciar el servidor Vite.");
@@ -2478,66 +2478,30 @@ export const PublishScreen: React.FC = () => {
                 const ai = new GoogleGenAI({ apiKey });
                 const categoriesList = CLOTHING_CATEGORIES.join(', ');
 
-                const response = await ai.models.generateContent({
-                    model: 'gemini-2.5-flash-image',
+                // 2a. Primero validar el producto con llamada de texto (rápida, fiable)
+                const textResponse = await ai.models.generateContent({
+                    model: 'gemini-2.5-flash',
                     contents: {
                         parts: [
                             { inlineData: { data: base64Data, mimeType } },
                             {
-                                text: `CRITICAL INSTRUCTION: Your ABSOLUTE PRIORITY is to return a MODIFIED VERSION of the uploaded image. ONLY the background must change — nothing else.
-
-            STRICT RULES — YOU MUST FOLLOW ALL OF THESE WITHOUT EXCEPTION:
-            - The garment/product MUST appear 100% complete in the output image. NEVER crop, cut or hide any part of it.
-            - Do NOT move, rotate, scale or reposition the garment in any way. It must remain in the exact same position, size and angle as in the original photo.
-            - Do NOT alter the garment's colors, tones, brightness or saturation. The product must look exactly as it does in the original photo.
-            - Do NOT add any rim light, edge glow, halo or highlight around the silhouette of the product.
-
-            BACKGROUND REPLACEMENT STEPS:
-            1. Remove the entire original background cleanly and precisely, respecting the exact edges of the product.
-            2. Replace it with a warm terracotta studio background. Use a rich, earthy warm brown tone (hex #8B5535) that subtly transitions slightly lighter toward the center, creating a smooth gradient without harsh lines.
-            3. Apply soft, natural studio lighting from slightly above-left. The lighting must be subtle and even — NO luminous glow, NO rim glow, NO edge highlights.
-            4. Add a soft, realistic shadow directly beneath the product on the ground. The shadow must be subtle, slightly blurred and fade outward naturally.
-            5. The aesthetic must be minimalist, warm-toned, high-end fashion catalog style — similar to editorial shoots on terracotta or cognac studio backdrops.
-            
-            FIRST, before doing anything else, determine if the image contains a valid product for a fashion marketplace.
-            Valid products are ONLY: clothing items (shirts, trousers, dresses, jackets, shoes, socks, underwear, swimwear, sportswear, etc.), jewellery (rings, necklaces, bracelets, earrings), accessories (bags, handbags, belts, hats, scarves, sunglasses, watches, ties, wallets).
-            If the image does NOT contain one of these valid product types (for example: animals, people without clothing focus, food, vehicles, furniture, documents, landscapes, electronics, etc.), you MUST:
-            - Return PRODUCTO_VALIDO: NO
-            - Do NOT generate a modified image
-            - Return only the text format below and nothing else.
-
-            If the image IS valid, return PRODUCTO_VALIDO: SI and proceed with background replacement.
-
-            ALSO, analyze the garment and return this EXACT format AFTER the image part:
-            PRODUCTO_VALIDO: [SI o NO]
-            PRENDA: [Tipo de prenda (ej. Camiseta, Pantalón)]
-            MARCA: [Marca detectada o 'Local']
-            COLOR: [Color principal]
-            GÉNERO: [Mujer, Hombre o Niños]
-            CATEGORÍA_RAIZ: [Debe ser obligatoriamente una exacta de la lista: ${categoriesList}]
-            SUB_APARTADO: [Específico: pantalones largos, camiseta manga corta, zapatillas running, etc.]` }
+                                text: `Analiza esta imagen y determina si contiene un producto válido para un marketplace de moda.
+Productos válidos: prendas de vestir (camisetas, pantalones, vestidos, chaquetas, zapatos, calcetines, ropa interior, bañadores, ropa deportiva, etc.), bisutería (anillos, collares, pulseras, pendientes), accesorios (bolsos, cinturones, gorros, bufandas, gafas de sol, relojes, corbatas, carteras).
+Si NO es un producto válido, responde PRODUCTO_VALIDO: NO y nada más.
+Si SÍ es válido, responde con este formato exacto:
+PRODUCTO_VALIDO: SI
+PRENDA: [Tipo de prenda]
+MARCA: [Marca detectada o 'Local']
+COLOR: [Color principal]
+GÉNERO: [Mujer, Hombre o Niños]
+CATEGORÍA_RAIZ: [Una exacta de: ${categoriesList}]
+SUB_APARTADO: [Específico: pantalones largos, camiseta manga corta, zapatillas running, etc.]` }
                         ]
                     }
                 });
+                const fullText = textResponse.text || "";
 
-                // 3. Extraer la imagen modificada
-                let finalImageBase64 = "";
-                if (response.candidates && response.candidates[0].content.parts) {
-                    for (const part of response.candidates[0].content.parts) {
-                        if (part.inlineData) {
-                            finalImageBase64 = `data:image/png;base64,${part.inlineData.data}`;
-                        }
-                    }
-                }
-
-                // Fallback por si la API no devuelve imagen
-                if (!finalImageBase64) {
-                    finalImageBase64 = `data:${mimeType};base64,${base64Data}`;
-                }
-
-                const fullText = response.text || "";
-
-                // Validación: comprobar si la IA considera el producto válido
+                // Validación temprana: si el producto no es válido, no generamos imagen
                 const validMatch = fullText.match(/PRODUCTO_VALIDO:\s*(SI|NO)/i);
                 const isValidProduct = !validMatch || validMatch[1].toUpperCase() === 'SI';
                 if (!isValidProduct) {
@@ -2547,6 +2511,39 @@ export const PublishScreen: React.FC = () => {
                         'block'
                     );
                     return;
+                }
+
+                // 2b. Producto válido: generar imagen con fondo de estudio (hasta 3 reintentos)
+                let finalImageBase64 = "";
+                const maxAttempts = 3;
+                for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                    const imgResponse = await ai.models.generateContent({
+                        model: 'gemini-2.5-flash-image',
+                        config: { responseModalities: ['IMAGE'] },
+                        contents: {
+                            parts: [
+                                { inlineData: { data: base64Data, mimeType } },
+                                {
+                                    text: `Replace ONLY the background of this product photo. Keep the product 100% identical — same position, size, colors, no edge glow.
+New background: warm terracotta studio (#8B5535), smooth gradient lighter toward center, soft studio lighting from above-left, subtle shadow beneath the product. Minimalist high-end fashion catalog style.` }
+                            ]
+                        }
+                    });
+                    if (imgResponse.candidates?.[0]?.content?.parts) {
+                        for (const part of imgResponse.candidates[0].content.parts) {
+                            if (part.inlineData) {
+                                finalImageBase64 = `data:image/png;base64,${part.inlineData.data}`;
+                            }
+                        }
+                    }
+                    if (finalImageBase64) break;
+                }
+
+                // Fallback por si la API no devuelve imagen tras todos los reintentos
+                let imageFromAI = true;
+                if (!finalImageBase64) {
+                    imageFromAI = false;
+                    finalImageBase64 = `data:${mimeType};base64,${base64Data}`;
                 }
 
                 const garmentMatch = fullText.match(/PRENDA:\s*(.*)/i);
@@ -2592,7 +2589,11 @@ export const PublishScreen: React.FC = () => {
                     return updated;
                 });
 
-                notify('IA LocalShop', 'Foto optimizada con fondo de estudio.', 'auto_awesome');
+                if (imageFromAI) {
+                    notify('IA LocalShop', 'Foto optimizada con fondo de estudio.', 'auto_awesome');
+                } else {
+                    notify('IA LocalShop', 'Campos completados. El fondo no se pudo generar esta vez, inténtalo de nuevo.', 'info');
+                }
             } catch (error: any) {
                 console.error("AI Error", error);
                 notify('Error en IA', error?.message || 'Hubo un error al procesar la imagen.', 'error');
@@ -2615,11 +2616,13 @@ export const PublishScreen: React.FC = () => {
     const handleCameraChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) processFile(file);
+        e.target.value = '';
     };
 
     const handleGalleryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) processFile(file);
+        e.target.value = '';
     };
 
     const processBarcodeFile = async (file: File) => {
@@ -2908,8 +2911,9 @@ export const PublishScreen: React.FC = () => {
                                 <label className={`text-[10px] font-black uppercase tracking-widest ${price ? 'text-[#1b5e20]' : 'text-[#b71c1c]'}`}>Precio (€)</label>
                                 <input
                                     type="number"
+                                    min="0"
                                     value={price}
-                                    onChange={e => setPrice(e.target.value)}
+                                    onChange={e => { const v = e.target.value; if (v === '' || parseFloat(v) >= 0) setPrice(v); }}
                                     placeholder="0.00"
                                     className={`w-full h-11 border-2 rounded-xl px-4 text-base font-black text-text-light dark:text-white outline-none transition-all shadow-sm placeholder:opacity-50 ${price ? 'bg-[#c8e6c9]/10 border-[#4caf50] ring-4 ring-[#c8e6c9]/20' : 'bg-white border-[#f44336] ring-4 ring-[#ffcdd2]/30'}`}
                                 />

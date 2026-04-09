@@ -48,10 +48,8 @@ const ProductDetailScreen: React.FC = () => {
     }, [product]);
 
     useEffect(() => {
-        if (availableSizes.length > 0 && !selectedSize) {
-            setSelectedSize(availableSizes[0]);
-        }
-    }, [availableSizes]);
+        setSelectedSize(availableSizes.length > 0 ? availableSizes[0] : null);
+    }, [productId]);
 
     const handleScroll = () => {
         if (scrollRef.current) {
