@@ -193,9 +193,11 @@ const ProductDetailScreen: React.FC = () => {
                     )}
                 </div>
 
-                <p className="text-text-subtle-light dark:text-text-subtle-dark leading-relaxed text-sm">
-                    {product.description || "Este artículo exclusivo ha sido seleccionado cuidadosamente por su calidad y diseño único en tu barrio. Apoya el comercio local eligiendo moda con historia."}
-                </p>
+                {product.description && (
+                    <p className="text-text-subtle-light dark:text-text-subtle-dark leading-relaxed text-sm">
+                        {product.description}
+                    </p>
+                )}
 
                 {availableSizes.length > 0 && (
                     <div className="space-y-3">

@@ -2208,6 +2208,14 @@ export const EditCustomerProfileScreen: React.FC = () => {
     );
 };
 
+const GROUP_TO_CATEGORY: Record<string, string> = {
+    'CAMISETAS': 'Camisetas', 'CAMISAS': 'Camisas', 'SUDADERAS': 'Sudaderas',
+    'PANTALONES': 'Pantalones', 'FALDAS': 'Faldas', 'MONOS/PETOS': 'Monos/Petos',
+    'CHAQUETAS/ABRIGOS': 'Chaquetas/Abrigos', 'TRAJES': 'Trajes', 'VESTIDOS': 'Vestidos',
+    'CALZADO': 'Calzado', 'ROPA INTERIOR': 'Ropa Interior', 'PIJAMAS': 'Pijamas',
+    'ROPA DE BAÑO': 'Ropa de Baño', 'ACCESORIOS': 'Accesorios'
+};
+
 const SIZE_GROUPS: Record<string, string[]> = {
     'CAMISETAS': ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'Talla Única', 'Sin talla'],
     'CAMISAS': ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'Talla Única'],
@@ -2260,7 +2268,6 @@ export const PublishScreen: React.FC = () => {
 
     const [isAIOptimizing, setIsAIOptimizing] = useState(false);
     const [showSourceModal, setShowSourceModal] = useState(false);
-    const [showCategoryModal, setShowCategoryModal] = useState(false);
     const [activeSlot, setActiveSlot] = useState<number | null>(null);
     const cameraInputRef = useRef<HTMLInputElement>(null);
     const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -2640,7 +2647,6 @@ export const PublishScreen: React.FC = () => {
         else if (c === 'Calzado') setActiveGroup('CALZADO');
         else if (c === 'Accesorios') setActiveGroup('ACCESORIOS');
         else setActiveGroup('CAMISETAS');
-        setShowCategoryModal(false);
     };
 
     const uploadedCount = images.filter(i => i !== null).length;
@@ -2843,7 +2849,7 @@ export const PublishScreen: React.FC = () => {
                             <button
                                 key={g}
                                 data-active={activeGroup === g}
-                                onClick={() => setActiveGroup(g)}
+                                onClick={() => { setActiveGroup(g); setCategory(GROUP_TO_CATEGORY[g] || g); }}
                                 className={`h-10 px-6 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${activeGroup === g ? 'bg-primary/20 text-primary border border-primary/20' : 'bg-white dark:bg-accent-dark text-text-subtle-light border border-border-light dark:border-border-dark'}`}
                             >
                                 {g}
@@ -2987,51 +2993,6 @@ export const PublishScreen: React.FC = () => {
                         })()}
                     </div>
                 </div>
-
-                <div className={`bg-white dark:bg-accent-dark p-6 rounded-[32px] border shadow-sm space-y-6 transition-all duration-700 ${category && !isAIOptimizing ? 'border-primary/30' : 'border-border-light dark:border-border-dark'}`}>
-                    <div className="space-y-1.5 relative">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Categoría Principal (Sinc. IA)</label>
-                        <button
-                            type="button"
-                            onClick={() => setShowCategoryModal(true)}
-                            className="w-full h-11 bg-background-light dark:bg-background-dark border border-border-light rounded-xl px-4 text-sm font-bold flex items-center justify-between text-text-light dark:text-white outline-none"
-                        >
-                            <span className="flex items-center gap-2">
-                                {gender} {category} {
-                                    category === 'Pantalones' ? `(${pantType === 'cortos' ? 'Cortos' : 'Largos'})` :
-                                        category === 'Camisetas' ? `(${sleeveType === 'corta' ? 'M. Corta' : 'M. Larga'})` :
-                                            category === 'Camisas' ? `(${shirtSleeveType === 'corta' ? 'M. Corta' : 'M. Larga'})` :
-                                                category === 'Faldas' ? `(${skirtType === 'cortas' ? 'Cortas' : 'Largas'})` :
-                                                    category === 'Calzado' ? `(${shoeType.charAt(0).toUpperCase() + shoeType.slice(1)})` : ''
-                                }
-                                {category && !isAIOptimizing && <Icon name="verified" className="text-primary text-[14px]" filled />}
-                            </span>
-                            <Icon name="expand_more" className="text-text-subtle-light" />
-                        </button>
-                    </div>
-                </div>
-
-                {/* Modal de Categorías Sincronizado */}
-                {showCategoryModal && (
-                    <div className="fixed inset-0 z-[2000] bg-black/60 flex items-end justify-center" onClick={() => setShowCategoryModal(false)}>
-                        <div className="w-full max-w-lg bg-white dark:bg-accent-dark rounded-t-[40px] p-6 pb-12 animate-slide-up shadow-2xl max-h-[70vh] flex flex-col" onClick={e => e.stopPropagation()}>
-                            <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full mx-auto mb-6 shrink-0"></div>
-                            <h3 className="text-center text-lg font-black text-text-light dark:text-white mb-6 tracking-tight uppercase tracking-widest shrink-0">Categoría del Artículo</h3>
-                            <div className="overflow-y-auto space-y-2 custom-scrollbar pr-1">
-                                {CLOTHING_CATEGORIES.map(c => (
-                                    <button
-                                        key={c}
-                                        type="button"
-                                        onClick={() => handleCategorySelect(c)}
-                                        className={`w-full text-left p-5 rounded-2xl text-base font-bold transition-all ${category === c ? 'bg-primary text-white shadow-lg' : 'bg-background-light dark:bg-background-dark text-text-light hover:bg-white dark:hover:bg-border-dark'}`}
-                                    >
-                                        {c}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                )}
 
                 <div className="fixed bottom-0 left-0 right-0 p-4 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md border-t border-border-light dark:border-border-dark z-50">
                     <button
