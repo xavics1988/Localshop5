@@ -1318,8 +1318,8 @@ export const OrdersScreen: React.FC = () => {
         if (isCollab && user.storeId) {
             return orders.filter(o => o.items.some(item => item.product.storeId === user.storeId));
         }
-        return orders;
-    }, [orders, isCollab, user.storeId]);
+        return orders.filter(o => o.customerId === user.id);
+    }, [orders, isCollab, user.storeId, user.id]);
 
     const totalNetRevenue = useMemo(() => {
         if (!isCollab) return 0;
@@ -2977,15 +2977,15 @@ New background: warm terracotta studio (#8B5535), smooth gradient lighter toward
                                 return true;
                             })
                             .map(g => (
-                            <button
-                                key={g}
-                                data-active={activeGroup === g}
-                                onClick={() => { setActiveGroup(g); setCategory(GROUP_TO_CATEGORY[g] || g); }}
-                                className={`h-10 px-6 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${activeGroup === g ? 'bg-primary/20 text-primary border border-primary/20' : 'bg-white dark:bg-accent-dark text-text-subtle-light border border-border-light dark:border-border-dark'}`}
-                            >
-                                {g}
-                            </button>
-                        ))}
+                                <button
+                                    key={g}
+                                    data-active={activeGroup === g}
+                                    onClick={() => { setActiveGroup(g); setCategory(GROUP_TO_CATEGORY[g] || g); }}
+                                    className={`h-10 px-6 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${activeGroup === g ? 'bg-primary/20 text-primary border border-primary/20' : 'bg-white dark:bg-accent-dark text-text-subtle-light border border-border-light dark:border-border-dark'}`}
+                                >
+                                    {g}
+                                </button>
+                            ))}
                     </div>
 
                     {/* Sub-apartado exclusivo para Pantalones */}
@@ -3099,36 +3099,36 @@ New background: warm terracotta studio (#8B5535), smooth gradient lighter toward
                     <div className={`flex flex-wrap gap-2 p-4 rounded-3xl border-2 shadow-inner transition-colors duration-500 ${totalStock > 0 ? 'bg-[#c8e6c9]/10 border-[#c8e6c9]' : 'bg-[#ffcdd2]/5 border-[#ffcdd2]'}`}>
                         {(() => {
                             const availableSizes = gender === 'Niños'
-                                ? (activeGroup === 'ACCESORIOS' 
+                                ? (activeGroup === 'ACCESORIOS'
                                     ? SIZE_GROUPS[activeGroup]
                                     : activeGroup === 'CALZADO'
                                         ? ['19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36']
                                         : ['0-1 mes', '2-4 meses', '4-6 meses', '6-9 meses', '9-12 meses', '1 año', '2 años', '3 años', '4 años', '5 años', '6 años', '7 años', '8 años', '9 años', '10 años', '11 años', '12 años'])
                                 : (activeGroup === 'PANTALONES' && pantType === 'monos/petos')
-                    ? ['XS', 'S', 'M', 'L', 'XL']
-                    : SIZE_GROUPS[activeGroup];
+                                    ? ['XS', 'S', 'M', 'L', 'XL']
+                                    : SIZE_GROUPS[activeGroup];
 
                             return availableSizes.map(size => {
-                            const isSelected = stockPerSize[size] !== undefined;
-                            return (
-                                <div key={size} className="relative group scale-up-sm transition-transform">
-                                    <button
-                                        type="button"
-                                        onClick={() => toggleSize(size)}
-                                        className={`h-11 px-6 rounded-xl border-2 font-black text-sm transition-all flex items-center gap-2 ${isSelected ? 'bg-primary border-primary text-white shadow-lg scale-105' : 'bg-white dark:bg-accent-dark border-secondary-light/20 text-text-light dark:text-white hover:border-[#f44336]/30'}`}
-                                    >
-                                        {size}
-                                        {isSelected && <span className="text-[10px] bg-white text-primary size-5 rounded-full flex items-center justify-center font-black animate-scale-up">{stockPerSize[size]}</span>}
-                                    </button>
-                                    {isSelected && (
-                                        <div className="absolute -top-3 -right-3 flex flex-col gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button type="button" onClick={() => updateStockForSize(size, true)} className="size-6 bg-primary text-white rounded-full shadow-lg flex items-center justify-center border-2 border-white"><Icon name="add" className="text-xs" /></button>
-                                            <button type="button" onClick={() => updateStockForSize(size, false)} className="size-6 bg-white border-2 border-primary text-primary rounded-full shadow-lg flex items-center justify-center"><Icon name="remove" className="text-xs" /></button>
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        });
+                                const isSelected = stockPerSize[size] !== undefined;
+                                return (
+                                    <div key={size} className="relative group scale-up-sm transition-transform">
+                                        <button
+                                            type="button"
+                                            onClick={() => toggleSize(size)}
+                                            className={`h-11 px-6 rounded-xl border-2 font-black text-sm transition-all flex items-center gap-2 ${isSelected ? 'bg-primary border-primary text-white shadow-lg scale-105' : 'bg-white dark:bg-accent-dark border-secondary-light/20 text-text-light dark:text-white hover:border-[#f44336]/30'}`}
+                                        >
+                                            {size}
+                                            {isSelected && <span className="text-[10px] bg-white text-primary size-5 rounded-full flex items-center justify-center font-black animate-scale-up">{stockPerSize[size]}</span>}
+                                        </button>
+                                        {isSelected && (
+                                            <div className="absolute -top-3 -right-3 flex flex-col gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button type="button" onClick={() => updateStockForSize(size, true)} className="size-6 bg-primary text-white rounded-full shadow-lg flex items-center justify-center border-2 border-white"><Icon name="add" className="text-xs" /></button>
+                                                <button type="button" onClick={() => updateStockForSize(size, false)} className="size-6 bg-white border-2 border-primary text-primary rounded-full shadow-lg flex items-center justify-center"><Icon name="remove" className="text-xs" /></button>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            });
                         })()}
                     </div>
                 </div>

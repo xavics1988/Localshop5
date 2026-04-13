@@ -77,6 +77,7 @@ export interface OrderEvent {
 
 export interface Order {
   id: string;
+  customerId: string;
   customerName: string;
   date: string;
   status: OrderStatus;
@@ -112,7 +113,7 @@ export interface PlatformAccount {
 
 export interface OrderContextType {
     orders: Order[];
-    addOrder: (order: Omit<Order, 'id' | 'date' | 'status'>) => void;
+    addOrder: (order: Omit<Order, 'id' | 'date' | 'status' | 'customerId'>) => void;
     requestReturn: (orderId: string) => void;
     processReturn: (orderId: string) => void;
     updateOrderStatus: (orderId: string, status: OrderStatus) => void;

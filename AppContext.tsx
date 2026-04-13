@@ -533,7 +533,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const [orders, setOrders] = useState<Order[]>([]);
     const [ordersLoadedUser, setOrdersLoadedUser] = useState<string | null>(null);
 
-    // Carga reactiva de pedidos cuando cambia el usuario
+    // Carga reactiva de pedidos (clave global compartida entre todos los usuarios)
     useEffect(() => {
         if (!user?.id) {
             setOrders([]);
@@ -541,9 +541,28 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             return;
         }
         try {
-            const key = getStorageKey('orders', user.id);
-            const saved = localStorage.getItem(key);
-            setOrders(saved ? JSON.parse(saved) : []);
+            const globalSaved = localStorage.getItem('all_orders');
+            let allOrders: Order[] = globalSaved ? JSON.parse(globalSaved) : [];
+
+            // Migración: mover pedidos de clave antigua orders_{userId} a all_orders
+            const oldKey = `orders_${user.id}`;
+            const oldSaved = localStorage.getItem(oldKey);
+            if (oldSaved) {
+                try {
+                    const oldOrders: Order[] = JSON.parse(oldSaved);
+                    const existingIds = new Set(allOrders.map(o => o.id));
+                    const migrated = oldOrders
+                        .filter(o => !existingIds.has(o.id))
+                        .map(o => ({ ...o, customerId: (o as any).customerId || user.id }));
+                    if (migrated.length > 0) {
+                        allOrders = [...allOrders, ...migrated];
+                        safeStorageSet('all_orders', allOrders);
+                    }
+                    localStorage.removeItem(oldKey);
+                } catch (_) {}
+            }
+
+            setOrders(allOrders);
         } catch (e) {
             setOrders([]);
         } finally {
@@ -551,11 +570,10 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
     }, [user.id]);
 
-    // Persistencia de pedidos con clave de usuario
+    // Persistencia de pedidos en clave global compartida
     useEffect(() => {
         if (!user?.id || ordersLoadedUser !== user.id) return;
-        const key = getStorageKey('orders', user.id);
-        safeStorageSet(key, orders);
+        safeStorageSet('all_orders', orders);
     }, [orders, user.id, ordersLoadedUser]);
 
     const createEvent = useCallback((status: OrderStatus, label: string): OrderEvent => ({
@@ -582,6 +600,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const newOrder: Order = {
             ...orderData,
             id: `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
+            customerId: user.id,
             date: new Date().toISOString(),
             status: 'Nuevo',
             destinationIban: LOCALSHOP_PLATFORM_ACCOUNT.iban,
@@ -687,7 +706,6 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                 status: 'Devolución Solicitada',
                 history: [...(order.history || []), event]
             };
-            safeStorageSet('user_orders', updatedOrders);
             notify('Devolución Solicitada', 'Tu solicitud ha sido enviada a la tienda.', 'assignment_return');
             return updatedOrders;
         });
