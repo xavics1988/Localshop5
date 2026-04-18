@@ -7,6 +7,7 @@ import { CLOTHING_CATEGORIES } from '../data';
 import { Product } from '../types';
 import { Logo } from '../components/Layout';
 import { AssistantChat } from '../components/AssistantChat';
+import { sanitizeRaw, truncate, MAX_LENGTHS } from '../utils/validation';
 
 const COLOR_MAP: Record<string, string> = {
     'Todos': 'transparent',
@@ -387,7 +388,7 @@ const DiscoverScreen: React.FC = () => {
                         </div>
                         <input 
                             value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onChange={(e) => setSearchQuery(truncate(sanitizeRaw(e.target.value), MAX_LENGTHS.search))}
                             className="w-full h-full bg-transparent pl-12 pr-12 text-text-light dark:text-text-dark placeholder:text-text-subtle-light text-sm focus:outline-none" 
                             placeholder="Busca artículos únicos..." 
                         />

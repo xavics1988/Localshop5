@@ -3,6 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { DetailHeader, Logo } from '../components/Layout';
 import { useFollowedStores, useNotifications, useReviews, useStores, useProducts, useUser } from '../AppContext';
+import { sanitizeRaw, truncate, MAX_LENGTHS, validateComment } from '../utils/validation';
 
 const Icon = ({ name, className, filled }: { name: string; className?: string; filled?: boolean; key?: React.Key }) => (
     <span 
@@ -90,12 +91,13 @@ const StoreProfileScreen: React.FC = () => {
     };
 
     const submitReview = () => {
-        if (!newComment.trim()) return notify('Error', 'Debes escribir un comentario.', 'error');
+        const commentErr = validateComment(newComment);
+        if (commentErr) return notify('Error', commentErr, 'error');
         addReview({
             storeId: storeId || '',
             userName: currentUserName,
             rating: newRating,
-            comment: newComment
+            comment: sanitizeRaw(newComment)
         });
         setNewComment('');
         setIsReviewing(false);
@@ -251,9 +253,9 @@ const StoreProfileScreen: React.FC = () => {
                                                 </button>
                                             ))}
                                         </div>
-                                        <textarea 
+                                        <textarea
                                             value={newComment}
-                                            onChange={(e) => setNewComment(e.target.value)}
+                                            onChange={(e) => setNewComment(truncate(sanitizeRaw(e.target.value), MAX_LENGTHS.comment))}
                                             placeholder="Cuéntanos tu experiencia..."
                                             className="w-full h-24 bg-accent-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded-xl p-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary mb-4 text-text-light dark:text-white"
                                         />

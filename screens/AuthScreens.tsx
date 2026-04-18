@@ -2,6 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useUser, useStores, useNotifications } from '../AppContext';
+import {
+    sanitizeRaw, truncate, MAX_LENGTHS,
+    validateName, validateEmail, validatePassword, validateReferralCode
+} from '../utils/validation';
 
 const Icon = ({ name, className, filled }: { name: string; className?: string; filled?: boolean }) => (
     <span
@@ -115,28 +119,23 @@ export const SignUpScreen: React.FC = () => {
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
-        if (!formData.name) newErrors.name = 'El nombre es obligatorio';
 
-        // Email
-        if (!formData.email) newErrors.email = 'El email es obligatorio';
-        else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Email no válido';
+        const nameErr = validateName(formData.name);
+        if (nameErr) newErrors.name = nameErr;
 
-        // Password Robusta
-        const password = formData.password;
-        if (!password) {
-            newErrors.password = 'La contraseña es obligatoria';
-        } else if (password.length < 6) {
-            newErrors.password = 'Mínimo 6 caracteres';
-        } else if (!/[A-Z]/.test(password)) {
-            newErrors.password = 'Debe incluir una mayúscula';
-        } else if (!/\d/.test(password)) {
-            newErrors.password = 'Debe incluir al menos un número';
-        } else if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
-            newErrors.password = 'Debe incluir un signo de puntuación';
-        }
+        const emailErr = validateEmail(formData.email);
+        if (emailErr) newErrors.email = emailErr;
+
+        const passErr = validatePassword(formData.password);
+        if (passErr) newErrors.password = passErr;
 
         if (!formData.location) newErrors.location = 'Selecciona una provincia';
         if (!acceptTerms) newErrors.terms = 'Debes aceptar los términos';
+
+        if (formData.referralInput) {
+            const refErr = validateReferralCode(formData.referralInput);
+            if (refErr) newErrors.referralInput = refErr;
+        }
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -196,17 +195,17 @@ export const SignUpScreen: React.FC = () => {
 
         const newUserProfile = {
             id: crypto.randomUUID(),
-            email: formData.email,
+            email: sanitizeRaw(formData.email),
             password: formData.password,
             role: role!,
-            name: finalUserName,
-            businessName: isCollab ? formData.name : undefined,
+            name: sanitizeRaw(finalUserName),
+            businessName: isCollab ? sanitizeRaw(formData.name) : undefined,
             location: formData.location,
             storeId: storeId,
             bio: isCollab ? 'Bienvenido a mi nueva tienda local.' : 'Amante de la moda local.',
             phone: '',
             referralCode: myReferralCode,
-            referredBy: !isCollab && formData.referralInput ? formData.referralInput : undefined,
+            referredBy: !isCollab && formData.referralInput ? sanitizeRaw(formData.referralInput) : undefined,
             referralBalance: 0
         };
 
@@ -368,7 +367,7 @@ export const SignUpScreen: React.FC = () => {
                                     <Icon name={role === 'colaborador' ? 'gavel' : 'person'} className="text-text-subtle-light mr-3" />
                                     <input
                                         value={formData.name}
-                                        onChange={e => setFormData(p => ({ ...p, name: e.target.value }))}
+                                        onChange={e => setFormData(p => ({ ...p, name: truncate(sanitizeRaw(e.target.value), MAX_LENGTHS.name) }))}
                                         placeholder={role === 'colaborador' ? 'Ej: Moda Local S.L.' : 'Ej: Elena García'}
                                         className="flex-1 bg-transparent text-sm font-medium outline-none text-text-light dark:text-white"
                                     />
@@ -383,7 +382,7 @@ export const SignUpScreen: React.FC = () => {
                                     <Icon name="mail" className="text-text-subtle-light mr-3" />
                                     <input
                                         value={formData.email}
-                                        onChange={e => setFormData(p => ({ ...p, email: e.target.value }))}
+                                        onChange={e => setFormData(p => ({ ...p, email: truncate(sanitizeRaw(e.target.value), MAX_LENGTHS.email) }))}
                                         placeholder="tu@email.com"
                                         type="email"
                                         className="flex-1 bg-transparent text-sm font-medium outline-none text-text-light dark:text-white"
@@ -399,7 +398,7 @@ export const SignUpScreen: React.FC = () => {
                                     <Icon name="lock" className="text-text-subtle-light mr-3" />
                                     <input
                                         value={formData.password}
-                                        onChange={e => setFormData(p => ({ ...p, password: e.target.value }))}
+                                        onChange={e => setFormData(p => ({ ...p, password: truncate(e.target.value, MAX_LENGTHS.password) }))}
                                         placeholder="Ej: Shop2024!"
                                         type={showPassword ? "text" : "password"}
                                         className="flex-1 bg-transparent text-sm font-medium outline-none text-text-light dark:text-white"
@@ -446,7 +445,7 @@ export const SignUpScreen: React.FC = () => {
                                         <Icon name="confirmation_number" className="text-text-subtle-light mr-3" />
                                         <input
                                             value={formData.referralInput}
-                                            onChange={e => setFormData(p => ({ ...p, referralInput: e.target.value.toUpperCase() }))}
+                                            onChange={e => setFormData(p => ({ ...p, referralInput: truncate(sanitizeRaw(e.target.value), MAX_LENGTHS.referralCode).toUpperCase() }))}
                                             placeholder="EJ: ELENA123"
                                             className="flex-1 bg-transparent text-sm font-medium outline-none text-text-light dark:text-white uppercase"
                                         />
@@ -552,6 +551,10 @@ export const LoginScreen: React.FC = () => {
 
     const handleLogin = (e: React.FormEvent) => {
         e.preventDefault();
+        if (validateEmail(email) || !password) {
+            notify('Error', 'Introduce un email y contraseña válidos.', 'error');
+            return;
+        }
         const savedUsers = localStorage.getItem('app_users');
         const usersList = savedUsers ? JSON.parse(savedUsers) : [];
         const foundUser = usersList.find((u: any) => u.email === email && u.password === password);
@@ -577,6 +580,10 @@ export const LoginScreen: React.FC = () => {
 
     const handleForgotRequest = (e: React.FormEvent) => {
         e.preventDefault();
+        if (validateEmail(forgotEmail)) {
+            notify('Error', 'Introduce un email válido.', 'error');
+            return;
+        }
         const savedUsers = localStorage.getItem('app_users');
         const usersList = savedUsers ? JSON.parse(savedUsers) : [];
         const found = usersList.find((u: any) => u.email === forgotEmail);
@@ -606,13 +613,9 @@ export const LoginScreen: React.FC = () => {
     const handlePasswordReset = (e: React.FormEvent) => {
         e.preventDefault();
 
-        // Validación Robusta (Mismo nivel que el registro)
-        const passwordRegex = /[!@#$%^&*(),.?":{}|<>]/.test(newPassword);
-        const upperRegex = /[A-Z]/.test(newPassword);
-        const digitRegex = /\d/.test(newPassword);
-
-        if (newPassword.length < 6 || !upperRegex || !digitRegex || !passwordRegex) {
-            notify('Insegura', 'La contraseña no cumple los requisitos de seguridad.', 'error');
+        const passErr = validatePassword(newPassword);
+        if (passErr) {
+            notify('Insegura', passErr, 'error');
             return;
         }
 
@@ -673,7 +676,7 @@ export const LoginScreen: React.FC = () => {
                                     <input
                                         required
                                         value={email}
-                                        onChange={e => setEmail(e.target.value)}
+                                        onChange={e => setEmail(truncate(sanitizeRaw(e.target.value), MAX_LENGTHS.email))}
                                         className="form-input w-full rounded-2xl border border-border-light bg-white dark:bg-background-dark dark:border-border-dark text-text-light dark:text-text-dark h-14 pl-10 pr-3 text-base placeholder:text-text-light/30 outline-none focus:ring-2 focus:ring-primary/20"
                                         placeholder="tu@email.com"
                                         type="email"
@@ -696,7 +699,7 @@ export const LoginScreen: React.FC = () => {
                                     <input
                                         required
                                         value={password}
-                                        onChange={e => setPassword(e.target.value)}
+                                        onChange={e => setPassword(truncate(e.target.value, MAX_LENGTHS.password))}
                                         className="form-input w-full rounded-2xl border border-border-light bg-white dark:bg-background-dark dark:border-border-dark text-text-light dark:text-text-dark h-14 pl-10 pr-3 text-base placeholder:text-text-light/30 outline-none focus:ring-2 focus:ring-primary/20"
                                         placeholder="••••••••"
                                         type="password"
@@ -745,7 +748,7 @@ export const LoginScreen: React.FC = () => {
                                 <input
                                     required
                                     value={forgotEmail}
-                                    onChange={e => setForgotEmail(e.target.value)}
+                                    onChange={e => setForgotEmail(truncate(sanitizeRaw(e.target.value), MAX_LENGTHS.email))}
                                     className="form-input w-full rounded-2xl border border-border-light bg-white dark:bg-background-dark dark:border-border-dark text-text-light dark:text-text-dark h-14 pl-10 pr-3 text-base placeholder:text-text-light/30 outline-none focus:ring-2 focus:ring-primary/20"
                                     placeholder="tu@email.com"
                                     type="email"
@@ -799,7 +802,7 @@ export const LoginScreen: React.FC = () => {
                                     <input
                                         required
                                         value={newPassword}
-                                        onChange={e => setNewPassword(e.target.value)}
+                                        onChange={e => setNewPassword(truncate(e.target.value, MAX_LENGTHS.password))}
                                         className="form-input w-full rounded-2xl border border-border-light bg-white dark:bg-background-dark dark:border-border-dark text-text-light dark:text-text-dark h-14 pl-10 pr-12 text-base outline-none focus:ring-2 focus:ring-primary/20"
                                         placeholder="Mín. 6 caracteres"
                                         type={showNewPassword ? "text" : "password"}

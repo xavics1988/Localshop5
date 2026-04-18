@@ -2,6 +2,12 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { DetailHeader, Logo } from '../components/Layout';
 import { useNavigate, Link, useLocation, useParams } from 'react-router-dom';
+import {
+    sanitizeRaw, truncate, MAX_LENGTHS,
+    validateName, validateEmail, validatePhone,
+    validateCardNumber, validateCardExpiry, validateCVV,
+    validateIBAN, validateBIC, validateProductField, validatePrice
+} from '../utils/validation';
 import { Product, Order, OrderStatus, Store, OrderItem, BankAccount, Review, PaymentCard, OrderEvent } from '../types';
 import { useProducts, useCart, useFavorites, useFollowedStores, useNotifications, useOrders, useReviews, useUser, useStores, LOCALSHOP_PLATFORM_ACCOUNT } from '../AppContext';
 import { StoreCard, ProductCard } from '../components/Card';
@@ -1677,7 +1683,7 @@ export const PaymentScreen: React.FC = () => {
                                 label="Titular"
                                 placeholder="Nombre completo"
                                 value={cardData.holder}
-                                onChange={(v: string) => setCardData(p => ({ ...p, holder: v }))}
+                                onChange={(v: string) => setCardData(p => ({ ...p, holder: truncate(sanitizeRaw(v), MAX_LENGTHS.cardHolder) }))}
                             />
                             <div className="grid grid-cols-2 gap-4">
                                 <FormInput
@@ -1759,20 +1765,18 @@ export const PaymentMethodsScreen: React.FC = () => {
             return;
         }
 
-        // Validación de Longitud Exacta
         const rawNumber = cardForm.number.replace(/\s/g, '');
-        if (rawNumber.length !== 16) {
-            notify('Error', 'El número de tarjeta debe tener 16 dígitos.', 'error');
-            return;
-        }
-        if (cardForm.cvv.length < 3 || cardForm.cvv.length > 4) {
-            notify('Error', 'El CVV debe tener 3 o 4 dígitos.', 'error');
-            return;
-        }
-        if (!/^\d{2}\/\d{2}$/.test(cardForm.expiry)) {
-            notify('Error', 'La caducidad debe tener formato MM/YY.', 'error');
-            return;
-        }
+        const numErr = validateCardNumber(rawNumber);
+        if (numErr) { notify('Error', numErr, 'error'); return; }
+
+        const cvvErr = validateCVV(cardForm.cvv);
+        if (cvvErr) { notify('Error', cvvErr, 'error'); return; }
+
+        const expiryErr = validateCardExpiry(cardForm.expiry);
+        if (expiryErr) { notify('Error', expiryErr, 'error'); return; }
+
+        const holderErr = validateName(cardForm.holder);
+        if (holderErr) { notify('Error', `Titular: ${holderErr}`, 'error'); return; }
 
         const last4 = rawNumber.slice(-4);
         const brand = rawNumber.startsWith('4') ? 'Visa' : 'Mastercard';
@@ -1780,27 +1784,33 @@ export const PaymentMethodsScreen: React.FC = () => {
             last4,
             brand,
             expiry: cardForm.expiry,
-            holder: cardForm.holder
+            holder: sanitizeRaw(cardForm.holder)
         });
         setCardForm({ number: '', holder: user.name || '', expiry: '', cvv: '' });
         notify('Tarjeta Guardada', 'Tu método de pago ha sido añadido con éxito.', 'check_circle');
     };
 
     const handleAddBank = () => {
-        const rawIban = bankForm.iban.replace(/\s/g, '');
+        const rawIban = bankForm.iban.replace(/\s/g, '').toUpperCase();
         if (!bankForm.holder || !bankForm.iban) {
             notify('Error', 'El titular y el IBAN son obligatorios.', 'error');
             return;
         }
-        if (rawIban.length !== 24) {
-            notify('Error', 'El IBAN debe tener exactamente 24 caracteres.', 'error');
-            return;
+        const holderErr = validateName(bankForm.holder);
+        if (holderErr) { notify('Error', `Titular: ${holderErr}`, 'error'); return; }
+
+        const ibanErr = validateIBAN(rawIban);
+        if (ibanErr) { notify('Error', ibanErr, 'error'); return; }
+
+        if (bankForm.bic) {
+            const bicErr = validateBIC(bankForm.bic);
+            if (bicErr) { notify('Error', bicErr, 'error'); return; }
         }
         addBankAccount({
-            holder: bankForm.holder,
+            holder: sanitizeRaw(bankForm.holder),
             iban: bankForm.iban,
-            bankName: bankForm.bankName || 'Banco Desconocido',
-            bic: bankForm.bic,
+            bankName: sanitizeRaw(bankForm.bankName) || 'Banco Desconocido',
+            bic: sanitizeRaw(bankForm.bic),
             isDefault: true
         });
         notify('Cuenta Guardada', 'Tus depósitos se enviarán a esta cuenta.', 'check_circle');
@@ -1835,7 +1845,7 @@ export const PaymentMethodsScreen: React.FC = () => {
                                 <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Titular</label>
                                 <input
                                     value={cardForm.holder}
-                                    onChange={e => setCardForm(p => ({ ...p, holder: e.target.value }))}
+                                    onChange={e => setCardForm(p => ({ ...p, holder: truncate(sanitizeRaw(e.target.value), MAX_LENGTHS.cardHolder) }))}
                                     className="form-input w-full rounded-lg border border-border-light bg-white dark:bg-background-dark dark:border-border-dark text-text-light dark:text-text-dark h-12 pl-3 pr-3 text-base outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                                     placeholder="Nombre como aparece en la tarjeta"
                                 />
@@ -1929,7 +1939,7 @@ export const PaymentMethodsScreen: React.FC = () => {
                             <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Titular de la cuenta</label>
                             <input
                                 value={bankForm.holder}
-                                onChange={e => setBankForm(p => ({ ...p, holder: e.target.value }))}
+                                onChange={e => setBankForm(p => ({ ...p, holder: truncate(sanitizeRaw(e.target.value), MAX_LENGTHS.bankHolder) }))}
                                 className="w-full h-12 bg-accent-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded-xl px-4 text-sm font-bold text-text-light dark:text-white outline-none focus:ring-2 focus:ring-primary/20"
                                 placeholder="Ej: Elena García Martín"
                             />
@@ -1953,7 +1963,7 @@ export const PaymentMethodsScreen: React.FC = () => {
                                 <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Nombre del banco</label>
                                 <input
                                     value={bankForm.bankName}
-                                    onChange={e => setBankForm(p => ({ ...p, bankName: e.target.value }))}
+                                    onChange={e => setBankForm(p => ({ ...p, bankName: truncate(sanitizeRaw(e.target.value), MAX_LENGTHS.bankName) }))}
                                     className="w-full h-12 bg-accent-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded-xl px-4 text-sm font-bold text-text-light dark:text-white outline-none focus:ring-2 focus:ring-primary/20"
                                     placeholder="Ej: BBVA, Santander..."
                                 />
@@ -1962,7 +1972,7 @@ export const PaymentMethodsScreen: React.FC = () => {
                                 <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">BIC / SWIFT</label>
                                 <input
                                     value={bankForm.bic}
-                                    onChange={e => setBankForm(p => ({ ...p, bic: e.target.value }))}
+                                    onChange={e => setBankForm(p => ({ ...p, bic: truncate(sanitizeRaw(e.target.value), MAX_LENGTHS.bic).toUpperCase() }))}
                                     className="w-full h-12 bg-accent-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded-xl px-4 text-sm font-bold text-text-light dark:text-white outline-none focus:ring-2 focus:ring-primary/20"
                                     placeholder="Opcional"
                                 />
@@ -2024,28 +2034,41 @@ export const EditCustomerProfileScreen: React.FC = () => {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (formData.email) {
+            const emailErr = validateEmail(formData.email);
+            if (emailErr) { notify('Error', emailErr, 'error'); return; }
+        }
+        if (formData.phone) {
+            const phoneErr = validatePhone(formData.phone);
+            if (phoneErr) { notify('Error', phoneErr, 'error'); return; }
+        }
+        if (!isCollab && formData.displayName) {
+            const nameErr = validateName(formData.displayName);
+            if (nameErr) { notify('Error', nameErr, 'error'); return; }
+        }
+
         if (isCollab && user.storeId) {
             updateStore(user.storeId, {
-                businessName: formData.businessName,
-                address: formData.displayLocation,
+                businessName: sanitizeRaw(formData.businessName),
+                address: sanitizeRaw(formData.displayLocation),
                 category: formData.category,
-                description: formData.displayBio,
-                cif: formData.cif
-                // El imageUrl para colaboradores registrados se mantiene vacío para usar la Identidad Digital automática
+                description: sanitizeRaw(formData.displayBio),
+                cif: sanitizeRaw(formData.cif)
             });
             updateUser({
-                email: formData.email,
-                phone: formData.phone
+                email: sanitizeRaw(formData.email),
+                phone: sanitizeRaw(formData.phone)
             });
             notify('Negocio Actualizado', 'Los datos de tu empresa se han guardado.', 'check_circle');
         } else {
             updateUser({
-                name: formData.displayName,
+                name: sanitizeRaw(formData.displayName),
                 avatar: avatar || undefined,
-                bio: formData.displayBio,
-                location: formData.displayLocation,
-                email: formData.email,
-                phone: formData.phone
+                bio: sanitizeRaw(formData.displayBio),
+                location: sanitizeRaw(formData.displayLocation),
+                email: sanitizeRaw(formData.email),
+                phone: sanitizeRaw(formData.phone)
             });
             notify('Perfil Actualizado', 'Tus datos personales se han guardado.', 'check_circle');
         }
@@ -2131,14 +2154,14 @@ export const EditCustomerProfileScreen: React.FC = () => {
                     <FormInput
                         label={isCollab ? "ID Público Local (No editable)" : "Nombre Completo"}
                         value={formData.displayName}
-                        onChange={(v: string) => setFormData(p => ({ ...p, displayName: v }))}
+                        onChange={(v: string) => setFormData(p => ({ ...p, displayName: truncate(sanitizeRaw(v), MAX_LENGTHS.name) }))}
                         disabled={isCollab}
                         required
                     />
                     {isCollab && (
                         <>
-                            <FormInput label="Nombre Legal / Empresa (Privado)" placeholder="Nombre de la sociedad" value={formData.businessName} onChange={(v: string) => setFormData(p => ({ ...p, businessName: v }))} required />
-                            <FormInput label="CIF / NIF" placeholder="B-12345678" value={formData.cif} onChange={(v: string) => setFormData(p => ({ ...p, cif: v }))} required />
+                            <FormInput label="Nombre Legal / Empresa (Privado)" placeholder="Nombre de la sociedad" value={formData.businessName} onChange={(v: string) => setFormData(p => ({ ...p, businessName: truncate(sanitizeRaw(v), MAX_LENGTHS.name) }))} required />
+                            <FormInput label="CIF / NIF" placeholder="B-12345678" value={formData.cif} onChange={(v: string) => setFormData(p => ({ ...p, cif: truncate(sanitizeRaw(v), MAX_LENGTHS.cif) }))} required />
                             <div className="space-y-1.5 relative">
                                 <label className="text-xs font-black uppercase tracking-widest text-text-light dark:text-text-dark opacity-70">Categoría</label>
                                 <button
@@ -2171,7 +2194,7 @@ export const EditCustomerProfileScreen: React.FC = () => {
                     </div>
                     <div className="space-y-1.5">
                         <label className="text-xs font-black uppercase tracking-widest text-text-light dark:text-text-dark opacity-70">{isCollab ? "Descripción Comercial" : "Biografía"}</label>
-                        <textarea value={formData.displayBio} onChange={e => setFormData(p => ({ ...p, displayBio: e.target.value }))} className="w-full h-32 bg-white dark:bg-accent-dark border border-border-light dark:border-border-dark rounded-xl px-4 py-3 text-sm font-medium resize-none outline-none text-text-light dark:text-white" placeholder={isCollab ? "Cuenta la historia de tu negocio..." : "Un poco sobre ti..."} />
+                        <textarea value={formData.displayBio} onChange={e => setFormData(p => ({ ...p, displayBio: truncate(sanitizeRaw(e.target.value), MAX_LENGTHS.bio) }))} className="w-full h-32 bg-white dark:bg-accent-dark border border-border-light dark:border-border-dark rounded-xl px-4 py-3 text-sm font-medium resize-none outline-none text-text-light dark:text-white" placeholder={isCollab ? "Cuenta la historia de tu negocio..." : "Un poco sobre ti..."} />
                     </div>
                 </div>
 
@@ -2699,7 +2722,23 @@ New background: warm terracotta studio (#8B5535), smooth gradient lighter toward
             return;
         }
 
-        const finalName = `${garment} ${brand} ${model} ${color}`.trim().replace(/\s+/g, ' ');
+        const garmentErr = validateProductField(garment, 'Prenda');
+        if (garmentErr) { notify('Error', garmentErr, 'error'); return; }
+        const brandErr = validateProductField(brand, 'Marca');
+        if (brandErr) { notify('Error', brandErr, 'error'); return; }
+        const colorErr = validateProductField(color, 'Color');
+        if (colorErr) { notify('Error', colorErr, 'error'); return; }
+        const modelErr = validateProductField(model, 'Modelo');
+        if (modelErr) { notify('Error', modelErr, 'error'); return; }
+        const priceErr = validatePrice(price);
+        if (priceErr) { notify('Error', priceErr, 'error'); return; }
+
+        const safeGarment = sanitizeRaw(garment);
+        const safeBrand = sanitizeRaw(brand);
+        const safeModel = sanitizeRaw(model);
+        const safeColor = sanitizeRaw(color);
+
+        const finalName = `${safeGarment} ${safeBrand} ${safeModel} ${safeColor}`.trim().replace(/\s+/g, ' ');
         let finalCategory = category;
         if (category === 'Pantalones') finalCategory = `Pantalones ${pantType}`;
         else if (category === 'Camisetas') finalCategory = `Camisetas manga ${sleeveType}`;
@@ -2714,11 +2753,11 @@ New background: warm terracotta studio (#8B5535), smooth gradient lighter toward
             images: validImages.slice(1),
             category: finalCategory,
             gender: gender,
-            color: color || undefined,
+            color: safeColor || undefined,
             stock: totalStock,
             stockPerSize,
             sizes: Object.keys(stockPerSize),
-            barcode: barcode.trim() || undefined,
+            barcode: sanitizeRaw(barcode.trim()) || undefined,
         };
 
         if (isEditMode && productId) {
@@ -2828,7 +2867,7 @@ New background: warm terracotta studio (#8B5535), smooth gradient lighter toward
                             <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Prenda</label>
                             <input
                                 value={garment}
-                                onChange={e => setGarment(e.target.value)}
+                                onChange={e => setGarment(truncate(sanitizeRaw(e.target.value), MAX_LENGTHS.productField))}
                                 placeholder="Ej: Camiseta, Chaqueta..."
                                 className={`w-full h-11 bg-primary/5 dark:bg-background-dark border rounded-xl px-4 text-sm font-bold text-text-light dark:text-white outline-none focus:ring-2 focus:ring-primary/20 transition-all ${garment && !isAIOptimizing ? 'border-primary/40 shadow-[0_0_10px_rgba(194,155,136,0.1)]' : 'border-primary/10'}`}
                             />
@@ -2839,7 +2878,7 @@ New background: warm terracotta studio (#8B5535), smooth gradient lighter toward
                                 <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Marca</label>
                                 <input
                                     value={brand}
-                                    onChange={e => setBrand(e.target.value)}
+                                    onChange={e => setBrand(truncate(sanitizeRaw(e.target.value), MAX_LENGTHS.productField))}
                                     placeholder="Marca detectada"
                                     className={`w-full h-11 bg-primary/5 dark:bg-background-dark border rounded-xl px-4 text-sm font-bold text-text-light dark:text-white outline-none focus:ring-2 focus:ring-primary/20 transition-all ${brand && !isAIOptimizing ? 'border-primary/40' : 'border-primary/10'}`}
                                 />
@@ -2848,7 +2887,7 @@ New background: warm terracotta studio (#8B5535), smooth gradient lighter toward
                                 <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Color</label>
                                 <input
                                     value={color}
-                                    onChange={e => setColor(e.target.value)}
+                                    onChange={e => setColor(truncate(sanitizeRaw(e.target.value), MAX_LENGTHS.productField))}
                                     placeholder="Color principal"
                                     className={`w-full h-11 bg-primary/5 dark:bg-background-dark border rounded-xl px-4 text-sm font-bold text-text-light dark:text-white outline-none focus:ring-2 focus:ring-primary/20 transition-all ${color && !isAIOptimizing ? 'border-primary/40' : 'border-primary/10'}`}
                                 />
@@ -2874,7 +2913,7 @@ New background: warm terracotta studio (#8B5535), smooth gradient lighter toward
                             <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Modelo / Colección <span className="text-primary italic normal-case font-bold">(Opcional)</span></label>
                             <input
                                 value={model}
-                                onChange={e => setModel(e.target.value)}
+                                onChange={e => setModel(truncate(sanitizeRaw(e.target.value), MAX_LENGTHS.productField))}
                                 placeholder="Ej: Slim Fit, Colección Verano 24..."
                                 className={`w-full h-11 border rounded-xl px-4 text-sm font-bold text-text-light dark:text-white outline-none transition-all placeholder:text-text-subtle-light/40 ${model.trim() ? 'bg-[#c8e6c9]/10 border-[#c8e6c9] focus:ring-[#c8e6c9]/20' : 'bg-[#ffcdd2]/5 border-[#ffcdd2]/30 focus:ring-[#ffcdd2]/20'}`}
                             />
@@ -2885,7 +2924,7 @@ New background: warm terracotta studio (#8B5535), smooth gradient lighter toward
                             <div className="flex gap-2 items-center">
                                 <input
                                     value={barcode}
-                                    onChange={e => setBarcode(e.target.value)}
+                                    onChange={e => setBarcode(truncate(sanitizeRaw(e.target.value), MAX_LENGTHS.barcode))}
                                     placeholder="Ej: 8410510000003"
                                     className={`flex-1 h-11 border rounded-xl px-4 text-sm font-bold text-text-light dark:text-white outline-none transition-all placeholder:text-text-subtle-light/40 ${barcode.trim() ? 'bg-[#c8e6c9]/10 border-[#c8e6c9] focus:ring-[#c8e6c9]/20' : 'bg-[#ffcdd2]/5 border-[#ffcdd2]/30 focus:ring-[#ffcdd2]/20'}`}
                                 />

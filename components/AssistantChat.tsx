@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { sanitizeRaw, truncate, MAX_LENGTHS, validateChatMessage } from '../utils/validation';
 
 const Icon = ({ name, filled, className }: { name: string; filled?: boolean; className?: string }) => (
     <span className={`material-symbols-outlined ${className}`} style={{ fontVariationSettings: filled ? "'FILL' 1" : "'FILL' 0" }}>
@@ -33,11 +34,13 @@ export const AssistantChat: React.FC<{ isOpen: boolean; onClose: () => void }> =
     }, [messages]);
 
     const handleSend = () => {
-        if (!inputValue.trim()) return;
-        
+        const msgErr = validateChatMessage(inputValue);
+        if (msgErr) return;
+        const safeText = sanitizeRaw(inputValue);
+
         const userMsg: Message = {
             id: Date.now().toString(),
-            text: inputValue,
+            text: safeText,
             sender: 'user',
             timestamp: new Date()
         };
@@ -114,7 +117,7 @@ export const AssistantChat: React.FC<{ isOpen: boolean; onClose: () => void }> =
                     <div className="relative flex items-center gap-2">
                         <input 
                             value={inputValue}
-                            onChange={(e) => setInputValue(e.target.value)}
+                            onChange={(e) => setInputValue(truncate(e.target.value, MAX_LENGTHS.chatMessage))}
                             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
                             placeholder="Escribe tu mensaje..."
                             className="flex-1 h-12 bg-white/80 dark:bg-background-dark/80 rounded-2xl px-5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all text-text-light dark:text-white"
