@@ -8,9 +8,9 @@ import { products as initialProducts, orders as initialOrders, stores as initial
  * Aquí se define la cuenta bancaria propia de la empresa donde se recibirán los pagos de los clientes.
  */
 export const LOCALSHOP_PLATFORM_ACCOUNT: PlatformAccount = {
-    holder: "LOCAL SHOP GLOBAL S.L.",
-    iban: "ES00 0000 0000 0000 0000 0000", // Preparado para insertar cuenta real
-    bankName: "Banco Central LocalShop"
+    holder: import.meta.env.VITE_PLATFORM_HOLDER || "LOCAL SHOP GLOBAL S.L.",
+    iban: import.meta.env.VITE_PLATFORM_IBAN || "ES00 0000 0000 0000 0000 0000",
+    bankName: import.meta.env.VITE_PLATFORM_BANK || "Banco Central LocalShop"
 };
 
 /**
