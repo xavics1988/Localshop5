@@ -969,8 +969,10 @@ export const AppSettingsScreen: React.FC = () => {
 
 export const CartScreen: React.FC = () => {
     const { cartItems, removeFromCart, updateQuantity } = useCart();
+    const { user } = useUser();
     const navigate = useNavigate();
     const subtotal = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+    const isAuthenticated = !!user.id;
 
     return (
         <div className="bg-background-light dark:bg-background-dark min-h-screen pb-24">
@@ -1018,10 +1020,23 @@ export const CartScreen: React.FC = () => {
                             </div>
                         </div>
 
-                        <button onClick={() => navigate('/payment')} className="w-full h-16 bg-primary text-white font-bold rounded-2xl shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-3 text-lg">
-                            <Icon name="shopping_bag" />
-                            Finalizar Pedido
-                        </button>
+                        {isAuthenticated ? (
+                            <button onClick={() => navigate('/payment')} className="w-full h-16 bg-primary text-white font-bold rounded-2xl shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-3 text-lg">
+                                <Icon name="shopping_bag" />
+                                Finalizar Pedido
+                            </button>
+                        ) : (
+                            <div className="space-y-3">
+                                <button onClick={() => navigate('/guest-checkout')} className="w-full h-16 bg-primary text-white font-bold rounded-2xl shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-3 text-lg">
+                                    <Icon name="shopping_bag" />
+                                    Comprar como Invitado
+                                </button>
+                                <button onClick={() => navigate('/login')} className="w-full h-14 border-2 border-primary text-primary font-bold rounded-2xl active:scale-95 transition-transform flex items-center justify-center gap-2">
+                                    <Icon name="login" />
+                                    Iniciar sesión para más beneficios
+                                </button>
+                            </div>
+                        )}
                     </div>
                 )}
             </main>

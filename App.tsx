@@ -6,15 +6,16 @@ import { OnboardingScreen, SignUpScreen, LoginScreen } from './screens/AuthScree
 import DiscoverScreen from './screens/DiscoverScreen';
 import ProductDetailScreen from './screens/ProductDetailScreen';
 import StoreProfileScreen from './screens/StoreProfileScreen';
-import { 
-    CartScreen, ProfileScreen, FavoritesScreen, OrdersScreen, 
-    PublishScreen, PurchaseHistoryScreen, MyReviewsScreen, 
-    AppSettingsScreen, PaymentMethodsScreen, HelpScreen, 
-    PaymentScreen, CollaboratorRegistrationScreen, 
+import {
+    CartScreen, ProfileScreen, FavoritesScreen, OrdersScreen,
+    PublishScreen, PurchaseHistoryScreen, MyReviewsScreen,
+    AppSettingsScreen, PaymentMethodsScreen, HelpScreen,
+    PaymentScreen, CollaboratorRegistrationScreen,
     EditCustomerProfileScreen, FollowedStoresScreen,
     TermsScreen, PrivacyScreen, CookiesScreen, LegalNoticeScreen,
     ManageCatalogScreen
 } from './screens/PlaceholderScreens';
+import GuestCheckoutScreen from './screens/GuestCheckoutScreen';
 import { BottomNav } from './components/Layout';
 
 const ScrollToTop = () => {
@@ -42,7 +43,8 @@ const AppContent: React.FC = () => {
         '/terms',
         '/privacy',
         '/cookies',
-        '/legal-notice'
+        '/legal-notice',
+        '/guest-checkout'
     ];
     
     const showNav = !noNavRoutes.includes(location.pathname) && !location.pathname.startsWith('/publish/');
@@ -82,6 +84,7 @@ const AppContent: React.FC = () => {
                     <Route path="/cookies" element={<CookiesScreen />} />
                     <Route path="/legal-notice" element={<LegalNoticeScreen />} />
                     <Route path="/payment" element={<PaymentScreen />} />
+                    <Route path="/guest-checkout" element={<GuestCheckoutScreen />} />
                     <Route path="/collaborator-registration" element={<CollaboratorRegistrationScreen />} />
                     
                     {/* Fallback a la raíz si la ruta no existe */}
