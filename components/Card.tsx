@@ -46,16 +46,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     }, { scope: cardRef });
 
     return (
-        <div ref={cardRef} className="flex flex-col gap-2">
-            <Link to={`/product/${product.id}`} className="group relative w-full aspect-[3/4] block overflow-hidden rounded-2xl transform transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lg">
+        <div ref={cardRef} className="flex flex-col gap-1">
+            <Link to={`/product/${product.id}`} className="group relative w-full aspect-[3/4] block overflow-hidden rounded-xl h-auto transform transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lg">
                 <div
-                    className="absolute inset-0 w-full h-full bg-center bg-no-repeat bg-cover rounded-2xl border border-border-light dark:border-border-dark transition-transform duration-500 ease-out group-hover:scale-110"
+                    className="absolute inset-0 w-full h-full bg-center bg-no-repeat bg-cover rounded-xl border border-border-light dark:border-border-dark transition-transform duration-500 ease-out group-hover:scale-110"
                     style={{ backgroundImage: `url("${product.imageUrl}")` }}>
                 </div>
                 {(product.storeCount ?? 1) > 1 && (
-                    <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-sm">
-                        <Icon name="storefront" className="text-white text-xs" />
-                        <span className="text-white text-[10px] font-black">{product.storeCount} tiendas</span>
+                    <div className="absolute bottom-1 left-1 z-10 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-black/60 backdrop-blur-sm">
+                        <Icon name="storefront" className="text-white text-[8px]" />
+                        <span className="text-white text-[8px] font-black">{product.storeCount}</span>
                     </div>
                 )}
                 {user.role !== 'colaborador' && (
@@ -65,15 +65,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
                             e.stopPropagation();
                             toggleFavorite(product.id);
                         }}
-                        className={`absolute top-2 right-2 z-10 flex items-center justify-center size-9 rounded-full bg-white/60 backdrop-blur-sm dark:bg-black/30 transition-all duration-200 hover:scale-110 active:scale-[0.75] ${active ? 'text-red-500' : 'text-text-light dark:text-text-dark'}`}
+                        className={`absolute top-1 right-1 z-10 flex items-center justify-center size-7 rounded-full bg-white/60 backdrop-blur-sm dark:bg-black/30 transition-all duration-200 hover:scale-110 active:scale-[0.75] ${active ? 'text-red-500' : 'text-text-light dark:text-text-dark'}`}
                     >
-                        <Icon name="favorite" filled={active} className="text-lg" />
+                        <Icon name="favorite" filled={active} className="text-sm" />
                     </button>
                 )}
             </Link>
-            <div className="px-1">
-                <p className="text-text-light dark:text-text-dark text-sm font-bold leading-snug truncate">{product.name}</p>
-                <p className="text-text-subtle-light dark:text-text-subtle-dark text-[11px] font-medium leading-normal">{(product.storeCount ?? 1) > 1 ? `desde €${product.price.toFixed(2)}` : `€${product.price.toFixed(2)}`} - {product.storeName}</p>
+            <div className="px-0.5">
+                <p className="text-text-light dark:text-text-dark text-[10px] font-bold leading-tight truncate">{product.name}</p>
+                <p className="text-text-subtle-light dark:text-text-subtle-dark text-[9px] font-medium leading-tight truncate">{(product.storeCount ?? 1) > 1 ? `desde €${product.price.toFixed(0)}` : `€${product.price.toFixed(0)}`} {product.storeName}</p>
             </div>
         </div>
     );
@@ -110,9 +110,9 @@ export const StoreCard: React.FC<StoreCardProps> = ({ store }) => {
     const isAnonymous = !store.imageUrl || store.imageUrl.includes('placeholder') || store.name.startsWith('LS-');
 
     return (
-        <div ref={cardRef} className="flex h-full flex-col gap-0 rounded-[28px] bg-white dark:bg-accent-dark border border-border-light dark:border-border-dark shadow-sm min-w-[240px] relative overflow-hidden group transform transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl" style={{ perspective: "1000px" }}>
+        <div ref={cardRef} className="flex h-full flex-col gap-0 rounded-xl bg-white dark:bg-accent-dark border border-border-light dark:border-border-dark shadow-sm relative overflow-hidden group transform transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl" style={{ perspective: "1000px" }}>
             {!isAnonymous ? (
-                <Link to={`/store/${store.id}`} className="relative w-full aspect-[1.8/1] block overflow-hidden">
+                <Link to={`/store/${store.id}`} className="relative w-full aspect-[1.5/1] block overflow-hidden">
                     <div className="absolute inset-0 w-full h-full bg-center bg-no-repeat bg-cover transition-transform duration-500 ease-out group-hover:scale-110"
                         style={{ backgroundImage: `url("${store.imageUrl}")` }}>
                     </div>
@@ -122,37 +122,36 @@ export const StoreCard: React.FC<StoreCardProps> = ({ store }) => {
                             e.stopPropagation();
                             toggleFollow(store.id);
                         }}
-                        className={`absolute top-3 right-3 z-20 flex items-center justify-center size-9 rounded-full bg-white/80 backdrop-blur-md dark:bg-black/40 shadow-sm transition-all duration-200 hover:scale-110 active:scale-[0.75] ${active ? 'text-red-500' : 'text-text-light dark:text-text-dark'}`}
+                        className={`absolute top-1 right-1 z-20 flex items-center justify-center size-7 rounded-full bg-white/80 backdrop-blur-md dark:bg-black/40 shadow-sm transition-all duration-200 hover:scale-110 active:scale-[0.75] ${active ? 'text-red-500' : 'text-text-light dark:text-text-dark'}`}
                     >
-                        <Icon name="favorite" filled={active} className="text-xl" />
+                        <Icon name="favorite" filled={active} className="text-sm" />
                     </button>
                 </Link>
             ) : (
-                <Link to={`/store/${store.id}`} className="w-full aspect-[1.8/1] bg-gradient-to-br from-primary/10 to-mustard/10 flex flex-col items-center justify-center relative overflow-hidden border-b border-primary/5">
-                    <Logo showText={false} className="h-12 opacity-30 group-hover:scale-110 transition-transform duration-500 ease-out mb-1" />
-                    <span className="text-[8px] font-black text-primary/40 tracking-[0.2em] uppercase italic transition-transform duration-500 group-hover:translate-y-1">Identidad Protegida</span>
+                <Link to={`/store/${store.id}`} className="w-full aspect-[1.5/1] bg-gradient-to-br from-primary/10 to-mustard/10 flex flex-col items-center justify-center relative overflow-hidden border-b border-primary/5">
+                    <Logo showText={false} className="h-8 opacity-30 group-hover:scale-110 transition-transform duration-500 ease-out mb-1" />
                     <button
                         onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
                             toggleFollow(store.id);
                         }}
-                        className={`absolute top-3 right-3 z-20 flex items-center justify-center size-9 rounded-full bg-white/80 backdrop-blur-md shadow-sm transition-all duration-200 hover:scale-110 active:scale-[0.75] ${active ? 'text-red-500' : 'text-text-light'}`}
+                        className={`absolute top-1 right-1 z-20 flex items-center justify-center size-7 rounded-full bg-white/80 backdrop-blur-md shadow-sm transition-all duration-200 hover:scale-110 active:scale-[0.75] ${active ? 'text-red-500' : 'text-text-light'}`}
                     >
-                        <Icon name="favorite" filled={active} className="text-xl" />
+                        <Icon name="favorite" filled={active} className="text-sm" />
                     </button>
                 </Link>
             )}
-            <div className="flex flex-col p-4 gap-3">
+            <div className="flex flex-col p-2 gap-2 flex-1 justify-between">
                 <div>
-                    <div className="flex items-center gap-2">
-                        <p className="text-text-light dark:text-text-dark text-base font-black leading-snug tracking-tighter">{store.name}</p>
-                        {isAnonymous && <Icon name="verified_user" className="text-[14px] text-primary/40" filled />}
+                    <div className="flex items-center gap-1">
+                        <p className="text-text-light dark:text-text-dark text-[10px] font-black leading-tight tracking-tighter truncate">{store.name}</p>
+                        {isAnonymous && <Icon name="verified_user" className="text-[10px] text-primary/40" filled />}
                     </div>
-                    <p className="text-text-subtle-light dark:text-text-subtle-dark text-xs font-medium">{store.category}</p>
+                    <p className="text-text-subtle-light dark:text-text-subtle-dark text-[8px] font-bold uppercase truncate">{store.category}</p>
                 </div>
-                <Link to={`/store/${store.id}`} className="flex w-full items-center justify-center rounded-xl h-11 bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary-light text-sm font-black uppercase tracking-wider active:scale-[0.98] transition-all">
-                    Visitar Tienda
+                <Link to={`/store/${store.id}`} className="flex w-full items-center justify-center rounded-lg h-7 bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary-light text-[8px] font-black uppercase tracking-tight active:scale-[0.98] transition-all">
+                    Visitar
                 </Link>
             </div>
         </div>

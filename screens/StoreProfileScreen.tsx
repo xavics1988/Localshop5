@@ -31,9 +31,8 @@ const StoreProfileScreen: React.FC = () => {
     const store = stores.find(s => s.id === storeId);
     const storeReviews = useMemo(() => getStoreReviews(storeId || ''), [getStoreReviews, storeId]);
     
-    const userRole = localStorage.getItem('userRole') || 'cliente';
-    const isCollab = userRole === 'colaborador';
-    const currentUserName = user.name || localStorage.getItem('userName') || 'Elena García';
+    const isCollab = user.role === 'colaborador';
+    const currentUserName = user.name || 'Anónimo';
 
     const hasAlreadyReviewed = useMemo(() => {
         return storeReviews.some(r => r.userName === currentUserName);

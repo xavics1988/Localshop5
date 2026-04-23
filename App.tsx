@@ -17,6 +17,16 @@ import {
 } from './screens/PlaceholderScreens';
 import { BottomNav } from './components/Layout';
 
+const ScrollToTop = () => {
+    const { pathname } = useLocation();
+
+    React.useEffect(() => {
+        window.scrollTo(0, 0);
+    }, [pathname]);
+
+    return null;
+};
+
 const AppContent: React.FC = () => {
     const location = useLocation();
     
@@ -39,6 +49,7 @@ const AppContent: React.FC = () => {
 
     return (
         <div className="relative min-h-screen bg-background-light dark:bg-background-dark">
+            <ScrollToTop />
             <div className={showNav ? "pb-20" : ""}>
                 <Routes>
                     {/* La pantalla inicial por defecto es Explorar (/) */}

@@ -77,6 +77,7 @@ export const products: Product[] = [
 export const orders: Order[] = [
     {
         id: 'ORD-001',
+        customerId: '',
         customerName: 'Elena García',
         date: '2026-01-09',
         status: 'Nuevo',
@@ -88,6 +89,7 @@ export const orders: Order[] = [
     },
     {
         id: 'ORD-002',
+        customerId: '',
         customerName: 'Elena García',
         date: '2026-01-08',
         status: 'En Proceso',
@@ -98,6 +100,7 @@ export const orders: Order[] = [
     },
     {
         id: 'ORD-003',
+        customerId: '',
         customerName: 'Elena García',
         date: '2026-01-05',
         status: 'Completado',
@@ -108,6 +111,7 @@ export const orders: Order[] = [
     },
     {
         id: 'ORD-004',
+        customerId: '',
         customerName: 'Elena García',
         date: '2026-01-09',
         status: 'Nuevo',

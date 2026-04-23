@@ -120,29 +120,31 @@ export const ManageCatalogScreen: React.FC = () => {
                         <button onClick={() => navigate('/publish')} className="mt-6 text-primary font-black uppercase underline">Subir mi primer artículo</button>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-4 gap-2">
                         {myProducts.map(product => (
-                            <div key={product.id} className="relative group">
-                                <ProductCard product={product} />
-                                <div className="mt-2 flex gap-2">
+                            <div key={product.id} className="flex flex-col gap-2">
+                                <div className="relative">
+                                    <ProductCard product={product} />
+                                    {product.stock === 0 && (
+                                        <div className="absolute top-1 left-1 z-20 bg-red-500 text-white text-[7px] font-black uppercase px-1.5 py-0.5 rounded shadow-lg">Agotado</div>
+                                    )}
+                                </div>
+                                <div className="flex flex-col gap-1 px-0.5 pb-2">
                                     <button
                                         onClick={() => navigate(`/publish/${product.id}`)}
-                                        className="flex-1 h-10 bg-primary/10 text-primary rounded-xl text-[10px] font-black uppercase tracking-widest border border-primary/20 flex items-center justify-center gap-1 active:scale-95 transition-transform"
+                                        className="w-full h-8 bg-primary text-white rounded-lg text-[8px] font-black uppercase tracking-tighter flex items-center justify-center gap-1 shadow-md active:scale-95 transition-transform"
                                     >
-                                        <Icon name="edit" className="text-xs" />
-                                        Editar / Reponer
+                                        <Icon name="edit" className="text-[10px]" />
+                                        <span>Editar / Reponer</span>
                                     </button>
                                     <button
                                         onClick={() => setConfirmDeleteId(product.id)}
-                                        className="size-10 bg-red-500/10 text-red-500 rounded-xl border border-red-500/20 flex items-center justify-center active:scale-95 transition-transform"
-                                        title="Eliminar artículo"
+                                        className="w-full h-8 bg-red-500 text-white rounded-lg text-[8px] font-black uppercase tracking-tighter flex items-center justify-center gap-1 shadow-md active:scale-95 transition-transform"
                                     >
-                                        <Icon name="delete" className="text-sm" />
+                                        <Icon name="delete" className="text-[10px]" />
+                                        <span>Eliminar producto</span>
                                     </button>
                                 </div>
-                                {product.stock === 0 && (
-                                    <div className="absolute top-2 left-2 z-20 bg-red-500 text-white text-[8px] font-black uppercase px-2 py-1 rounded-md shadow-lg">Agotado</div>
-                                )}
                             </div>
                         ))}
                     </div>
@@ -193,8 +195,7 @@ export const ManageCatalogScreen: React.FC = () => {
 export const MyReviewsScreen: React.FC = () => {
     const { getUserReviews, getStoreReviews } = useReviews();
     const { user } = useUser();
-    const userRole = localStorage.getItem('userRole') || 'cliente';
-    const isCollab = userRole === 'colaborador';
+    const isCollab = user.role === 'colaborador';
     const { stores } = useStores();
 
     const myStoreId = user.storeId;
@@ -577,8 +578,8 @@ export const LegalNoticeScreen: React.FC = () => {
 
 export const HelpScreen: React.FC = () => {
     const navigate = useNavigate();
-    const userRole = localStorage.getItem('userRole') || 'cliente';
-    const isCollab = userRole === 'colaborador';
+    const { user } = useUser();
+    const isCollab = user.role === 'colaborador';
     const { notify } = useNotifications();
     const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
     const [activeTab, setActiveTab] = useState<'faq' | 'support'>('faq');
@@ -872,6 +873,7 @@ const FormInput = ({ label, value, type = "text", onChange, placeholder, require
 export const AppSettingsScreen: React.FC = () => {
     const { clearLocalProducts } = useProducts();
     const { settings, updateSettings, notify } = useNotifications();
+    const { logout } = useUser();
     const navigate = useNavigate();
     const [darkMode, setDarkMode] = useState(() => document.documentElement.classList.contains('dark'));
 
@@ -939,7 +941,7 @@ export const AppSettingsScreen: React.FC = () => {
                 </SettingsSection>
 
                 <SettingsSection title="Cuenta">
-                    <SettingsLink icon="logout" label="Cerrar Sesión" showChevron={false} onClick={() => { localStorage.clear(); navigate('/welcome'); }} />
+                    <SettingsLink icon="logout" label="Cerrar Sesión" showChevron={false} onClick={() => { logout(); navigate('/welcome'); }} />
                     <div className="p-4">
                         <button
                             onClick={handleDeleteAccount}
@@ -1095,10 +1097,9 @@ const ReferralCard: React.FC = () => {
 
 export const ProfileScreen: React.FC = () => {
     const navigate = useNavigate();
-    const { user } = useUser();
+    const { user, logout } = useUser();
     const { stores } = useStores();
-    const userRole = localStorage.getItem('userRole') || 'cliente';
-    const isCollab = userRole === 'colaborador';
+    const isCollab = user.role === 'colaborador';
 
     const myStore = useMemo(() => isCollab ? stores.find(s => s.id === user.storeId) : null, [stores, isCollab, user.storeId]);
 
@@ -1236,7 +1237,7 @@ export const FavoritesScreen: React.FC = () => {
                             <Link to="/" className="mt-8 px-8 py-3 bg-primary text-white text-xs font-black uppercase tracking-widest rounded-xl shadow-lg active:scale-95 transition-all">Explorar ahora</Link>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-4 gap-2">
                             {favProducts.map(p => <ProductCard key={p.id} product={p} />)}
                         </div>
                     )
@@ -1251,7 +1252,7 @@ export const FavoritesScreen: React.FC = () => {
                             <Link to="/" className="mt-8 px-8 py-3 bg-primary text-white text-xs font-black uppercase tracking-widest rounded-xl shadow-lg active:scale-95 transition-all">Buscar tiendas</Link>
                         </div>
                     ) : (
-                        <div className="flex flex-col gap-6">
+                        <div className="grid grid-cols-4 gap-2">
                             {favStores.map(s => (
                                 <div key={s.id} className="w-full">
                                     <StoreCard store={s} />
@@ -1307,8 +1308,7 @@ export const OrdersScreen: React.FC = () => {
     const { orders, requestReturn, processReturn, updateOrderStatus } = useOrders();
     const { user } = useUser();
     const { notify } = useNotifications();
-    const userRole = localStorage.getItem('userRole') || 'cliente';
-    const isCollab = userRole === 'colaborador';
+    const isCollab = user.role === 'colaborador';
 
     // Estado para controlar qué pedidos tienen el historial desplegado
     const [expandedHistory, setExpandedHistory] = useState<Record<string, boolean>>({});
@@ -1739,11 +1739,10 @@ export const PurchaseHistoryScreen: React.FC = () => <Placeholder title="Histori
 export const CollaboratorRegistrationScreen: React.FC = () => <Placeholder title="Registro de Colaborador" />;
 
 export const PaymentMethodsScreen: React.FC = () => {
-    const userRole = localStorage.getItem('userRole') || 'cliente';
-    const isCollab = userRole === 'colaborador';
     const navigate = useNavigate();
     const { notify } = useNotifications();
     const { addBankAccount, paymentMethods, addPaymentMethod, removePaymentMethod, user } = useUser();
+    const isCollab = user.role === 'colaborador';
 
     const [cardForm, setCardForm] = useState({
         number: '',
@@ -1997,8 +1996,7 @@ export const EditCustomerProfileScreen: React.FC = () => {
     const { updateStore, stores } = useStores();
     const navigate = useNavigate();
     const { notify } = useNotifications();
-    const userRole = localStorage.getItem('userRole') || 'cliente';
-    const isCollab = userRole === 'colaborador';
+    const isCollab = user.role === 'colaborador';
 
     const currentStore = useMemo(() => isCollab ? stores.find(s => s.id === user.storeId) : null, [stores, isCollab, user.storeId]);
 
@@ -2273,8 +2271,7 @@ export const PublishScreen: React.FC = () => {
     const navigate = useNavigate();
 
     // Verificación de cuenta bancaria para colaboradores
-    const userRole = localStorage.getItem('userRole') || 'cliente';
-    const isCollab = userRole === 'colaborador';
+    const isCollab = user.role === 'colaborador';
     const hasBankAccount = bankAccounts.length > 0;
 
     // Estados específicos para los nuevos campos
@@ -2766,10 +2763,14 @@ New background: warm terracotta studio (#8B5535), smooth gradient lighter toward
                 navigate('/manage-catalog');
             }
         } else {
+            if (!user.storeId) {
+                notify('Error', 'No se encontró tu tienda. Recarga la página e inténtalo de nuevo.', 'error');
+                return;
+            }
             const newProduct: Product = {
                 id: `PROD-${Date.now()}`,
                 storeName: user.name,
-                storeId: user.storeId || '1',
+                storeId: user.storeId,
                 ...productData
             };
             if (addProduct(newProduct)) {

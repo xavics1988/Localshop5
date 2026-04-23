@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useCart } from '../AppContext';
+import { useCart, useUser } from '../AppContext';
 
 const Icon = ({ name, filled, className }: { name: string; filled?: boolean; className?: string }) => (
     <span className={`material-symbols-outlined ${className}`} style={{ fontVariationSettings: filled ? "'FILL' 1" : "'FILL' 0" }}>
@@ -63,7 +63,8 @@ export const Logo: React.FC<{ className?: string; showText?: boolean }> = ({ cla
 );
 
 export const BottomNav: React.FC<{ activePath: string }> = ({ activePath }) => {
-    const userRole = localStorage.getItem('userRole') || 'cliente';
+    const { user } = useUser();
+    const userRole = user.role;
     const { cartItems } = useCart();
     
     const items = userRole === 'colaborador' 

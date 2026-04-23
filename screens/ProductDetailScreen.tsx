@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useProducts, useCart, useFavorites, useNotifications } from '../AppContext';
+import { useProducts, useCart, useFavorites, useNotifications, useUser } from '../AppContext';
 import { DetailHeader } from '../components/Layout';
 
 const Icon = ({ name, filled, className }: { name: string; filled?: boolean; className?: string }) => (
@@ -17,6 +17,7 @@ const ProductDetailScreen: React.FC = () => {
     const { addToCart, cartItems } = useCart();
     const { isFavorite, toggleFavorite } = useFavorites();
     const { notify } = useNotifications();
+    const { user } = useUser();
 
     const product = getProductById(productId || '');
     const [selectedSize, setSelectedSize] = useState<string | null>(null);
@@ -24,9 +25,7 @@ const ProductDetailScreen: React.FC = () => {
     const [activeImageIndex, setActiveImageIndex] = useState(0);
     const scrollRef = useRef<HTMLDivElement>(null);
 
-    // Obtener el rol del usuario
-    const userRole = localStorage.getItem('userRole') || 'cliente';
-    const isCollab = userRole === 'colaborador';
+    const isCollab = user.role === 'colaborador';
 
     const productImages = useMemo(() => {
         if (!product) return [];

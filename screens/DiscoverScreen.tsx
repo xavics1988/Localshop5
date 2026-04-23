@@ -2,7 +2,7 @@
 import { Link } from 'react-router-dom';
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { ProductCard, StoreCard } from '../components/Card';
-import { useFollowedStores, useNotifications, useProducts, useStores } from '../AppContext';
+import { useFollowedStores, useNotifications, useProducts, useStores, useUser } from '../AppContext';
 import { CLOTHING_CATEGORIES } from '../data';
 import { Product } from '../types';
 import { Logo } from '../components/Layout';
@@ -83,6 +83,7 @@ const CATEGORY_TO_SIZE_GROUP: Record<string, string> = {
 };
 
 const DiscoverScreen: React.FC = () => {
+    const { user } = useUser();
     const { products } = useProducts();
     const { stores } = useStores();
     const { notify } = useNotifications();
@@ -107,7 +108,7 @@ const DiscoverScreen: React.FC = () => {
         sortPrice: 'none' as 'none' | 'asc' | 'desc' // Price sort
     });
 
-    const userRole = localStorage.getItem('userRole') || 'cliente';
+    const userRole = user.role;
 
     const productCategories = useMemo(() => {
         let categories = CLOTHING_CATEGORIES;
@@ -401,7 +402,7 @@ const DiscoverScreen: React.FC = () => {
                 </div>
             </div>
             
-            <main className="grid grid-cols-2 sm:grid-cols-4 gap-4 px-4 pt-4 pb-24 min-h-[400px]">
+            <main className="grid grid-cols-4 gap-2 px-3 pt-4 pb-24 min-h-[400px]">
                 {sortedProducts.length > 0 ? (
                     sortedProducts.map(product => <ProductCard key={product.id} product={product} />)
                 ) : (
