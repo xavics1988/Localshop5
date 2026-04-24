@@ -296,11 +296,9 @@ const DiscoverScreen: React.FC = () => {
                     <Logo className="h-10" />
                 </div>
                 <div className="flex-1 flex justify-end items-center gap-1">
-                    {userRole !== 'colaborador' && (
-                        <Link to="/cart" className="flex size-10 items-center justify-center text-text-light dark:text-text-dark active:scale-90 transition-transform">
-                            <Icon name="shopping_cart" className="text-2xl" />
-                        </Link>
-                    )}
+                    <Link to="/cart" className="flex size-10 items-center justify-center text-text-light dark:text-text-dark active:scale-90 transition-transform">
+                        <Icon name="shopping_cart" className="text-2xl" />
+                    </Link>
                     <Link to="/signup" className="flex size-10 items-center justify-center text-text-light dark:text-text-dark active:scale-90 transition-transform">
                         <Icon name="person_add" className="text-2xl" />
                     </Link>

@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { Product, OrderItem, Order, OrderStatus, Review, Store, BankAccount, PaymentCard, PlatformAccount, OrderContextType, OrderEvent, UserProfile } from './types';
+import { Product, OrderItem, Order, OrderStatus, Review, Store, BankAccount, PaymentCard, PlatformAccount, OrderContextType, OrderEvent, UserProfile, CollaboratorSubscription } from './types';
 import { CLOTHING_CATEGORIES } from './data';
 import {
   supabase,
@@ -18,9 +18,54 @@ export const LOCALSHOP_PLATFORM_ACCOUNT: PlatformAccount = {
   bankName: import.meta.env.VITE_PLATFORM_BANK   || "Banco Central LocalShop"
 };
 
+// ── Cuenta propia de LocalShop para comisiones (envío + suscripciones) ──────
+// ⚠️  Cuando tengas el IBAN real de empresa, añádelo en .env.local con VITE_COMPANY_IBAN
+export const LOCALSHOP_COMPANY_ACCOUNT: PlatformAccount = {
+  holder:   import.meta.env.VITE_COMPANY_HOLDER || "LOCAL SHOP GLOBAL S.L.",
+  iban:     import.meta.env.VITE_COMPANY_IBAN   || "PENDIENTE — configura VITE_COMPANY_IBAN en .env.local",
+  bankName: import.meta.env.VITE_COMPANY_BANK   || "Cuenta Empresa LocalShop",
+};
+
+// ── Modelo de negocio ────────────────────────────────────────────────────────
+export const LOCALSHOP_FEE             = 3.99;  // € comisión de intermediación LocalShop (siempre)
+export const SHIPPING_FEE              = 4.50;  // € gastos de envío cobrados al cliente si subtotal < FREE_SHIPPING_THRESHOLD
+export const FREE_SHIPPING_THRESHOLD   = 70;    // € — por encima el colaborador gestiona el envío (gratis para el cliente)
+export const SUBSCRIPTION_FREE_MONTHS  = 6;     // meses gratis para colaboradores
+export const SUBSCRIPTION_MONTHLY_FEE  = 7.00;  // € /mes — tarifa estándar
+export const FOUNDING_MEMBER_FEE       = 4.00;  // € /mes — tarifa de por vida para socios fundadores
+export const FOUNDING_MEMBER_WINDOW_MONTHS = 6; // meses desde el lanzamiento con derecho a tarifa fundador
+
+// Fecha de lanzamiento oficial de la plataforma.
+// ⚠️  Actualiza VITE_APP_LAUNCH_DATE en .env.local con el formato YYYY-MM-DD.
+export const APP_LAUNCH_DATE = new Date(
+  import.meta.env.VITE_APP_LAUNCH_DATE || '2025-04-23'
+);
+
+export function getCollaboratorSubscription(joinedAt: string): CollaboratorSubscription {
+  const joinedDate  = new Date(joinedAt);
+  const trialEndsAt = new Date(joinedDate);
+  trialEndsAt.setMonth(trialEndsAt.getMonth() + SUBSCRIPTION_FREE_MONTHS);
+
+  // Es socio fundador si se registró dentro de los primeros 6 meses del lanzamiento
+  const foundingWindowEnd = new Date(APP_LAUNCH_DATE);
+  foundingWindowEnd.setMonth(foundingWindowEnd.getMonth() + FOUNDING_MEMBER_WINDOW_MONTHS);
+  const isFoundingMember = joinedDate <= foundingWindowEnd;
+
+  const now = new Date();
+  const daysRemaining = Math.ceil((trialEndsAt.getTime() - now.getTime()) / 86_400_000);
+  return {
+    status:               now < trialEndsAt ? 'trial' : 'active',
+    trialEndsAt,
+    daysRemainingInTrial: daysRemaining,
+    monthlyFee:           isFoundingMember ? FOUNDING_MEMBER_FEE : SUBSCRIPTION_MONTHLY_FEE,
+    isFoundingMember,
+  };
+}
+
 const INITIAL_USER_PROFILE: UserProfile = {
   id: '', name: '', email: '', location: '', bio: '', phone: '',
-  referralCode: '', referralBalance: 0
+  referralCode: '', referralBalance: 0,
+  role: 'cliente'
 };
 
 // --- Interfaces de Context ---
@@ -494,15 +539,17 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const addOrder = useCallback(async (orderData: Omit<Order, 'id' | 'date' | 'status'>) => {
     const newOrder: Order = {
       ...orderData,
-      id:             `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
-      customerId:     user.id,
-      date:           new Date().toISOString(),
-      status:         'Nuevo',
+      id:              `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
+      customerId:      user.id,
+      date:            new Date().toISOString(),
+      status:          'Nuevo',
+      shippingFee:     SHIPPING_FEE,
       destinationIban: LOCALSHOP_PLATFORM_ACCOUNT.iban,
-      history:        [createEvent('Nuevo', 'Pedido Realizado')]
+      history:         [createEvent('Nuevo', 'Pedido Realizado')]
     };
 
     console.log(`[PAGO PROCESADO] Importe: €${orderData.total.toFixed(2)} -> ${LOCALSHOP_PLATFORM_ACCOUNT.holder} (${LOCALSHOP_PLATFORM_ACCOUNT.iban})`);
+    console.log(`[COMISIÓN ENVÍO] €${SHIPPING_FEE.toFixed(2)} -> ${LOCALSHOP_COMPANY_ACCOUNT.holder} (${LOCALSHOP_COMPANY_ACCOUNT.iban})`);
 
     setOrders(prev => [newOrder, ...prev]);
     setCartItems([]);
@@ -510,14 +557,15 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const isFirstPurchase = orders.filter(o => o.customerId === user.id).length === 0;
 
     const { error } = await supabase.rpc('place_order', {
-      p_order_id:         newOrder.id,
-      p_customer_id:      user.id,
-      p_customer_name:    user.name,
-      p_items:            newOrder.items,
-      p_total:            newOrder.total,
-      p_destination_iban: LOCALSHOP_PLATFORM_ACCOUNT.iban,
-      p_referred_by:      user.referredBy ?? null,
-      p_is_first_purchase: isFirstPurchase
+      p_order_id:          newOrder.id,
+      p_customer_id:       user.id,
+      p_customer_name:     user.name,
+      p_items:             newOrder.items,
+      p_total:             newOrder.total,
+      p_destination_iban:  LOCALSHOP_PLATFORM_ACCOUNT.iban,
+      p_referred_by:       user.referredBy ?? null,
+      p_is_first_purchase: isFirstPurchase,
+      p_shipping_fee:      SHIPPING_FEE
     });
 
     if (error) {

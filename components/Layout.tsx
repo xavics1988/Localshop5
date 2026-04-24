@@ -67,7 +67,7 @@ export const BottomNav: React.FC<{ activePath: string }> = ({ activePath }) => {
     const userRole = user.role;
     const { cartItems } = useCart();
     
-    const items = userRole === 'colaborador' 
+    const items = (userRole === 'colaborador' && activePath !== '/')
         ? [ 
             { path: '/', icon: 'home', label: 'HOME' }, 
             { path: '/publish', icon: 'add_circle', label: 'PUBLICAR' }, 

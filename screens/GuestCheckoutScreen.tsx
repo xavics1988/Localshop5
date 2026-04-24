@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DetailHeader } from '../components/Layout';
-import { useCart, useNotifications, LOCALSHOP_PLATFORM_ACCOUNT } from '../AppContext';
+import { useCart, useNotifications, LOCALSHOP_PLATFORM_ACCOUNT, LOCALSHOP_FEE, SHIPPING_FEE, FREE_SHIPPING_THRESHOLD } from '../AppContext';
 import { SPANISH_PROVINCES } from './AuthScreens';
 import {
     sanitizeRaw, truncate, MAX_LENGTHS,
@@ -99,6 +99,9 @@ const GuestCheckoutScreen: React.FC = () => {
     const [cardData, setCardData] = useState({ number: '', holder: '', expiry: '', cvv: '' });
 
     const subtotal = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+    const freeShipping = subtotal >= FREE_SHIPPING_THRESHOLD;
+    const shippingCost = freeShipping ? 0 : SHIPPING_FEE;
+    const total = subtotal + LOCALSHOP_FEE + shippingCost;
 
     const setField = (field: keyof GuestData) => (v: string) =>
         setGuestData(prev => ({ ...prev, [field]: v }));
@@ -158,7 +161,7 @@ const GuestCheckoutScreen: React.FC = () => {
         // Pequeña pausa para simular el procesamiento del pago
         await new Promise(resolve => setTimeout(resolve, 1200));
 
-        console.log(`[PAGO INVITADO] ${generatedOrderId} — Importe: €${subtotal.toFixed(2)} -> ${LOCALSHOP_PLATFORM_ACCOUNT.holder} (${LOCALSHOP_PLATFORM_ACCOUNT.iban})`);
+        console.log(`[PAGO INVITADO] ${generatedOrderId} — Importe: €${total.toFixed(2)} (subtotal €${subtotal.toFixed(2)} + comisión €${LOCALSHOP_FEE.toFixed(2)} + envío €${shippingCost.toFixed(2)}) -> ${LOCALSHOP_PLATFORM_ACCOUNT.holder}`);
 
         setLoading(false);
         clearCart();
@@ -234,12 +237,28 @@ const GuestCheckoutScreen: React.FC = () => {
                             <span className="text-sm font-bold text-text-light dark:text-text-dark">€{subtotal.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between items-center py-2 border-b border-border-light/50">
-                            <span className="text-sm font-bold text-text-light dark:text-text-dark">Envío (Local)</span>
-                            <span className="text-[10px] font-black text-green-500 uppercase tracking-widest">Gratis</span>
+                            <div className="flex flex-col">
+                                <span className="text-sm font-bold text-text-light dark:text-text-dark">Gestión LocalShop</span>
+                                <span className="text-[10px] text-text-subtle-light">Comisión de intermediación</span>
+                            </div>
+                            <span className="text-sm font-bold text-text-light dark:text-text-dark">€{LOCALSHOP_FEE.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-2 border-b border-border-light/50">
+                            <div className="flex flex-col">
+                                <span className="text-sm font-bold text-text-light dark:text-text-dark">Gastos de envío</span>
+                                {freeShipping
+                                    ? <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-black uppercase">Gestionado por el colaborador · Gratis</span>
+                                    : <span className="text-[10px] text-text-subtle-light">Tarifa para pedidos menores de €{FREE_SHIPPING_THRESHOLD}</span>
+                                }
+                            </div>
+                            {freeShipping
+                                ? <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">Gratis</span>
+                                : <span className="text-sm font-bold text-text-light dark:text-text-dark">€{SHIPPING_FEE.toFixed(2)}</span>
+                            }
                         </div>
                         <div className="flex justify-between items-center pt-4">
                             <span className="text-lg font-black text-text-light dark:text-text-dark">Total a pagar</span>
-                            <span className="text-xl font-black text-primary">€{subtotal.toFixed(2)}</span>
+                            <span className="text-xl font-black text-primary">€{total.toFixed(2)}</span>
                         </div>
                     </div>
 
@@ -321,7 +340,7 @@ const GuestCheckoutScreen: React.FC = () => {
                         ) : (
                             <>
                                 <Icon name="lock" />
-                                Confirmar Pago — €{subtotal.toFixed(2)}
+                                Confirmar Pago — €{total.toFixed(2)}
                             </>
                         )}
                     </button>
@@ -433,10 +452,45 @@ const GuestCheckoutScreen: React.FC = () => {
                 </div>
 
                 {/* Total */}
-                <div className="bg-white dark:bg-accent-dark p-5 rounded-[32px] border border-border-light dark:border-border-dark shadow-sm flex justify-between items-center">
-                    <span className="font-black text-text-light dark:text-text-dark">Total del pedido</span>
-                    <span className="font-black text-primary text-xl">€{subtotal.toFixed(2)}</span>
+                <div className="bg-white dark:bg-accent-dark p-5 rounded-[32px] border border-border-light dark:border-border-dark shadow-sm space-y-3">
+                    <div className="flex justify-between items-center border-b border-border-light/50 pb-3">
+                        <span className="text-sm font-bold text-text-light dark:text-text-dark">Subtotal</span>
+                        <span className="text-sm font-bold text-text-light dark:text-text-dark">€{subtotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center border-b border-border-light/50 pb-3">
+                        <div className="flex flex-col">
+                            <span className="text-sm font-bold text-text-light dark:text-text-dark">Gestión LocalShop</span>
+                            <span className="text-[10px] text-text-subtle-light">Comisión de intermediación</span>
+                        </div>
+                        <span className="text-sm font-bold text-text-light dark:text-text-dark">€{LOCALSHOP_FEE.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center border-b border-border-light/50 pb-3">
+                        <div className="flex flex-col">
+                            <span className="text-sm font-bold text-text-light dark:text-text-dark">Gastos de envío</span>
+                            {freeShipping
+                                ? <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-black uppercase">El colaborador gestiona el envío</span>
+                                : <span className="text-[10px] text-text-subtle-light">Tarifa para pedidos &lt;€{FREE_SHIPPING_THRESHOLD}</span>
+                            }
+                        </div>
+                        {freeShipping
+                            ? <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">Gratis</span>
+                            : <span className="text-sm font-bold text-text-light dark:text-text-dark">€{SHIPPING_FEE.toFixed(2)}</span>
+                        }
+                    </div>
+                    <div className="flex justify-between items-center">
+                        <span className="font-black text-text-light dark:text-text-dark">Total del pedido</span>
+                        <span className="font-black text-primary text-xl">€{total.toFixed(2)}</span>
+                    </div>
                 </div>
+
+                {!freeShipping && (
+                    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-2xl p-4 flex gap-3 items-start">
+                        <Icon name="local_shipping" className="text-amber-600 dark:text-amber-400 text-xl shrink-0 mt-0.5" />
+                        <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed font-medium">
+                            Añade <span className="font-black">€{(FREE_SHIPPING_THRESHOLD - subtotal).toFixed(2)}</span> más de la misma tienda y el colaborador asumirá los gastos de envío.
+                        </p>
+                    </div>
+                )}
 
                 {/* Acciones */}
                 <div className="flex gap-3">

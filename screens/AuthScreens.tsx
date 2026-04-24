@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useNotifications } from '../AppContext';
+import { useNotifications, useUser } from '../AppContext';
 import { supabase } from '../src/lib/supabase';
 import {
     sanitizeRaw, truncate, MAX_LENGTHS,
@@ -28,9 +28,15 @@ export const SPANISH_PROVINCES = [
 
 export const OnboardingScreen: React.FC = () => {
     const navigate = useNavigate();
+    const { updateUser } = useUser();
 
     const handleNavigation = (path: string) => {
         navigate(path);
+    };
+
+    const handleGuestEntry = () => {
+        updateUser({ role: 'cliente' });
+        navigate('/');
     };
 
     return (
@@ -58,7 +64,7 @@ export const OnboardingScreen: React.FC = () => {
                             </button>
                         </div>
                     </div>
-                    <p onClick={() => handleNavigation('/')} className="text-text-subtle-light dark:text-text-subtle-dark text-sm pt-6 pb-3 px-4 text-center underline cursor-pointer">Ver como invitado</p>
+                    <p onClick={handleGuestEntry} className="text-text-subtle-light dark:text-text-subtle-dark text-sm pt-6 pb-3 px-4 text-center underline cursor-pointer">Ver como invitado</p>
                 </div>
             </div>
         </div>
@@ -188,6 +194,11 @@ export const SignUpScreen: React.FC = () => {
                     referred_by:      (!isCollab && formData.referralInput) ? sanitizeRaw(formData.referralInput) : null,
                     referral_balance: 0
                 }, { onConflict: 'id' });
+
+                // Registrar periodo de prueba gratuito para colaboradores
+                if (isCollab) {
+                    await supabase.rpc('register_collaborator_subscription', { p_user_id: userId });
+                }
             }
         } catch (err: any) {
             notify('Error', err?.message || 'Error al crear el perfil.', 'error');

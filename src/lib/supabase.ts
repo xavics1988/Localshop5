@@ -31,6 +31,7 @@ export type DbProfile = {
   referral_code: string | null;
   referred_by: string | null;
   referral_balance: number;
+  created_at: string;
 };
 
 export type DbProduct = {
@@ -105,6 +106,7 @@ export function dbProfileToUserProfile(p: DbProfile): UserProfile {
     referralCode:    p.referral_code ?? undefined,
     referredBy:      p.referred_by ?? undefined,
     referralBalance: Number(p.referral_balance) || 0,
+    joinedAt:        p.created_at,
   };
 }
 

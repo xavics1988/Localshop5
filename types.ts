@@ -59,6 +59,17 @@ export interface UserProfile {
     referralCode?: string;
     referredBy?: string;
     referralBalance: number;
+    joinedAt?: string; // profiles.created_at — usado para calcular periodo de prueba
+}
+
+export type SubscriptionStatus = 'trial' | 'active' | 'expired';
+
+export interface CollaboratorSubscription {
+    status: SubscriptionStatus;
+    trialEndsAt: Date;
+    daysRemainingInTrial: number; // negativo si ya expiró
+    monthlyFee: number;           // 4.00 (fundador) o 7.00 (estándar)
+    isFoundingMember: boolean;    // registrado en los 6 primeros meses del lanzamiento
 }
 
 export interface OrderItem {
@@ -83,6 +94,7 @@ export interface Order {
   status: OrderStatus;
   items: OrderItem[];
   total: number;
+  shippingFee?: number;     // €3.99 — comisión LocalShop por gestión de envío
   destinationIban?: string; // IBAN donde se recibió el pago (LocalShop)
   history?: OrderEvent[];
 }

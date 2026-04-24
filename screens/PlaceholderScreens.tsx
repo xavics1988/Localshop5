@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { DetailHeader, Logo } from '../components/Layout';
-import { useNavigate, Link, useLocation, useParams } from 'react-router-dom';
+import { useNavigate, Link, useLocation, useParams, Navigate } from 'react-router-dom';
 import {
     sanitizeRaw, truncate, MAX_LENGTHS,
     validateName, validateEmail, validatePhone,
@@ -9,7 +9,7 @@ import {
     validateIBAN, validateBIC, validateProductField, validatePrice
 } from '../utils/validation';
 import { Product, Order, OrderStatus, Store, OrderItem, BankAccount, Review, PaymentCard, OrderEvent } from '../types';
-import { useProducts, useCart, useFavorites, useFollowedStores, useNotifications, useOrders, useReviews, useUser, useStores, LOCALSHOP_PLATFORM_ACCOUNT } from '../AppContext';
+import { useProducts, useCart, useFavorites, useFollowedStores, useNotifications, useOrders, useReviews, useUser, useStores, LOCALSHOP_PLATFORM_ACCOUNT, LOCALSHOP_COMPANY_ACCOUNT, LOCALSHOP_FEE, SHIPPING_FEE, FREE_SHIPPING_THRESHOLD, getCollaboratorSubscription } from '../AppContext';
 import { StoreCard, ProductCard } from '../components/Card';
 import { GoogleGenAI } from "@google/genai";
 import { removeBackground } from '@imgly/background-removal';
@@ -316,7 +316,8 @@ export const TermsScreen: React.FC = () => {
                             <li><strong>Recogida en Tienda:</strong> Siempre gratuita para el Usuario.</li>
                             <li><strong>Envío a Domicilio:</strong>
                                 <ul className="pl-4 mt-1 space-y-1 list-circle">
-                                    <li>Pedidos de 0 € a 78,99 €: El Usuario paga los gastos de envío (entre 4,95 € y 6,95 € aprox.).</li>
+                                    <li>Pedidos inferiores a 70 €: El Usuario paga una tarifa plana de envío de 4,50 €.</li>
+                                    <li>Pedidos de 70 € o más (en una misma tienda): El Colaborador gestiona y asume los gastos de envío. El envío es gratuito para el cliente.</li>
                                     <li>Pedidos a partir de 79 €: Envío gratuito para el Usuario; el coste es asumido por el Colaborador.</li>
                                 </ul>
                             </li>
@@ -602,7 +603,7 @@ export const HelpScreen: React.FC = () => {
         },
         {
             q: "¿Tengo que pagar el envío de las ventas?",
-            a: "Solo en el caso de pedidos superiores a 79 €, donde la tienda asume el coste para ofrecer envío gratuito al cliente. En pedidos menores, el cliente paga el envío."
+            a: "Sí, en pedidos superiores a 70 €. Cuando el carrito de una sola tienda supera ese importe, el colaborador gestiona y asume los gastos de envío como ventaja para el cliente. En pedidos menores de 70 €, el cliente paga 4,50 €."
         }
     ] : [
         {
@@ -619,7 +620,7 @@ export const HelpScreen: React.FC = () => {
         },
         {
             q: "¿Cuánto cuesta el envío?",
-            a: "El coste medio del servicio de mensajería oscila entre 4,95 € y 6,95 € para pedidos de hasta 79 €. A partir de 79 €, el envío es gratuito para el cliente."
+            a: "Si tu pedido en una misma tienda es inferior a 70 €, se añaden 4,50 € de gastos de envío. Si superas los 70 €, el envío es completamente gratuito para ti, ya que el colaborador lo gestiona."
         },
         {
             q: "¿Cómo funcionan las devoluciones?",
@@ -972,6 +973,9 @@ export const CartScreen: React.FC = () => {
     const { user } = useUser();
     const navigate = useNavigate();
     const subtotal = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+    const freeShipping = subtotal >= FREE_SHIPPING_THRESHOLD;
+    const shippingCost = freeShipping ? 0 : SHIPPING_FEE;
+    const grandTotal = subtotal + LOCALSHOP_FEE + shippingCost;
     const isAuthenticated = !!user.id;
 
     return (
@@ -1014,11 +1018,44 @@ export const CartScreen: React.FC = () => {
                         </div>
 
                         <div className="bg-white dark:bg-accent-dark p-6 rounded-[32px] border border-border-light dark:border-border-dark shadow-sm space-y-3">
-                            <div className="flex justify-between items-center">
+                            <div className="flex justify-between items-center py-1.5 border-b border-border-light/50">
+                                <span className="text-sm font-bold text-text-light dark:text-text-dark">Subtotal</span>
+                                <span className="text-sm font-bold text-text-light dark:text-text-dark">€{subtotal.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between items-center py-1.5 border-b border-border-light/50">
+                                <div className="flex flex-col">
+                                    <span className="text-sm font-bold text-text-light dark:text-text-dark">Gestión LocalShop</span>
+                                    <span className="text-[10px] text-text-subtle-light">Comisión de intermediación</span>
+                                </div>
+                                <span className="text-sm font-bold text-text-light dark:text-text-dark">€{LOCALSHOP_FEE.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between items-center py-1.5 border-b border-border-light/50">
+                                <div className="flex flex-col">
+                                    <span className="text-sm font-bold text-text-light dark:text-text-dark">Gastos de envío</span>
+                                    {freeShipping
+                                        ? <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-black uppercase">El colaborador gestiona el envío · Gratis para ti</span>
+                                        : <span className="text-[10px] text-text-subtle-light">Tarifa plana para pedidos menores de €{FREE_SHIPPING_THRESHOLD}</span>
+                                    }
+                                </div>
+                                {freeShipping
+                                    ? <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">Gratis</span>
+                                    : <span className="text-sm font-bold text-text-light dark:text-text-dark">€{SHIPPING_FEE.toFixed(2)}</span>
+                                }
+                            </div>
+                            <div className="flex justify-between items-center pt-1">
                                 <span className="font-black text-xl text-text-light dark:text-text-dark">Total</span>
-                                <span className="text-2xl font-black text-primary">€{subtotal.toFixed(2)}</span>
+                                <span className="text-2xl font-black text-primary">€{grandTotal.toFixed(2)}</span>
                             </div>
                         </div>
+
+                        {!freeShipping && (
+                            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-2xl p-4 flex gap-3 items-start">
+                                <Icon name="local_shipping" className="text-amber-600 dark:text-amber-400 text-xl shrink-0 mt-0.5" />
+                                <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed font-medium">
+                                    Añade <span className="font-black">€{(FREE_SHIPPING_THRESHOLD - subtotal).toFixed(2)}</span> más de una misma tienda y el colaborador asumirá los gastos de envío.
+                                </p>
+                            </div>
+                        )}
 
                         {isAuthenticated ? (
                             <button onClick={() => navigate('/payment')} className="w-full h-16 bg-primary text-white font-bold rounded-2xl shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-3 text-lg">
@@ -1116,6 +1153,9 @@ export const ProfileScreen: React.FC = () => {
     const { stores } = useStores();
     const isCollab = user.role === 'colaborador';
 
+    // Invitado (sin sesión) → pantalla de registro/bienvenida
+    if (!user.id) return <Navigate to="/welcome" replace />;
+
     const myStore = useMemo(() => isCollab ? stores.find(s => s.id === user.storeId) : null, [stores, isCollab, user.storeId]);
 
     const displayInfo = useMemo(() => {
@@ -1179,6 +1219,86 @@ export const ProfileScreen: React.FC = () => {
                 </div>
 
                 {!isCollab && <ReferralCard />}
+
+                {isCollab && user.joinedAt && (() => {
+                    const sub = getCollaboratorSubscription(user.joinedAt!);
+                    const isTrial = sub.status === 'trial';
+                    const isNearingEnd = isTrial && sub.daysRemainingInTrial <= 30;
+                    const badgeClass = isTrial
+                        ? isNearingEnd
+                            ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+                            : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                        : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
+                    const badgeLabel = isTrial
+                        ? isNearingEnd ? 'Prueba — próxima a vencer' : 'Periodo de prueba gratuito'
+                        : 'Suscripción activa';
+                    const trialEndStr = sub.trialEndsAt.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
+
+                    return (
+                        <div className="bg-white dark:bg-accent-dark p-6 rounded-[32px] border border-border-light dark:border-border-dark shadow-sm space-y-4 animate-fade-in">
+                            <div className="flex justify-between items-start">
+                                <div className="space-y-1.5">
+                                    <h3 className="text-sm font-black uppercase tracking-widest text-text-subtle-light">Suscripción</h3>
+                                    {sub.isFoundingMember && (
+                                        <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                                            <Icon name="star" className="text-xs" filled /> Socio Fundador
+                                        </span>
+                                    )}
+                                </div>
+                                <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full ${badgeClass}`}>
+                                    {badgeLabel}
+                                </span>
+                            </div>
+
+                            {isTrial ? (
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-sm text-text-subtle-light font-medium">Días restantes</span>
+                                        <span className={`text-2xl font-black ${isNearingEnd ? 'text-orange-500' : 'text-primary'}`}>
+                                            {sub.daysRemainingInTrial}
+                                        </span>
+                                    </div>
+                                    <div className="w-full h-2 bg-accent-light dark:bg-background-dark rounded-full overflow-hidden">
+                                        <div
+                                            className={`h-full rounded-full transition-all ${isNearingEnd ? 'bg-orange-400' : 'bg-primary'}`}
+                                            style={{ width: `${Math.max(2, Math.min(100, (sub.daysRemainingInTrial / (6 * 30)) * 100))}%` }}
+                                        />
+                                    </div>
+                                    <p className="text-xs text-text-subtle-light leading-relaxed">
+                                        Prueba gratuita hasta el <span className="font-bold text-text-light dark:text-text-dark">{trialEndStr}</span>.
+                                        A partir de esa fecha, la suscripción es de{' '}
+                                        <span className="font-black text-primary">€{sub.monthlyFee.toFixed(2)}/mes</span>
+                                        {sub.isFoundingMember && (
+                                            <span className="text-amber-600 dark:text-amber-400"> (tarifa fundador de por vida)</span>
+                                        )}.
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <span className="text-sm text-text-subtle-light font-medium">Cuota mensual</span>
+                                            {sub.isFoundingMember && (
+                                                <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold uppercase tracking-widest">Tarifa fundador — de por vida</p>
+                                            )}
+                                        </div>
+                                        <span className="text-2xl font-black text-primary">€{sub.monthlyFee.toFixed(2)}</span>
+                                    </div>
+                                    <p className="text-xs text-text-subtle-light leading-relaxed">
+                                        Periodo de prueba finalizado el <span className="font-bold">{trialEndStr}</span>.
+                                    </p>
+                                </div>
+                            )}
+
+                            <div className="bg-accent-light dark:bg-background-dark rounded-2xl p-4 space-y-1">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light mb-1">Cuenta de pago de la suscripción</p>
+                                <p className="text-xs font-bold text-text-light dark:text-text-dark">{LOCALSHOP_COMPANY_ACCOUNT.holder}</p>
+                                <p className="text-xs font-mono text-text-subtle-light break-all">{LOCALSHOP_COMPANY_ACCOUNT.iban}</p>
+                                <p className="text-[10px] text-text-subtle-light">{LOCALSHOP_COMPANY_ACCOUNT.bankName}</p>
+                            </div>
+                        </div>
+                    );
+                })()}
 
                 <div className="pt-10 pb-4 text-center">
                     <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-text-subtle-light dark:text-text-subtle-dark mb-6">
@@ -1558,8 +1678,10 @@ export const PaymentScreen: React.FC = () => {
     const hasCard = paymentMethods.length > 0;
     const selectedCard = hasCard ? paymentMethods[0] : null;
 
-    const referralDiscount = useReferral ? Math.min(subtotal, user.referralBalance || 0) : 0;
-    const finalTotal = Math.max(0, subtotal - referralDiscount);
+    const freeShipping = subtotal >= FREE_SHIPPING_THRESHOLD;
+    const shippingCost = freeShipping ? 0 : SHIPPING_FEE;
+    const referralDiscount = useReferral ? Math.min(subtotal + LOCALSHOP_FEE + shippingCost, user.referralBalance || 0) : 0;
+    const finalTotal = Math.max(0, subtotal + LOCALSHOP_FEE + shippingCost - referralDiscount);
 
     const handleConfirmPayment = () => {
         if (cartItems.length === 0) return;
@@ -1602,7 +1724,8 @@ export const PaymentScreen: React.FC = () => {
         addOrder({
             customerName: user.name,
             items: [...cartItems],
-            total: finalTotal
+            total: finalTotal,
+            shippingFee: LOCALSHOP_FEE + shippingCost
         });
 
         setSuccess(true);
@@ -1633,8 +1756,24 @@ export const PaymentScreen: React.FC = () => {
                         <span className="text-sm font-bold text-text-light dark:text-text-dark">€{subtotal.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between items-center py-2 border-b border-border-light/50">
-                        <span className="text-sm font-bold text-text-light dark:text-text-dark">Envío (Local)</span>
-                        <span className="text-sm font-bold text-green-500 uppercase tracking-widest text-[10px]">Gratis</span>
+                        <div className="flex flex-col">
+                            <span className="text-sm font-bold text-text-light dark:text-text-dark">Gestión LocalShop</span>
+                            <span className="text-[10px] text-text-subtle-light">Comisión de intermediación</span>
+                        </div>
+                        <span className="text-sm font-bold text-text-light dark:text-text-dark">€{LOCALSHOP_FEE.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 border-b border-border-light/50">
+                        <div className="flex flex-col">
+                            <span className="text-sm font-bold text-text-light dark:text-text-dark">Gastos de envío</span>
+                            {freeShipping
+                                ? <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-black uppercase">Gestionado por el colaborador · Gratis</span>
+                                : <span className="text-[10px] text-text-subtle-light">Tarifa para pedidos menores de €{FREE_SHIPPING_THRESHOLD}</span>
+                            }
+                        </div>
+                        {freeShipping
+                            ? <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">Gratis</span>
+                            : <span className="text-sm font-bold text-text-light dark:text-text-dark">€{SHIPPING_FEE.toFixed(2)}</span>
+                        }
                     </div>
 
                     {/* Selector de Saldo de Referidos */}
