@@ -74,6 +74,7 @@ export const OnboardingScreen: React.FC = () => {
 export const SignUpScreen: React.FC = () => {
     const navigate = useNavigate();
     const { notify } = useNotifications();
+    const { reloadProfile } = useUser();
     const [isLoading, setIsLoading] = useState(false);
 
     const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -194,6 +195,8 @@ export const SignUpScreen: React.FC = () => {
                     referred_by:      (!isCollab && formData.referralInput) ? sanitizeRaw(formData.referralInput) : null,
                     referral_balance: 0
                 }, { onConflict: 'id' });
+
+                await reloadProfile(userId);
 
                 // Registrar periodo de prueba gratuito para colaboradores
                 if (isCollab) {

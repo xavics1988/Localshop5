@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DetailHeader } from '../components/Layout';
-import { useCart, useNotifications, LOCALSHOP_PLATFORM_ACCOUNT, LOCALSHOP_FEE, SHIPPING_FEE, FREE_SHIPPING_THRESHOLD } from '../AppContext';
+import { useCart, useNotifications, LOCALSHOP_PLATFORM_ACCOUNT, LOCALSHOP_COMPANY_ACCOUNT, LOCALSHOP_FEE, SHIPPING_FEE, FREE_SHIPPING_THRESHOLD } from '../AppContext';
 import { SPANISH_PROVINCES } from './AuthScreens';
 import {
     sanitizeRaw, truncate, MAX_LENGTHS,
@@ -161,7 +161,7 @@ const GuestCheckoutScreen: React.FC = () => {
         // Pequeña pausa para simular el procesamiento del pago
         await new Promise(resolve => setTimeout(resolve, 1200));
 
-        console.log(`[PAGO INVITADO] ${generatedOrderId} — Importe: €${total.toFixed(2)} (subtotal €${subtotal.toFixed(2)} + comisión €${LOCALSHOP_FEE.toFixed(2)} + envío €${shippingCost.toFixed(2)}) -> ${LOCALSHOP_PLATFORM_ACCOUNT.holder}`);
+        console.log(`[PAGO INVITADO] ${generatedOrderId} — Total: €${total.toFixed(2)} | Subtotal: €${subtotal.toFixed(2)} | Comisión LocalShop: €${LOCALSHOP_FEE.toFixed(2)} -> ${LOCALSHOP_COMPANY_ACCOUNT.iban} | Envío: €${shippingCost.toFixed(2)}`);
 
         setLoading(false);
         clearCart();
@@ -322,12 +322,18 @@ const GuestCheckoutScreen: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="bg-primary/5 border border-primary/20 p-5 rounded-2xl flex gap-4 items-center">
-                        <Icon name="verified_user" className="text-primary text-2xl" />
-                        <p className="text-[10px] font-bold text-primary/80 leading-relaxed flex-1">
-                            Pago 100% seguro gestionado por LocalShop. Fondos depositados en la cuenta de garantía:
-                            <span className="block font-black opacity-60">{LOCALSHOP_PLATFORM_ACCOUNT.iban}</span>
-                        </p>
+                    <div className="bg-primary/5 border border-primary/20 p-5 rounded-2xl flex gap-4 items-start">
+                        <Icon name="verified_user" className="text-primary text-2xl shrink-0 mt-0.5" />
+                        <div className="flex-1 space-y-1.5">
+                            <p className="text-[10px] font-bold text-primary/80 leading-relaxed">
+                                Pago 100% seguro gestionado por LocalShop. Fondos depositados en la cuenta de garantía:
+                                <span className="block font-black opacity-60">{LOCALSHOP_PLATFORM_ACCOUNT.iban}</span>
+                            </p>
+                            <p className="text-[10px] font-bold text-primary/80 leading-relaxed">
+                                Comisión de intermediación (€{LOCALSHOP_FEE.toFixed(2)}) transferida a cuenta empresa LocalShop:
+                                <span className="block font-black opacity-60">{LOCALSHOP_COMPANY_ACCOUNT.iban}</span>
+                            </p>
+                        </div>
                     </div>
 
                     <button

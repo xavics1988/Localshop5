@@ -1291,10 +1291,11 @@ export const ProfileScreen: React.FC = () => {
                             )}
 
                             <div className="bg-accent-light dark:bg-background-dark rounded-2xl p-4 space-y-1">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light mb-1">Cuenta de pago de la suscripción</p>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light mb-1">Transferir cuota mensual a</p>
                                 <p className="text-xs font-bold text-text-light dark:text-text-dark">{LOCALSHOP_COMPANY_ACCOUNT.holder}</p>
-                                <p className="text-xs font-mono text-text-subtle-light break-all">{LOCALSHOP_COMPANY_ACCOUNT.iban}</p>
+                                <p className="text-xs font-mono text-primary break-all font-black">{LOCALSHOP_COMPANY_ACCOUNT.iban}</p>
                                 <p className="text-[10px] text-text-subtle-light">{LOCALSHOP_COMPANY_ACCOUNT.bankName}</p>
+                                <p className="text-[10px] text-text-subtle-light mt-1">Concepto: <span className="font-bold">Suscripción LocalShop — {user.name}</span></p>
                             </div>
                         </div>
                     );

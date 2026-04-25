@@ -73,6 +73,7 @@ interface UserContextType {
   user: UserProfile;
   updateUser: (data: Partial<UserProfile>) => void;
   logout: () => void;
+  reloadProfile: (userId: string) => Promise<void>;
   paymentMethods: PaymentCard[];
   addPaymentMethod: (card: Omit<PaymentCard, 'id'>) => void;
   removePaymentMethod: (id: string) => void;
@@ -236,6 +237,20 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       await supabase.from('profiles').update(dbData).eq('id', user.id);
     }
   }, [user.id]);
+
+  const reloadProfile = useCallback(async (userId: string) => {
+    const { data: profile } = await supabase
+      .from('profiles').select('*').eq('id', userId).single();
+    if (profile) {
+      const mapped = dbProfileToUserProfile(profile as any);
+      if (mapped.role === 'colaborador' && !mapped.storeId) {
+        const { data: ownedStore } = await supabase
+          .from('stores').select('id').eq('owner_id', userId).maybeSingle();
+        if (ownedStore) mapped.storeId = ownedStore.id;
+      }
+      setUser(mapped);
+    }
+  }, []);
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
@@ -543,13 +558,13 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       customerId:      user.id,
       date:            new Date().toISOString(),
       status:          'Nuevo',
-      shippingFee:     SHIPPING_FEE,
+      shippingFee:     orderData.shippingFee,
       destinationIban: LOCALSHOP_PLATFORM_ACCOUNT.iban,
       history:         [createEvent('Nuevo', 'Pedido Realizado')]
     };
 
-    console.log(`[PAGO PROCESADO] Importe: €${orderData.total.toFixed(2)} -> ${LOCALSHOP_PLATFORM_ACCOUNT.holder} (${LOCALSHOP_PLATFORM_ACCOUNT.iban})`);
-    console.log(`[COMISIÓN ENVÍO] €${SHIPPING_FEE.toFixed(2)} -> ${LOCALSHOP_COMPANY_ACCOUNT.holder} (${LOCALSHOP_COMPANY_ACCOUNT.iban})`);
+    console.log(`[PAGO PROCESADO] Importe total: €${orderData.total.toFixed(2)} -> cuenta garantía ${LOCALSHOP_PLATFORM_ACCOUNT.holder} (${LOCALSHOP_PLATFORM_ACCOUNT.iban})`);
+    console.log(`[COMISIÓN LOCALSHOP] €${LOCALSHOP_FEE.toFixed(2)} -> cuenta empresa ${LOCALSHOP_COMPANY_ACCOUNT.holder} (${LOCALSHOP_COMPANY_ACCOUNT.iban})`);
 
     setOrders(prev => [newOrder, ...prev]);
     setCartItems([]);
@@ -565,7 +580,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       p_destination_iban:  LOCALSHOP_PLATFORM_ACCOUNT.iban,
       p_referred_by:       user.referredBy ?? null,
       p_is_first_purchase: isFirstPurchase,
-      p_shipping_fee:      SHIPPING_FEE
+      p_shipping_fee:      LOCALSHOP_FEE
     });
 
     if (error) {
@@ -698,7 +713,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const getUserReviews  = useCallback((userName: string)  => reviews.filter(r => r.userName === userName), [reviews]);
 
   // ── Memoized context values ───────────────────────────────────────────────
-  const userValue          = useMemo(() => ({ user, updateUser, logout, paymentMethods, addPaymentMethod, removePaymentMethod, bankAccounts, addBankAccount, removeBankAccount, useReferralBalance }), [user, updateUser, logout, paymentMethods, addPaymentMethod, removePaymentMethod, bankAccounts, addBankAccount, removeBankAccount, useReferralBalance]);
+  const userValue          = useMemo(() => ({ user, updateUser, logout, reloadProfile, paymentMethods, addPaymentMethod, removePaymentMethod, bankAccounts, addBankAccount, removeBankAccount, useReferralBalance }), [user, updateUser, logout, reloadProfile, paymentMethods, addPaymentMethod, removePaymentMethod, bankAccounts, addBankAccount, removeBankAccount, useReferralBalance]);
   const storeValue         = useMemo(() => ({ stores, addStore, updateStore, getStoreById: (id: string) => stores.find(s => s.id === id) }), [stores, addStore, updateStore]);
   const productValue       = useMemo(() => ({ products, addProduct, updateProduct, deleteProduct, getProductById: (id: string) => products.find(p => p.id === id), clearLocalProducts }), [products, addProduct, updateProduct, deleteProduct, clearLocalProducts]);
   const cartValue          = useMemo(() => ({ cartItems, addToCart, clearCart, removeFromCart, updateQuantity }), [cartItems, addToCart, clearCart, removeFromCart, updateQuantity]);
