@@ -49,7 +49,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         <div ref={cardRef} className="flex flex-col gap-1">
             <Link to={`/product/${product.id}`} className="group relative w-full aspect-[3/4] block overflow-hidden rounded-xl h-auto transform transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lg">
                 <div
-                    className="absolute inset-0 w-full h-full bg-center bg-no-repeat bg-cover rounded-xl border border-border-light dark:border-border-dark transition-transform duration-500 ease-out group-hover:scale-110"
+                    className="absolute inset-0 w-full h-full bg-primary bg-center bg-no-repeat bg-cover rounded-xl border border-border-light dark:border-border-dark transition-transform duration-500 ease-out group-hover:scale-110"
                     style={{ backgroundImage: `url("${product.imageUrl}")` }}>
                 </div>
                 {(product.storeCount ?? 1) > 1 && (
