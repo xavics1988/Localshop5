@@ -1,5 +1,6 @@
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Product, OrderItem, Order, OrderStatus, Review, Store, BankAccount, PaymentCard, PlatformAccount, OrderContextType, OrderEvent, UserProfile, CollaboratorSubscription } from './types';
 import { CLOTHING_CATEGORIES } from './data';
 import {
@@ -9,6 +10,14 @@ import {
   productToDb, storeToDb,
   DbCartItem,
 } from './src/lib/supabase';
+import {
+  isPushSupported,
+  registerServiceWorker,
+  requestNotificationPermission,
+  subscribeToPush,
+  unsubscribeFromPush,
+  showBrowserNotification,
+} from './src/lib/pushSubscription';
 
 export { CLOTHING_CATEGORIES };
 
@@ -133,9 +142,12 @@ interface NotificationSettings {
 }
 
 interface NotificationContextType {
-  settings: NotificationSettings;
-  updateSettings: (newSettings: Partial<NotificationSettings>) => void;
-  notify: (title: string, message: string, icon?: string, category?: keyof NotificationSettings) => void;
+  settings:                 NotificationSettings;
+  updateSettings:           (newSettings: Partial<NotificationSettings>) => void;
+  notify:                   (title: string, message: string, icon?: string, category?: keyof NotificationSettings) => void;
+  enablePushNotifications:  () => Promise<boolean>;
+  disablePushNotifications: () => Promise<void>;
+  pushPermission:           NotificationPermission | 'unsupported';
 }
 
 // --- Contexts ---
@@ -165,15 +177,23 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // ── Notifications (in-memory, sin cambios) ──────────────────────────────
   const [notifSettings, setNotifSettings] = useState<NotificationSettings>({
-    push: true, email: false, storeUpdates: true, followerActivity: true
+    push: true, email: true, storeUpdates: true, followerActivity: true
   });
-  const [activeNotif, setActiveNotif] = useState<{ title: string; message: string; icon?: string } | null>(null);
+  const [activeNotif, setActiveNotif] = useState<{ title: string; message: string; icon?: string; link?: string } | null>(null);
+  const notifTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const navigate = useNavigate();
 
-  const notify = useCallback((title: string, message: string, icon = 'notifications', category?: keyof NotificationSettings) => {
+  const notify = useCallback((title: string, message: string, icon = 'notifications', category?: keyof NotificationSettings, link?: string) => {
     if (category && !notifSettings[category]) return;
-    setActiveNotif({ title, message, icon });
-    setTimeout(() => setActiveNotif(null), 4000);
+    if (notifTimerRef.current) clearTimeout(notifTimerRef.current);
+    setActiveNotif({ title, message, icon, link });
+    notifTimerRef.current = setTimeout(() => setActiveNotif(null), 4000);
   }, [notifSettings]);
+
+  // ── Web Push ─────────────────────────────────────────────────────────────
+  const [pushPermission, setPushPermission] = useState<NotificationPermission | 'unsupported'>(
+    isPushSupported() ? Notification.permission : 'unsupported'
+  );
 
   // ── Bootstrap ────────────────────────────────────────────────────────────
   const [isBootstrapping, setIsBootstrapping] = useState(true);
@@ -221,6 +241,44 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     })();
     return () => { active = false; };
   }, [authUserId]);
+
+  // ── Web Push handlers (declarados después de user para cerrar sobre user.id/role) ──
+  const enablePushNotifications = useCallback(async (): Promise<boolean> => {
+    if (!isPushSupported()) return false;
+    const perm = await requestNotificationPermission();
+    setPushPermission(perm);
+    if (perm !== 'granted') {
+      notify('Permisos denegados', 'Actívalos en la configuración del navegador.', 'notifications_off');
+      return false;
+    }
+    if (!user.id || user.role !== 'colaborador') return false;
+    const ok = await subscribeToPush(user.id);
+    if (ok) notify('¡Notificaciones activadas!', 'Recibirás alertas de nuevas ventas.', 'notifications_active');
+    return ok;
+  }, [user.id, user.role, notify]);
+
+  const disablePushNotifications = useCallback(async (): Promise<void> => {
+    if (!user.id) return;
+    await unsubscribeFromPush(user.id);
+    notify('Notificaciones desactivadas', 'Ya no recibirás alertas push.', 'notifications_off');
+  }, [user.id, notify]);
+
+  // Auto-subscribe: solicita permiso automáticamente al login del colaborador
+  useEffect(() => {
+    if (!user.id || user.role !== 'colaborador') return;
+    if (!isPushSupported()) return;
+    registerServiceWorker().catch(console.error);
+    if (Notification.permission === 'granted') {
+      // Ya tiene permiso — reuscribir silenciosamente
+      subscribeToPush(user.id).catch(console.error);
+    } else if (Notification.permission === 'default') {
+      // Pedir permiso automáticamente al hacer login
+      requestNotificationPermission().then((perm) => {
+        setPushPermission(perm);
+        if (perm === 'granted') subscribeToPush(user.id).catch(console.error);
+      });
+    }
+  }, [user.id, user.role]);
 
   const updateUser = useCallback(async (data: Partial<UserProfile>) => {
     setUser(prev => ({ ...prev, ...data }));
@@ -510,6 +568,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // ── Orders ────────────────────────────────────────────────────────────────
   const [orders, setOrders] = useState<Order[]>([]);
+  const newOrdersNotifShown = useRef<string | null>(null);
 
   useEffect(() => {
     if (!user.id) { setOrders([]); return; }
@@ -519,7 +578,22 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       : supabase.from('orders').select('*').eq('customer_id', user.id).order('date', { ascending: false });
 
     ordersQuery.then(({ data }) => {
-      if (data) setOrders(data.map(dbOrderToOrder as any));
+      if (!data) return;
+      setOrders(data.map(dbOrderToOrder as any));
+
+      // Notificación al colaborador al entrar: pedidos nuevos pendientes
+      // Push OS inmediata + toast a los 5s (después del "Hola de nuevo")
+      if (user.role === 'colaborador' && newOrdersNotifShown.current !== user.id) {
+        newOrdersNotifShown.current = user.id;
+        const pending = data.filter((o: any) => o.status === 'Nuevo');
+        if (pending.length > 0) {
+          const s = pending.length > 1 ? 's' : '';
+          const title = `${pending.length} pedido${s} nuevo${s}`;
+          const body  = `Tienes ${pending.length} pedido${s} pendiente${s} de gestionar.`;
+          showBrowserNotification(title, body, '/orders');
+          setTimeout(() => notify(title, body, 'shopping_bag', undefined, '/orders'), 5000);
+        }
+      }
     });
 
     // Realtime: actualizaciones de estado en tiempo real
@@ -532,12 +606,31 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       }, (payload) => {
         if (payload.eventType === 'INSERT') {
           setOrders(prev => [dbOrderToOrder(payload.new as any), ...prev]);
-          if (user.role === 'colaborador') notify('¡Nueva venta!', 'Un cliente ha realizado un pedido.', 'shopping_bag');
+          if (user.role === 'colaborador') {
+            showBrowserNotification('¡Nueva venta!', 'Un cliente ha realizado un pedido.', '/orders');
+            setTimeout(() => notify('¡Nueva venta!', 'Un cliente ha realizado un pedido.', 'shopping_bag', undefined, '/orders'), 5000);
+          }
         } else if (payload.eventType === 'UPDATE') {
           setOrders(prev => prev.map(o =>
             o.id === payload.new.id ? dbOrderToOrder(payload.new as any) : o
           ));
-          if (user.role === 'cliente') notify('Pedido actualizado', `Estado: ${payload.new.status}`, 'local_shipping');
+          if (user.role === 'colaborador') {
+            if (payload.new.status === 'Devolución Solicitada') {
+              showBrowserNotification('Solicitud de devolución', 'Un cliente ha solicitado devolver un pedido.', '/orders');
+              setTimeout(() => notify('Solicitud de devolución', 'Un cliente ha solicitado devolver un pedido.', 'assignment_return', undefined, '/orders'), 5000);
+            }
+          } else if (user.role === 'cliente') {
+            if (payload.new.status === 'En Proceso') {
+              showBrowserNotification('¡Tu pedido está en camino!', 'El colaborador ha preparado y enviado tu pedido.', '/purchase-history');
+              setTimeout(() => notify('¡Tu pedido está en camino!', 'El colaborador ha preparado y enviado tu pedido.', 'local_shipping', undefined, '/purchase-history'), 5000);
+            } else if (payload.new.status === 'Completado') {
+              showBrowserNotification('Pedido entregado', 'Tu pedido ha sido marcado como entregado. ¡Esperamos que lo disfrutes!', '/purchase-history');
+              setTimeout(() => notify('Pedido entregado', 'Tu pedido ha sido marcado como entregado. ¡Esperamos que lo disfrutes!', 'check_circle', undefined, '/purchase-history'), 5000);
+            } else {
+              showBrowserNotification('Pedido actualizado', `Estado: ${payload.new.status}`, '/purchase-history');
+              setTimeout(() => notify('Pedido actualizado', `Estado: ${payload.new.status}`, 'local_shipping', undefined, '/purchase-history'), 5000);
+            }
+          }
         }
       })
       .subscribe();
@@ -721,7 +814,14 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const followedStoresValue= useMemo(() => ({ followedStoreIds: followedIds, toggleFollow, isFollowing }), [followedIds, toggleFollow, isFollowing]);
   const orderValue         = useMemo(() => ({ orders, addOrder, requestReturn, processReturn, updateOrderStatus }), [orders, addOrder, requestReturn, processReturn, updateOrderStatus]);
   const reviewValue        = useMemo(() => ({ addReview, getStoreReviews, getUserReviews }), [addReview, getStoreReviews, getUserReviews]);
-  const notificationValue  = useMemo(() => ({ settings: notifSettings, updateSettings: (s: Partial<NotificationSettings>) => setNotifSettings(prev => ({ ...prev, ...s })), notify }), [notifSettings, notify]);
+  const notificationValue  = useMemo(() => ({
+    settings:                 notifSettings,
+    updateSettings:           (s: Partial<NotificationSettings>) => setNotifSettings(prev => ({ ...prev, ...s })),
+    notify,
+    enablePushNotifications,
+    disablePushNotifications,
+    pushPermission,
+  }), [notifSettings, notify, enablePushNotifications, disablePushNotifications, pushPermission]);
 
   if (isBootstrapping) {
     return (
@@ -743,12 +843,23 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                     <NotificationContext.Provider value={notificationValue}>
                       {children}
                       {activeNotif && (
-                        <div className="fixed top-4 left-4 right-4 z-[3000] animate-slide-up bg-white dark:bg-accent-dark border-l-4 border-primary p-4 rounded-xl shadow-2xl flex items-start gap-4 ring-1 ring-black/5">
+                        <div
+                          className={`fixed top-4 left-4 right-4 z-[3000] animate-slide-up bg-white dark:bg-accent-dark border-l-4 border-primary p-4 rounded-xl shadow-2xl flex items-start gap-4 ring-1 ring-black/5 ${activeNotif.link ? 'cursor-pointer hover:brightness-95 active:scale-[0.99] transition-all' : ''}`}
+                          onClick={() => {
+                            if (activeNotif.link) {
+                              setActiveNotif(null);
+                              navigate(activeNotif.link);
+                            }
+                          }}
+                        >
                           <span className="material-symbols-outlined text-primary">{activeNotif.icon}</span>
                           <div className="flex-1">
                             <p className="text-sm font-bold">{activeNotif.title}</p>
                             <p className="text-xs text-text-subtle-light">{activeNotif.message}</p>
                           </div>
+                          {activeNotif.link && (
+                            <span className="material-symbols-outlined text-text-subtle-light text-base self-center">chevron_right</span>
+                          )}
                         </div>
                       )}
                     </NotificationContext.Provider>

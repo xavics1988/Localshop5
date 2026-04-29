@@ -838,16 +838,17 @@ const SettingsToggle: React.FC<{
     label: string;
     checked: boolean;
     onChange: (checked: boolean) => void;
-}> = ({ icon, label, checked, onChange }) => (
-    <div className="flex items-center justify-between p-4 bg-transparent">
+    disabled?: boolean;
+}> = ({ icon, label, checked, onChange, disabled }) => (
+    <div className={`flex items-center justify-between p-4 bg-transparent${disabled ? ' opacity-50' : ''}`}>
         <div className="flex items-center gap-3">
             <div className="flex size-9 items-center justify-center rounded-lg bg-accent-light dark:bg-background-dark text-text-light dark:text-text-dark">
                 <Icon name={icon} className="text-xl" />
             </div>
             <span className="text-base font-medium text-text-light dark:text-text-dark">{label}</span>
         </div>
-        <label className="relative inline-flex items-center cursor-pointer">
-            <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} className="sr-only peer" />
+        <label className={`relative inline-flex items-center ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+            <input type="checkbox" checked={checked} disabled={disabled} onChange={e => onChange(e.target.checked)} className="sr-only peer" />
             <div className="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-accent-dark peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
         </label>
     </div>
@@ -873,10 +874,11 @@ const FormInput = ({ label, value, type = "text", onChange, placeholder, require
 
 export const AppSettingsScreen: React.FC = () => {
     const { clearLocalProducts } = useProducts();
-    const { settings, updateSettings, notify } = useNotifications();
-    const { logout } = useUser();
+    const { settings, updateSettings, notify, enablePushNotifications, disablePushNotifications, pushPermission } = useNotifications();
+    const { logout, user } = useUser();
     const navigate = useNavigate();
     const [darkMode, setDarkMode] = useState(() => document.documentElement.classList.contains('dark'));
+    const [pushLoading, setPushLoading] = useState(false);
 
     const toggleDarkMode = (checked: boolean) => {
         setDarkMode(checked);
@@ -885,6 +887,16 @@ export const AppSettingsScreen: React.FC = () => {
         } else {
             document.documentElement.classList.remove('dark');
         }
+    };
+
+    const handlePushToggle = async (checked: boolean) => {
+        setPushLoading(true);
+        if (checked) {
+            await enablePushNotifications();
+        } else {
+            await disablePushNotifications();
+        }
+        setPushLoading(false);
     };
 
     const handleDeleteAccount = () => {
@@ -907,12 +919,22 @@ export const AppSettingsScreen: React.FC = () => {
                         checked={darkMode}
                         onChange={toggleDarkMode}
                     />
-                    <SettingsToggle
-                        icon="notifications"
-                        label="Notificaciones Push"
-                        checked={settings.push}
-                        onChange={(v) => updateSettings({ push: v })}
-                    />
+                    {user.role === 'colaborador' ? (
+                        <SettingsToggle
+                            icon="notifications"
+                            label="Notificaciones Push"
+                            checked={pushPermission === 'granted'}
+                            onChange={handlePushToggle}
+                            disabled={pushLoading || pushPermission === 'denied' || pushPermission === 'unsupported'}
+                        />
+                    ) : (
+                        <SettingsToggle
+                            icon="notifications"
+                            label="Notificaciones Push"
+                            checked={settings.push}
+                            onChange={(v) => updateSettings({ push: v })}
+                        />
+                    )}
                     <SettingsToggle
                         icon="mail_outline"
                         label="Alertas por Email"

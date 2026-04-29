@@ -1,0 +1,13 @@
+{
+  "name": "LocalShop",
+  "short_name": "LocalShop",
+  "description": "Vende como siempre, llega donde nunca",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8f9fa",
+  "theme_color": "#c29b88",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-96.png",  "sizes": "96x96",   "type": "image/png" }
+  ]
+}
