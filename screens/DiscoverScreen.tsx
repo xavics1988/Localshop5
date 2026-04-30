@@ -404,7 +404,7 @@ const DiscoverScreen: React.FC = () => {
                 </div>
             </div>
             
-            <main className="grid grid-cols-4 gap-2 px-3 pt-4 pb-24 min-h-[400px]">
+            <main className="grid grid-cols-2 sm:grid-cols-4 gap-2 px-3 pt-4 pb-24 min-h-[400px]">
                 {sortedProducts.length > 0 ? (
                     sortedProducts.map(product => <ProductCard key={product.id} product={product} />)
                 ) : (

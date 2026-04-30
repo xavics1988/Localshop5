@@ -74,9 +74,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
                     style={bgStyle}>
                 </div>
                 {(product.storeCount ?? 1) > 1 && (
-                    <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1 px-2 py-1 rounded-full bg-black/60 backdrop-blur-sm">
-                        <Icon name="storefront" className="text-white text-sm" />
-                        <span className="text-white text-sm font-black">en {product.storeCount} tiendas disponibles</span>
+                    <div className="absolute bottom-1 left-1 sm:bottom-2 sm:left-2 z-10 flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full bg-black/60 backdrop-blur-sm max-w-[calc(100%-8px)]">
+                        <Icon name="storefront" className="text-white text-[9px] sm:text-sm leading-none shrink-0" />
+                        <span className="text-white text-[8px] sm:text-sm font-black leading-none truncate">en {product.storeCount} tiendas</span>
                     </div>
                 )}
                 {user.role !== 'colaborador' && (

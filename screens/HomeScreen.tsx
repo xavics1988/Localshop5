@@ -144,7 +144,7 @@ const HomeScreen: React.FC = () => {
                 ))}
             </div>
             
-            <div className="grid grid-cols-4 gap-2 p-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3">
                 {filteredProducts.length > 0 ? (
                     filteredProducts.map(product => <ProductCard key={product.id} product={product} />)
                 ) : (
@@ -163,7 +163,7 @@ const HomeScreen: React.FC = () => {
             </div>
             
             <h2 className="text-text-light dark:text-text-dark text-lg font-bold px-4 pb-2 pt-4">Novedades recientes</h2>
-            <div className="grid grid-cols-4 gap-2 p-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3">
                 {groupedProducts.slice(0, 4).map(product => <ProductCard key={product.id} product={product} />)}
             </div>
         </div>
