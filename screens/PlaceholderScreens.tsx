@@ -15,6 +15,7 @@ import { GoogleGenAI } from "@google/genai";
 import { removeBackground } from '@imgly/background-removal';
 import { SPANISH_PROVINCES } from './AuthScreens';
 import { CLOTHING_CATEGORIES } from '../data';
+import { uploadBase64Image } from '../src/lib/supabase';
 
 const Placeholder = ({ title, backTo = "/" }: { title: string; backTo?: string }) => (
     <div className="bg-background-light dark:bg-background-dark min-h-screen">
@@ -2473,6 +2474,7 @@ export const PublishScreen: React.FC = () => {
     const [images, setImages] = useState<(string | null)[]>([null, null, null]);
 
     const [isAIOptimizing, setIsAIOptimizing] = useState(false);
+    const [isPublishing, setIsPublishing] = useState(false);
     const [showSourceModal, setShowSourceModal] = useState(false);
     const [activeSlot, setActiveSlot] = useState<number | null>(null);
     const [isBarcodeScanning, setIsBarcodeScanning] = useState(false);
@@ -2888,7 +2890,7 @@ New background: warm terracotta studio (#8B5535), smooth gradient lighter toward
         }));
     };
 
-    const handlePublish = (e: React.FormEvent) => {
+    const handlePublish = async (e: React.FormEvent) => {
         e.preventDefault();
         const validImages = images.filter((img): img is string => img !== null);
         if (!garment || !price || validImages.length === 0) {
@@ -2920,40 +2922,53 @@ New background: warm terracotta studio (#8B5535), smooth gradient lighter toward
         else if (category === 'Faldas') finalCategory = `Faldas ${skirtType}`;
         else if (category === 'Calzado') finalCategory = `Calzado ${shoeType}`;
 
-        const productData = {
-            name: finalName,
-            price: parseFloat(price),
-            imageUrl: validImages[0],
-            images: validImages.slice(1),
-            category: finalCategory,
-            gender: gender,
-            color: safeColor || undefined,
-            stock: totalStock,
-            stockPerSize,
-            sizes: Object.keys(stockPerSize),
-            barcode: sanitizeRaw(barcode.trim()) || undefined,
-        };
+        const targetStoreId = user.storeId || 'unknown';
 
-        if (isEditMode && productId) {
-            if (updateProduct(productId, productData)) {
-                notify('¡Actualizado!', 'Los cambios se han guardado con éxito.', 'check_circle');
-                navigate('/manage-catalog');
-            }
-        } else {
-            if (!user.storeId) {
-                notify('Error', 'No se encontró tu tienda. Recarga la página e inténtalo de nuevo.', 'error');
-                return;
-            }
-            const newProduct: Product = {
-                id: `PROD-${Date.now()}`,
-                storeName: user.name,
-                storeId: user.storeId,
-                ...productData
+        setIsPublishing(true);
+        try {
+            const uploadedImages = await Promise.all(
+                validImages.map(url => uploadBase64Image(url, targetStoreId))
+            );
+
+            const productData = {
+                name: finalName,
+                price: parseFloat(price),
+                imageUrl: uploadedImages[0],
+                images: uploadedImages.slice(1),
+                category: finalCategory,
+                gender: gender,
+                color: safeColor || undefined,
+                stock: totalStock,
+                stockPerSize,
+                sizes: Object.keys(stockPerSize),
+                barcode: sanitizeRaw(barcode.trim()) || undefined,
             };
-            if (addProduct(newProduct)) {
-                notify('¡Publicado!', 'Tu artículo ya está en el escaparate.', 'check_circle');
-                navigate('/manage-catalog');
+
+            if (isEditMode && productId) {
+                if (updateProduct(productId, productData)) {
+                    notify('¡Actualizado!', 'Los cambios se han guardado con éxito.', 'check_circle');
+                    navigate('/manage-catalog');
+                }
+            } else {
+                if (!user.storeId) {
+                    notify('Error', 'No se encontró tu tienda. Recarga la página e inténtalo de nuevo.', 'error');
+                    return;
+                }
+                const newProduct: Product = {
+                    id: `PROD-${Date.now()}`,
+                    storeName: user.name,
+                    storeId: user.storeId,
+                    ...productData
+                };
+                if (addProduct(newProduct)) {
+                    notify('¡Publicado!', 'Tu artículo ya está en el escaparate.', 'check_circle');
+                    navigate('/manage-catalog');
+                }
             }
+        } catch (err: any) {
+            notify('Error al subir imágenes', err?.message || 'No se pudieron subir las fotos.', 'error');
+        } finally {
+            setIsPublishing(false);
         }
     };
 
@@ -3353,11 +3368,20 @@ New background: warm terracotta studio (#8B5535), smooth gradient lighter toward
                 <div className="fixed bottom-0 left-0 right-0 p-4 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md border-t border-border-light dark:border-border-dark z-50">
                     <button
                         onClick={handlePublish}
-                        disabled={isAIOptimizing}
+                        disabled={isAIOptimizing || isPublishing}
                         className="w-full h-16 bg-primary text-white font-bold rounded-2xl shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-3 text-lg disabled:opacity-50"
                     >
-                        <Icon name={isEditMode ? "save" : "rocket_launch"} />
-                        {isEditMode ? "Guardar Cambios" : "Subir al Escaparate"}
+                        {isPublishing ? (
+                            <>
+                                <div className="size-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                Subiendo fotos...
+                            </>
+                        ) : (
+                            <>
+                                <Icon name={isEditMode ? "save" : "rocket_launch"} />
+                                {isEditMode ? "Guardar Cambios" : "Subir al Escaparate"}
+                            </>
+                        )}
                     </button>
                 </div>
             </main>
