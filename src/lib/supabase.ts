@@ -222,3 +222,14 @@ export async function uploadProductImage(file: File, storeId: string): Promise<s
   const { data } = supabase.storage.from('product-images').getPublicUrl(path);
   return data.publicUrl;
 }
+
+export async function uploadBase64Image(dataUrl: string, storeId: string): Promise<string> {
+  if (!dataUrl.startsWith('data:')) return dataUrl;
+  const match = dataUrl.match(/^data:(.*?);base64,(.*)$/);
+  if (!match) return dataUrl;
+  const [, mimeType, base64Data] = match;
+  const ext = mimeType.split('/')[1]?.replace('jpeg', 'jpg') || 'png';
+  const byteArray = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+  const file = new File([byteArray], `${Date.now()}.${ext}`, { type: mimeType });
+  return uploadProductImage(file, storeId);
+}
