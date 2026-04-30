@@ -307,11 +307,15 @@ const DiscoverScreen: React.FC = () => {
 
             <div className="sticky top-16 z-50 bg-white/95 dark:bg-background-dark/95 backdrop-blur-md pt-6 shadow-sm pb-2">
                 <div className="flex gap-3 px-4 mb-2 overflow-x-auto [-ms-scrollbar-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                    <button onClick={() => setActiveFilter('Género')} className={`flex h-11 shrink-0 items-center justify-center gap-x-2 rounded-xl px-4 text-sm font-bold uppercase tracking-tight transition-colors ${selectedFilters.gender !== 'Todos' ? 'bg-primary text-white' : 'bg-primary/20 text-text-light'}`}>
-                        <Icon name="wc" className="text-lg" />
-                        {selectedFilters.gender === 'Todos' ? 'Género' : selectedFilters.gender}
-                        <Icon name="expand_more" className="text-lg" />
-                    </button>
+                    {(['Todos', 'Mujer', 'Hombre', 'Niños'] as const).map(g => (
+                        <button
+                            key={g}
+                            onClick={() => handleFilterSelect('gender', g)}
+                            className={`flex h-11 shrink-0 items-center justify-center rounded-xl px-4 text-sm font-bold uppercase tracking-tight transition-colors ${selectedFilters.gender === g ? 'bg-primary text-white shadow-md' : 'bg-primary/20 text-text-light'}`}
+                        >
+                            {g}
+                        </button>
+                    ))}
                     <button onClick={() => setActiveFilter('Filtros')} className={`flex h-11 shrink-0 items-center justify-center gap-x-2 rounded-xl px-4 text-sm font-bold uppercase tracking-tight transition-colors ${selectedFilters.size !== 'Todas' || selectedFilters.color !== 'Todos' || selectedFilters.minPrice > 0 || selectedFilters.maxPrice < 200 ? 'bg-primary text-white' : 'bg-primary/20 text-text-light'}`}>
                         <Icon name="search" className="text-lg" />
                         {selectedFilters.size !== 'Todas' ? selectedFilters.size : selectedFilters.color !== 'Todos' ? selectedFilters.color : (selectedFilters.minPrice > 0 || selectedFilters.maxPrice < 200) ? `${selectedFilters.minPrice}€-${selectedFilters.maxPrice >= 200 ? '+200' : selectedFilters.maxPrice}€` : 'Filtros'}
