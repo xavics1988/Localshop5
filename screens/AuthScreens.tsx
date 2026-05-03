@@ -796,3 +796,244 @@ export const LoginScreen: React.FC = () => {
         </div>
     );
 };
+
+export const OAuthCompleteProfileScreen: React.FC = () => {
+    const navigate = useNavigate();
+    const { notify } = useNotifications();
+    const { reloadProfile } = useUser();
+
+    const [step, setStep] = useState<1 | 2>(1);
+    const [role, setRole] = useState<'cliente' | 'colaborador' | null>(null);
+    const [name, setName] = useState('');
+    const [location, setLocation] = useState('');
+    const [referralInput, setReferralInput] = useState('');
+    const [storePublicName, setStorePublicName] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [errors, setErrors] = useState<Record<string, string>>({});
+
+    const generateUniqueShopId = () => {
+        const num = Math.floor(100000 + Math.random() * 900000);
+        return `LS-${num}`;
+    };
+
+    useEffect(() => {
+        supabase.auth.getUser().then(({ data }) => {
+            const meta = data.user?.user_metadata;
+            const oauthName = meta?.full_name || meta?.name || '';
+            if (oauthName) setName(oauthName);
+        });
+    }, []);
+
+    useEffect(() => {
+        if (role === 'colaborador' && !storePublicName) {
+            setStorePublicName(generateUniqueShopId());
+        }
+    }, [role]);
+
+    const handleSelectRole = (r: 'cliente' | 'colaborador') => {
+        setRole(r);
+        setStep(2);
+    };
+
+    const validate = () => {
+        const newErrors: Record<string, string> = {};
+        const nameErr = validateName(role === 'colaborador' ? storePublicName : name);
+        if (nameErr) newErrors.name = nameErr;
+        if (!location) newErrors.location = 'Selecciona una provincia';
+        if (referralInput) {
+            const refErr = validateReferralCode(referralInput);
+            if (refErr) newErrors.referralInput = refErr;
+        }
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
+    const handleSubmit = async () => {
+        if (!validate()) {
+            notify('Atención', 'Revisa los campos requeridos.', 'error');
+            return;
+        }
+        setIsLoading(true);
+        try {
+            const { data: { user: authUser } } = await supabase.auth.getUser();
+            if (!authUser) { notify('Error', 'Sesión no encontrada.', 'error'); return; }
+
+            const userId = authUser.id;
+            const isCollab = role === 'colaborador';
+            const finalName = isCollab ? storePublicName : sanitizeRaw(truncate(name, MAX_LENGTHS.name));
+            const cleanName = (isCollab ? storePublicName : name).replace(/\s+/g, '').toUpperCase().substring(0, 5);
+            const myReferralCode = `${cleanName}${Math.floor(1000 + Math.random() * 9000)}`;
+
+            let storeId: string | undefined;
+            if (isCollab) {
+                storeId = `STORE-${Date.now()}`;
+                await supabase.from('stores').insert({
+                    id:            storeId,
+                    name:          storePublicName,
+                    business_name: sanitizeRaw(name || storePublicName),
+                    category:      'Concept Store',
+                    image_url:     'https://picsum.photos/id/1011/800/600',
+                    address:       location,
+                    description:   'Bienvenido a mi nueva tienda local.',
+                    contact_email: authUser.email ?? '',
+                    owner_id:      userId
+                });
+            }
+
+            await supabase.from('profiles').upsert({
+                id:               userId,
+                email:            authUser.email ?? '',
+                name:             finalName,
+                location,
+                bio:              isCollab ? 'Bienvenido a mi nueva tienda local.' : 'Amante de la moda local.',
+                phone:            '',
+                role:             role!,
+                store_id:         storeId ?? null,
+                referral_code:    myReferralCode,
+                referred_by:      (!isCollab && referralInput) ? sanitizeRaw(referralInput) : null,
+                referral_balance: 0
+            }, { onConflict: 'id' });
+
+            await reloadProfile(userId);
+
+            if (isCollab) {
+                await supabase.rpc('register_collaborator_subscription', { p_user_id: userId });
+            }
+
+            notify(
+                isCollab ? '¡Bienvenido Partner!' : '¡Bienvenido a LocalShop!',
+                'Ya puedes empezar a usar la app.',
+                isCollab ? 'storefront' : 'person'
+            );
+            navigate('/');
+        } catch (err: any) {
+            notify('Error', err?.message || 'Error al guardar el perfil.', 'error');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="relative flex min-h-screen w-full flex-col bg-background-light dark:bg-background-dark font-display">
+            <div className="flex items-center gap-3 px-4 py-4 border-b border-border-light dark:border-border-dark">
+                {step === 2 && (
+                    <button onClick={() => setStep(1)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
+                        <Icon name="arrow_back" className="text-text-light dark:text-white text-xl" />
+                    </button>
+                )}
+                <h1 className="text-lg font-bold text-text-light dark:text-white flex-1">Completa tu perfil</h1>
+                <div className="flex gap-1">
+                    <div className={`h-1.5 w-8 rounded-full transition-colors ${step >= 1 ? 'bg-primary' : 'bg-gray-200'}`} />
+                    <div className={`h-1.5 w-8 rounded-full transition-colors ${step >= 2 ? 'bg-primary' : 'bg-gray-200'}`} />
+                </div>
+            </div>
+
+            <div className="flex-1 px-4 py-6 max-w-md mx-auto w-full">
+                {step === 1 && (
+                    <div>
+                        <p className="text-text-subtle-light dark:text-text-subtle-dark text-sm mb-6">¿Cómo vas a usar LocalShop?</p>
+                        <div className="flex flex-col gap-4">
+                            <button
+                                onClick={() => handleSelectRole('cliente')}
+                                className="flex items-start gap-4 p-5 rounded-2xl border-2 border-border-light dark:border-border-dark hover:border-primary active:scale-95 transition-all text-left"
+                            >
+                                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                    <Icon name="person" className="text-primary text-2xl" filled />
+                                </div>
+                                <div>
+                                    <p className="font-bold text-text-light dark:text-white">Soy Cliente</p>
+                                    <p className="text-xs text-text-subtle-light dark:text-text-subtle-dark mt-1">Descubre tiendas locales, compra y deja reseñas.</p>
+                                </div>
+                            </button>
+                            <button
+                                onClick={() => handleSelectRole('colaborador')}
+                                className="flex items-start gap-4 p-5 rounded-2xl border-2 border-border-light dark:border-border-dark hover:border-primary active:scale-95 transition-all text-left"
+                            >
+                                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                    <Icon name="storefront" className="text-primary text-2xl" filled />
+                                </div>
+                                <div>
+                                    <p className="font-bold text-text-light dark:text-white">Soy Colaborador</p>
+                                    <p className="text-xs text-text-subtle-light dark:text-text-subtle-dark mt-1">Gestiona tu tienda, publica productos y llega a más clientes.</p>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {step === 2 && (
+                    <div className="flex flex-col gap-5">
+                        {role === 'colaborador' && (
+                            <div className="flex items-center gap-3 bg-primary/5 border border-primary/20 rounded-2xl px-4 py-3">
+                                <Icon name="shield" className="text-primary text-xl" filled />
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-primary">Identidad Pública Local</p>
+                                    <p className="text-lg font-black text-primary">{storePublicName}</p>
+                                </div>
+                            </div>
+                        )}
+
+                        <div>
+                            <label className="text-xs font-bold text-text-subtle-light dark:text-text-subtle-dark uppercase tracking-widest mb-1 block">
+                                {role === 'colaborador' ? 'Nombre Legal / Empresa (Privado)' : 'Nombre completo'}
+                            </label>
+                            <div className="relative">
+                                <Icon name={role === 'colaborador' ? 'business' : 'person'} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-subtle-light dark:text-text-subtle-dark text-lg" />
+                                <input
+                                    type="text"
+                                    value={name}
+                                    onChange={e => setName(e.target.value)}
+                                    placeholder={role === 'colaborador' ? 'Ej: Moda Local S.L.' : 'Ej: María García'}
+                                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-border-light dark:border-border-dark bg-white dark:bg-gray-800 text-text-light dark:text-white text-sm"
+                                />
+                            </div>
+                            {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+                        </div>
+
+                        <div>
+                            <label className="text-xs font-bold text-text-subtle-light dark:text-text-subtle-dark uppercase tracking-widest mb-1 block">Provincia</label>
+                            <div className="relative">
+                                <Icon name="location_on" className="absolute left-3 top-1/2 -translate-y-1/2 text-text-subtle-light dark:text-text-subtle-dark text-lg" />
+                                <select
+                                    value={location}
+                                    onChange={e => setLocation(e.target.value)}
+                                    className="w-full pl-10 pr-8 py-3 rounded-xl border border-border-light dark:border-border-dark bg-white dark:bg-gray-800 text-text-light dark:text-white text-sm appearance-none"
+                                >
+                                    <option value="">Selecciona tu provincia</option>
+                                    {SPANISH_PROVINCES.map(p => <option key={p} value={p}>{p}</option>)}
+                                </select>
+                                <Icon name="expand_more" className="absolute right-3 top-1/2 -translate-y-1/2 text-text-subtle-light dark:text-text-subtle-dark text-lg pointer-events-none" />
+                            </div>
+                            {errors.location && <p className="text-red-500 text-xs mt-1">{errors.location}</p>}
+                        </div>
+
+                        {role === 'cliente' && (
+                            <div>
+                                <label className="text-xs font-bold text-text-subtle-light dark:text-text-subtle-dark uppercase tracking-widest mb-1 block">Código de referido (opcional)</label>
+                                <div className="relative">
+                                    <Icon name="card_giftcard" className="absolute left-3 top-1/2 -translate-y-1/2 text-text-subtle-light dark:text-text-subtle-dark text-lg" />
+                                    <input
+                                        type="text"
+                                        value={referralInput}
+                                        onChange={e => setReferralInput(e.target.value.toUpperCase())}
+                                        placeholder="Ej: MARIA1234"
+                                        className="w-full pl-10 pr-4 py-3 rounded-xl border border-border-light dark:border-border-dark bg-white dark:bg-gray-800 text-text-light dark:text-white text-sm uppercase"
+                                    />
+                                </div>
+                                {errors.referralInput && <p className="text-red-500 text-xs mt-1">{errors.referralInput}</p>}
+                            </div>
+                        )}
+
+                        <button
+                            onClick={handleSubmit}
+                            disabled={isLoading}
+                            className="w-full h-14 bg-primary text-white font-black uppercase tracking-widest rounded-2xl shadow-xl active:scale-95 transition-all mt-2 disabled:opacity-60"
+                        >
+                            {isLoading ? 'Guardando...' : 'Entrar a LocalShop'}
+                        </button>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};

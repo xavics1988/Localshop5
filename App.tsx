@@ -1,8 +1,8 @@
 
-import React from 'react';
-import { HashRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
-import { AppContextProvider } from './AppContext';
-import { OnboardingScreen, SignUpScreen, LoginScreen } from './screens/AuthScreens';
+import React, { useEffect } from 'react';
+import { HashRouter, Routes, Route, useLocation, Navigate, useNavigate } from 'react-router-dom';
+import { AppContextProvider, useUser } from './AppContext';
+import { OnboardingScreen, SignUpScreen, LoginScreen, OAuthCompleteProfileScreen } from './screens/AuthScreens';
 import DiscoverScreen from './screens/DiscoverScreen';
 import ProductDetailScreen from './screens/ProductDetailScreen';
 import StoreProfileScreen from './screens/StoreProfileScreen';
@@ -30,21 +30,30 @@ const ScrollToTop = () => {
 
 const AppContent: React.FC = () => {
     const location = useLocation();
-    
+    const navigate = useNavigate();
+    const { user, isBootstrapping, hasAuthSession } = useUser();
+
+    useEffect(() => {
+        if (!isBootstrapping && hasAuthSession && !user.id) {
+            navigate('/complete-profile', { replace: true });
+        }
+    }, [isBootstrapping, hasAuthSession, user.id]);
+
     // Rutas que no deben mostrar la barra de navegación inferior
     const noNavRoutes = [
-        '/welcome', 
-        '/signup', 
-        '/login', 
-        '/publish', 
-        '/payment', 
-        '/collaborator-registration', 
+        '/welcome',
+        '/signup',
+        '/login',
+        '/publish',
+        '/payment',
+        '/collaborator-registration',
         '/edit-profile',
         '/terms',
         '/privacy',
         '/cookies',
         '/legal-notice',
-        '/guest-checkout'
+        '/guest-checkout',
+        '/complete-profile'
     ];
     
     const showNav = !noNavRoutes.includes(location.pathname) && !location.pathname.startsWith('/publish/');
@@ -86,7 +95,8 @@ const AppContent: React.FC = () => {
                     <Route path="/payment" element={<PaymentScreen />} />
                     <Route path="/guest-checkout" element={<GuestCheckoutScreen />} />
                     <Route path="/collaborator-registration" element={<CollaboratorRegistrationScreen />} />
-                    
+                    <Route path="/complete-profile" element={<OAuthCompleteProfileScreen />} />
+
                     {/* Fallback a la raíz si la ruta no existe */}
                     <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>

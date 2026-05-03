@@ -90,6 +90,8 @@ interface UserContextType {
   addBankAccount: (account: Omit<BankAccount, 'id' | 'userId'>) => void;
   removeBankAccount: (id: string) => void;
   useReferralBalance: (amount: number) => void;
+  isBootstrapping: boolean;
+  hasAuthSession: boolean;
 }
 
 interface StoreContextType {
@@ -419,6 +421,27 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     supabase.from('products').select('*').eq('is_deleted', false).then(({ data }) => {
       if (data) setProducts(data.map(dbProductToProduct as any));
     });
+
+    const channel = supabase
+      .channel('products-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, payload => {
+        if (payload.eventType === 'INSERT') {
+          const p = payload.new as any;
+          if (!p.is_deleted) setProducts(prev => [dbProductToProduct(p) as any, ...prev]);
+        } else if (payload.eventType === 'UPDATE') {
+          const p = payload.new as any;
+          if (p.is_deleted) {
+            setProducts(prev => prev.filter(x => x.id !== p.id));
+          } else {
+            setProducts(prev => prev.map(x => x.id === p.id ? dbProductToProduct(p) as any : x));
+          }
+        } else if (payload.eventType === 'DELETE') {
+          setProducts(prev => prev.filter(x => x.id !== payload.old.id));
+        }
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const addProduct = useCallback((p: Product): boolean => {
@@ -812,7 +835,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const getUserReviews  = useCallback((userName: string)  => reviews.filter(r => r.userName === userName), [reviews]);
 
   // ── Memoized context values ───────────────────────────────────────────────
-  const userValue          = useMemo(() => ({ user, updateUser, logout, reloadProfile, paymentMethods, addPaymentMethod, removePaymentMethod, bankAccounts, addBankAccount, removeBankAccount, useReferralBalance }), [user, updateUser, logout, reloadProfile, paymentMethods, addPaymentMethod, removePaymentMethod, bankAccounts, addBankAccount, removeBankAccount, useReferralBalance]);
+  const userValue          = useMemo(() => ({ user, updateUser, logout, reloadProfile, paymentMethods, addPaymentMethod, removePaymentMethod, bankAccounts, addBankAccount, removeBankAccount, useReferralBalance, isBootstrapping, hasAuthSession: authUserId !== null && authUserId !== undefined }), [user, updateUser, logout, reloadProfile, paymentMethods, addPaymentMethod, removePaymentMethod, bankAccounts, addBankAccount, removeBankAccount, useReferralBalance, isBootstrapping, authUserId]);
   const storeValue         = useMemo(() => ({ stores, addStore, updateStore, getStoreById: (id: string) => stores.find(s => s.id === id) }), [stores, addStore, updateStore]);
   const productValue       = useMemo(() => ({ products, addProduct, updateProduct, deleteProduct, getProductById: (id: string) => products.find(p => p.id === id), clearLocalProducts }), [products, addProduct, updateProduct, deleteProduct, clearLocalProducts]);
   const cartValue          = useMemo(() => ({ cartItems, addToCart, clearCart, removeFromCart, updateQuantity }), [cartItems, addToCart, clearCart, removeFromCart, updateQuantity]);
