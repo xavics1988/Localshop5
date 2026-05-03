@@ -448,13 +448,19 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (data.stockPerSize!== undefined) dbData.stock_per_size= data.stockPerSize;
     if (data.sizes       !== undefined) dbData.sizes         = data.sizes;
     if (data.barcode     !== undefined) dbData.barcode       = data.barcode;
-    supabase.from('products').update(dbData).eq('id', id);
+    supabase.from('products').update(dbData).eq('id', id)
+      .then(({ error }) => {
+        if (error) notify('Error', 'No se pudieron guardar los cambios.', 'error');
+      });
     return true;
-  }, []);
+  }, [notify]);
 
   const deleteProduct = useCallback((id: string) => {
     setProducts(prev => prev.filter(p => p.id !== id));
-    supabase.from('products').update({ is_deleted: true }).eq('id', id);
+    supabase.from('products').update({ is_deleted: true }).eq('id', id)
+      .then(({ error }) => {
+        if (error) notify('Error', 'No se pudo eliminar el producto.', 'error');
+      });
     notify('Eliminado', 'Producto borrado correctamente.', 'delete');
   }, [notify]);
 
