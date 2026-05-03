@@ -225,11 +225,27 @@ export async function uploadProductImage(file: File, storeId: string): Promise<s
 
 export async function uploadBase64Image(dataUrl: string, storeId: string): Promise<string> {
   if (!dataUrl.startsWith('data:')) return dataUrl;
-  const match = dataUrl.match(/^data:(.*?);base64,(.*)$/);
+
+  // Comprimir vía canvas: máx 800px ancho, JPEG 80% → reduce PNG IA de ~2MB a ~150KB
+  const compressed = await new Promise<string>((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 800;
+      const scale = img.width > MAX ? MAX / img.width : 1;
+      const canvas = document.createElement('canvas');
+      canvas.width  = Math.round(img.width  * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', 0.80));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+
+  const match = compressed.match(/^data:(.*?);base64,(.*)$/);
   if (!match) return dataUrl;
-  const [, mimeType, base64Data] = match;
-  const ext = mimeType.split('/')[1]?.replace('jpeg', 'jpg') || 'png';
-  const byteArray = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-  const file = new File([byteArray], `${Date.now()}.${ext}`, { type: mimeType });
+  const [, mime, b64] = match;
+  const byteArray = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  const file = new File([byteArray], `${Date.now()}.jpg`, { type: mime });
   return uploadProductImage(file, storeId);
 }

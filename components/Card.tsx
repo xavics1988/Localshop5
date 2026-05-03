@@ -1,5 +1,5 @@
 
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef } from 'react';
 import { Product, Store } from '../types';
 import { Link } from 'react-router-dom';
 import { useFavorites, useFollowedStores, useUser } from '../AppContext';
@@ -9,25 +9,6 @@ import { useGSAP } from '@gsap/react';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
 gsap.registerPlugin(useGSAP, ScrollTrigger);
-
-function useLazyBg(url: string | undefined) {
-    const ref = useRef<HTMLDivElement>(null);
-    const [loaded, setLoaded] = useState(false);
-
-    useEffect(() => {
-        if (!url) return;
-        const el = ref.current;
-        if (!el) return;
-        const observer = new IntersectionObserver(
-            ([entry]) => { if (entry.isIntersecting) { setLoaded(true); observer.disconnect(); } },
-            { rootMargin: '400px 0px' }
-        );
-        observer.observe(el);
-        return () => observer.disconnect();
-    }, [url]);
-
-    return { ref, bgStyle: loaded && url ? { backgroundImage: `url("${url}")` } : {} };
-}
 
 const Icon = ({ name, filled, className }: { name: string; filled?: boolean; className?: string }) => (
     <span
@@ -47,7 +28,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     const { user } = useUser();
     const active = isFavorite(product.id);
     const cardRef = useRef<HTMLDivElement>(null);
-    const { ref: imgRef, bgStyle } = useLazyBg(product.imageUrl);
 
     useGSAP(() => {
         gsap.from(cardRef.current, {
@@ -68,11 +48,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     return (
         <div ref={cardRef} className="flex flex-col gap-1">
             <Link to={`/product/${product.id}`} className="group relative w-full aspect-[3/4] block overflow-hidden rounded-xl h-auto transform transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lg">
-                <div
-                    ref={imgRef}
-                    className="absolute inset-0 w-full h-full bg-primary bg-center bg-no-repeat bg-cover rounded-xl border border-border-light dark:border-border-dark transition-transform duration-500 ease-out group-hover:scale-110"
-                    style={bgStyle}>
-                </div>
+                {/* Skeleton shimmer visible mientras carga la imagen */}
+                <div className="absolute inset-0 bg-primary/10 animate-pulse rounded-xl" />
+                <img
+                    src={product.imageUrl}
+                    alt={product.name}
+                    loading="lazy"
+                    decoding="async"
+                    className="absolute inset-0 w-full h-full object-cover rounded-xl border border-border-light dark:border-border-dark transition-transform duration-500 ease-out group-hover:scale-110"
+                />
                 {(product.storeCount ?? 1) > 1 && (
                     <div className="absolute bottom-1 left-1 sm:bottom-2 sm:left-2 z-10 flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full bg-black/60 backdrop-blur-sm max-w-[calc(100%-8px)]">
                         <Icon name="storefront" className="text-white text-[9px] sm:text-sm leading-none shrink-0" />
@@ -108,8 +92,7 @@ export const StoreCard: React.FC<StoreCardProps> = ({ store }) => {
     const { isFollowing, toggleFollow } = useFollowedStores();
     const active = isFollowing(store.id);
     const cardRef = useRef<HTMLDivElement>(null);
-    const isAnonymousStore = !store.imageUrl || store.imageUrl.includes('placeholder') || store.name.startsWith('LS-');
-    const { ref: storeImgRef, bgStyle: storeBgStyle } = useLazyBg(isAnonymousStore ? undefined : store.imageUrl);
+    const isAnonymous = !store.imageUrl || store.imageUrl.includes('placeholder') || store.name.startsWith('LS-');
 
     useGSAP(() => {
         gsap.from(cardRef.current, {
@@ -130,13 +113,16 @@ export const StoreCard: React.FC<StoreCardProps> = ({ store }) => {
 
     return (
         <div ref={cardRef} className="flex h-full flex-col gap-0 rounded-xl bg-white dark:bg-accent-dark border border-border-light dark:border-border-dark shadow-sm relative overflow-hidden group transform transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl" style={{ perspective: "1000px" }}>
-            {!isAnonymousStore ? (
+            {!isAnonymous ? (
                 <Link to={`/store/${store.id}`} className="relative w-full aspect-[1.5/1] block overflow-hidden">
-                    <div
-                        ref={storeImgRef}
-                        className="absolute inset-0 w-full h-full bg-center bg-no-repeat bg-cover transition-transform duration-500 ease-out group-hover:scale-110"
-                        style={storeBgStyle}>
-                    </div>
+                    <div className="absolute inset-0 bg-primary/10 animate-pulse" />
+                    <img
+                        src={store.imageUrl}
+                        alt={store.name}
+                        loading="lazy"
+                        decoding="async"
+                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-110"
+                    />
                     <button
                         onClick={(e) => {
                             e.preventDefault();
@@ -167,7 +153,7 @@ export const StoreCard: React.FC<StoreCardProps> = ({ store }) => {
                 <div>
                     <div className="flex items-center gap-1">
                         <p className="text-text-light dark:text-text-dark text-[10px] font-black leading-tight tracking-tighter truncate">{store.name}</p>
-                        {isAnonymousStore && <Icon name="verified_user" className="text-[10px] text-primary/40" filled />}
+                        {isAnonymous && <Icon name="verified_user" className="text-[10px] text-primary/40" filled />}
                     </div>
                     <p className="text-text-subtle-light dark:text-text-subtle-dark text-[8px] font-bold uppercase truncate">{store.category}</p>
                 </div>
