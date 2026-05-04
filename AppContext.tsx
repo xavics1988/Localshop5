@@ -36,7 +36,10 @@ export const LOCALSHOP_COMPANY_ACCOUNT: PlatformAccount = {
 };
 
 // ── Modelo de negocio ────────────────────────────────────────────────────────
-export const LOCALSHOP_FEE             = 3.99;  // € comisión de intermediación LocalShop (siempre)
+export const IVA_RATE                  = 0.21;  // 21 % IVA España
+export const LOCALSHOP_FEE             = 3.99;  // € comisión LocalShop (IVA incluido)
+export const LOCALSHOP_FEE_BASE        = parseFloat((LOCALSHOP_FEE / (1 + IVA_RATE)).toFixed(2)); // 3.30 base imponible
+export const LOCALSHOP_FEE_IVA         = parseFloat((LOCALSHOP_FEE - LOCALSHOP_FEE_BASE).toFixed(2)); // 0.69 IVA repercutido
 export const SHIPPING_FEE              = 4.50;  // € gastos de envío cobrados al cliente si subtotal < FREE_SHIPPING_THRESHOLD
 export const FREE_SHIPPING_THRESHOLD   = 70;    // € — por encima el colaborador gestiona el envío (gratis para el cliente)
 export const SUBSCRIPTION_FREE_MONTHS  = 6;     // meses gratis para colaboradores

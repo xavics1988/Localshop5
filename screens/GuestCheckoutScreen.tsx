@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DetailHeader } from '../components/Layout';
-import { useCart, useNotifications, LOCALSHOP_PLATFORM_ACCOUNT, LOCALSHOP_COMPANY_ACCOUNT, LOCALSHOP_FEE, SHIPPING_FEE, FREE_SHIPPING_THRESHOLD } from '../AppContext';
+import { useCart, useNotifications, LOCALSHOP_PLATFORM_ACCOUNT, LOCALSHOP_COMPANY_ACCOUNT, LOCALSHOP_FEE, LOCALSHOP_FEE_BASE, LOCALSHOP_FEE_IVA, SHIPPING_FEE, FREE_SHIPPING_THRESHOLD } from '../AppContext';
 import { SPANISH_PROVINCES } from './AuthScreens';
 import {
     sanitizeRaw, truncate, MAX_LENGTHS,
@@ -161,7 +161,7 @@ const GuestCheckoutScreen: React.FC = () => {
         // Pequeña pausa para simular el procesamiento del pago
         await new Promise(resolve => setTimeout(resolve, 1200));
 
-        console.log(`[PAGO INVITADO] ${generatedOrderId} — Total: €${total.toFixed(2)} | Subtotal: €${subtotal.toFixed(2)} | Comisión LocalShop: €${LOCALSHOP_FEE.toFixed(2)} -> ${LOCALSHOP_COMPANY_ACCOUNT.iban} | Envío: €${shippingCost.toFixed(2)}`);
+        console.log(`[PAGO INVITADO] ${generatedOrderId} — Total: €${total.toFixed(2)} | Subtotal: €${subtotal.toFixed(2)} | Comisión LocalShop: €${LOCALSHOP_FEE.toFixed(2)} (Base: €${LOCALSHOP_FEE_BASE.toFixed(2)} + IVA 21%: €${LOCALSHOP_FEE_IVA.toFixed(2)}) -> ${LOCALSHOP_COMPANY_ACCOUNT.iban} | Envío: €${shippingCost.toFixed(2)}`);
 
         setLoading(false);
         clearCart();
@@ -236,12 +236,22 @@ const GuestCheckoutScreen: React.FC = () => {
                             <span className="text-sm font-bold text-text-light dark:text-text-dark">Subtotal</span>
                             <span className="text-sm font-bold text-text-light dark:text-text-dark">€{subtotal.toFixed(2)}</span>
                         </div>
-                        <div className="flex justify-between items-center py-2 border-b border-border-light/50">
-                            <div className="flex flex-col">
-                                <span className="text-sm font-bold text-text-light dark:text-text-dark">Gestión LocalShop</span>
-                                <span className="text-[10px] text-text-subtle-light">Comisión de intermediación</span>
+                        <div className="py-2 border-b border-border-light/50 space-y-1">
+                            <div className="flex justify-between items-center">
+                                <div className="flex flex-col">
+                                    <span className="text-sm font-bold text-text-light dark:text-text-dark">Gestión LocalShop</span>
+                                    <span className="text-[10px] text-text-subtle-light">Comisión de intermediación (IVA incl.)</span>
+                                </div>
+                                <span className="text-sm font-bold text-text-light dark:text-text-dark">€{LOCALSHOP_FEE.toFixed(2)}</span>
                             </div>
-                            <span className="text-sm font-bold text-text-light dark:text-text-dark">€{LOCALSHOP_FEE.toFixed(2)}</span>
+                            <div className="flex justify-between items-center pl-2">
+                                <span className="text-[10px] text-text-subtle-light">Base imponible</span>
+                                <span className="text-[10px] text-text-subtle-light">€{LOCALSHOP_FEE_BASE.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between items-center pl-2">
+                                <span className="text-[10px] text-text-subtle-light">IVA (21%)</span>
+                                <span className="text-[10px] text-text-subtle-light">€{LOCALSHOP_FEE_IVA.toFixed(2)}</span>
+                            </div>
                         </div>
                         <div className="flex justify-between items-center py-2 border-b border-border-light/50">
                             <div className="flex flex-col">
