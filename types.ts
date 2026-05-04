@@ -123,8 +123,36 @@ export interface PlatformAccount {
   bankName: string;
 }
 
+export interface Invoice {
+  id: string;
+  orderId: string;
+  recipientType: 'customer' | 'collaborator';
+  recipientId: string;
+  invoiceNumber: string;
+  // Datos fiscales de la tienda
+  storeId?: string;
+  storeName?: string;
+  storeCif?: string;
+  storeAddress?: string;
+  // Datos del cliente
+  customerName?: string;
+  customerEmail?: string;
+  // Importes
+  subtotal: number;      // productos sin comisión
+  feeBase?: number;      // base imponible comisión LocalShop
+  feeIva?: number;       // IVA 21% sobre comisión
+  feeTotal?: number;     // comisión total
+  total: number;         // total pagado por el cliente
+  // Desglose de items
+  items: OrderItem[];
+  // Metadatos
+  issuedAt: string;
+  autoCompleted: boolean;
+}
+
 export interface OrderContextType {
     orders: Order[];
+    invoices: Invoice[];
     addOrder: (order: Omit<Order, 'id' | 'date' | 'status' | 'customerId'>) => void;
     requestReturn: (orderId: string) => void;
     processReturn: (orderId: string) => void;

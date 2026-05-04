@@ -8,7 +8,7 @@ import {
     validateCardNumber, validateCardExpiry, validateCVV,
     validateIBAN, validateBIC, validateProductField, validatePrice
 } from '../utils/validation';
-import { Product, Order, OrderStatus, Store, OrderItem, BankAccount, Review, PaymentCard, OrderEvent } from '../types';
+import { Product, Order, OrderStatus, Store, OrderItem, BankAccount, Review, PaymentCard, OrderEvent, Invoice } from '../types';
 import { useProducts, useCart, useFavorites, useFollowedStores, useNotifications, useOrders, useReviews, useUser, useStores, LOCALSHOP_PLATFORM_ACCOUNT, LOCALSHOP_COMPANY_ACCOUNT, LOCALSHOP_FEE, LOCALSHOP_FEE_BASE, LOCALSHOP_FEE_IVA, SHIPPING_FEE, FREE_SHIPPING_THRESHOLD, getCollaboratorSubscription } from '../AppContext';
 import { StoreCard, ProductCard } from '../components/Card';
 import { GoogleGenAI } from "@google/genai";
@@ -1440,6 +1440,107 @@ export const FollowedStoresScreen: React.FC = () => {
 };
 
 /**
+ * Modal de factura simplificada.
+ */
+const InvoiceModal: React.FC<{ invoice: Invoice; onClose: () => void }> = ({ invoice, onClose }) => {
+    const isCollab = invoice.recipientType === 'collaborator';
+    const netRevenue = invoice.subtotal;
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={onClose}>
+            <div className="bg-white dark:bg-accent-dark w-full max-w-md rounded-3xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+
+                {/* Cabecera */}
+                <div className="bg-primary px-6 py-5 flex justify-between items-start">
+                    <div>
+                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/60 mb-1">Factura Simplificada</p>
+                        <h2 className="text-white font-black text-lg tracking-tight">{invoice.invoiceNumber}</h2>
+                        <p className="text-white/70 text-[10px] font-bold mt-1">{new Date(invoice.issuedAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                    </div>
+                    <button onClick={onClose} className="text-white/70 hover:text-white transition-colors mt-1">
+                        <Icon name="close" className="text-xl" />
+                    </button>
+                </div>
+
+                <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
+
+                    {/* Emisor */}
+                    {invoice.storeName && (
+                        <div>
+                            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-text-subtle-light mb-2">Vendedor</p>
+                            <p className="text-sm font-black text-text-light dark:text-text-dark">{invoice.storeName}</p>
+                            {invoice.storeCif && <p className="text-[10px] text-text-subtle-light font-bold">CIF: {invoice.storeCif}</p>}
+                            {invoice.storeAddress && <p className="text-[10px] text-text-subtle-light">{invoice.storeAddress}</p>}
+                        </div>
+                    )}
+
+                    {/* Comprador */}
+                    <div>
+                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-text-subtle-light mb-2">
+                            {isCollab ? 'Cliente' : 'Comprador'}
+                        </p>
+                        <p className="text-sm font-bold text-text-light dark:text-text-dark">{invoice.customerName}</p>
+                        {invoice.customerEmail && <p className="text-[10px] text-text-subtle-light">{invoice.customerEmail}</p>}
+                    </div>
+
+                    {/* Items */}
+                    <div>
+                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-text-subtle-light mb-3">Artículos</p>
+                        <div className="space-y-2">
+                            {(invoice.items as any[]).map((item: any, idx: number) => {
+                                const name = item.product?.name ?? item.name ?? '—';
+                                const price = item.product?.price ?? item.price ?? 0;
+                                const qty = item.quantity ?? 1;
+                                return (
+                                    <div key={idx} className="flex justify-between items-center text-sm">
+                                        <span className="text-text-light dark:text-text-dark font-medium flex-1 truncate pr-4">{qty}× {name}{item.variant ? ` (${item.variant})` : ''}</span>
+                                        <span className="font-black text-text-light dark:text-text-dark">€{(price * qty).toFixed(2)}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Totales */}
+                    <div className="border-t border-border-light dark:border-border-dark pt-4 space-y-2">
+                        <div className="flex justify-between text-[11px] text-text-subtle-light">
+                            <span>Subtotal productos</span>
+                            <span className="font-bold">€{invoice.subtotal.toFixed(2)}</span>
+                        </div>
+                        {invoice.feeBase != null && (
+                            <>
+                                <div className="flex justify-between text-[11px] text-text-subtle-light">
+                                    <span>Comisión LocalShop (base)</span>
+                                    <span className="font-bold">€{invoice.feeBase.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between text-[11px] text-text-subtle-light">
+                                    <span>IVA 21% comisión</span>
+                                    <span className="font-bold">€{(invoice.feeIva ?? 0).toFixed(2)}</span>
+                                </div>
+                            </>
+                        )}
+                        <div className="flex justify-between items-center pt-2 border-t border-border-light dark:border-border-dark">
+                            <span className="text-sm font-black uppercase tracking-widest text-text-light dark:text-text-dark">Total pagado</span>
+                            <span className="text-xl font-black text-primary">€{invoice.total.toFixed(2)}</span>
+                        </div>
+                        {isCollab && (
+                            <div className="flex justify-between items-center pt-1">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-green-600">Tu ingreso neto</span>
+                                <span className="text-base font-black text-green-600">€{netRevenue.toFixed(2)}</span>
+                            </div>
+                        )}
+                    </div>
+
+                    {invoice.autoCompleted && (
+                        <p className="text-[9px] text-text-subtle-light text-center italic">Completado automáticamente tras 7 días sin confirmación.</p>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+/**
  * Sub-componente OrderTimeline: Muestra el historial de eventos de un pedido.
  */
 const OrderTimeline: React.FC<{ history?: OrderEvent[], initialDate: string }> = ({ history, initialDate }) => {
@@ -1474,13 +1575,13 @@ const OrderTimeline: React.FC<{ history?: OrderEvent[], initialDate: string }> =
 };
 
 export const OrdersScreen: React.FC = () => {
-    const { orders, requestReturn, processReturn, updateOrderStatus } = useOrders();
+    const { orders, invoices, requestReturn, processReturn, updateOrderStatus } = useOrders();
     const { user } = useUser();
     const { notify } = useNotifications();
     const isCollab = user.role === 'colaborador';
 
-    // Estado para controlar qué pedidos tienen el historial desplegado
     const [expandedHistory, setExpandedHistory] = useState<Record<string, boolean>>({});
+    const [activeInvoice, setActiveInvoice] = useState<Invoice | null>(null);
 
     const toggleHistory = (orderId: string) => {
         setExpandedHistory(prev => ({
@@ -1531,6 +1632,7 @@ export const OrdersScreen: React.FC = () => {
     };
 
     return (
+        <>
         <div className="bg-background-light dark:bg-background-dark min-h-screen pb-20">
             <span className="sr-only">Orders</span>
             <DetailHeader title={isCollab ? "Mis Ventas" : "Mis Pedidos"} backTo="/profile" />
@@ -1572,6 +1674,8 @@ export const OrdersScreen: React.FC = () => {
                         const diffInDays = (now.getTime() - orderDate.getTime()) / (1000 * 3600 * 24);
                         const isEligibleForReturn = !isCollab && order.status === 'Completado' && diffInDays < 14;
 
+                        const orderInvoice = invoices.find(inv => inv.orderId === order.id);
+
                         return (
                             <div key={order.id} className={`bg-white dark:bg-accent-dark rounded-3xl border p-6 shadow-sm space-y-4 transition-all ${isReturned ? 'opacity-60 grayscale-[0.3] border-red-200 dark:border-red-900/20' : 'border-border-light dark:border-border-dark hover:border-primary/30'}`}>
 
@@ -1607,8 +1711,8 @@ export const OrdersScreen: React.FC = () => {
                                     ))}
                                 </div>
 
-                                {/* Botón Toggle de Trazabilidad */}
-                                <div className="pt-2">
+                                {/* Botones de trazabilidad y factura */}
+                                <div className="pt-2 flex flex-wrap gap-2">
                                     <button
                                         onClick={() => toggleHistory(order.id)}
                                         className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.1em] text-primary/70 hover:text-primary transition-colors bg-primary/5 px-3 py-1.5 rounded-full"
@@ -1617,8 +1721,18 @@ export const OrdersScreen: React.FC = () => {
                                         {isExpanded ? "Ocultar trazabilidad" : "Ver historial de estados"}
                                     </button>
 
+                                    {orderInvoice && (
+                                        <button
+                                            onClick={() => setActiveInvoice(orderInvoice)}
+                                            className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.1em] text-green-600 hover:text-green-700 transition-colors bg-green-500/10 px-3 py-1.5 rounded-full"
+                                        >
+                                            <Icon name="receipt_long" className="text-[12px]" filled />
+                                            Ver factura
+                                        </button>
+                                    )}
+
                                     {isExpanded && (
-                                        <div className="animate-fade-in border-t border-border-light dark:border-border-dark mt-3 pt-1">
+                                        <div className="w-full animate-fade-in border-t border-border-light dark:border-border-dark mt-1 pt-1">
                                             <OrderTimeline history={order.history} initialDate={order.date} />
                                         </div>
                                     )}
@@ -1695,6 +1809,11 @@ export const OrdersScreen: React.FC = () => {
                 )}
             </main>
         </div>
+
+        {activeInvoice && (
+            <InvoiceModal invoice={activeInvoice} onClose={() => setActiveInvoice(null)} />
+        )}
+        </>
     );
 };
 

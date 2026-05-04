@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Product, OrderItem, Order, OrderStatus, Review, Store, BankAccount, PaymentCard, PlatformAccount, OrderContextType, OrderEvent, UserProfile, CollaboratorSubscription } from './types';
+import { Product, OrderItem, Order, OrderStatus, Review, Store, BankAccount, PaymentCard, PlatformAccount, OrderContextType, OrderEvent, UserProfile, CollaboratorSubscription, Invoice } from './types';
 import { CLOTHING_CATEGORIES } from './data';
 import {
   supabase,
@@ -227,6 +227,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setIsBootstrapping(false);
       return;
     }
+    setIsBootstrapping(true); // volver a true mientras carga el perfil (evita redirect prematuro)
     let active = true;
     (async () => {
       const { data: profile } = await supabase
@@ -600,6 +601,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // ── Orders ────────────────────────────────────────────────────────────────
   const [orders, setOrders] = useState<Order[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const newOrdersNotifShown = useRef<string | null>(null);
 
   useEffect(() => {
@@ -804,6 +806,53 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   }, [orders, notify]);
 
+  // Cargar facturas del usuario actual
+  useEffect(() => {
+    if (!user.id) { setInvoices([]); return; }
+    supabase.from('invoices').select('*').eq('recipient_id', user.id).order('issued_at', { ascending: false })
+      .then(({ data }) => {
+        if (!data) return;
+        setInvoices(data.map((r: any) => ({
+          id:            r.id,
+          orderId:       r.order_id,
+          recipientType: r.recipient_type,
+          recipientId:   r.recipient_id,
+          invoiceNumber: r.invoice_number,
+          storeId:       r.store_id,
+          storeName:     r.store_name,
+          storeCif:      r.store_cif,
+          storeAddress:  r.store_address,
+          customerName:  r.customer_name,
+          customerEmail: r.customer_email,
+          subtotal:      r.subtotal,
+          feeBase:       r.fee_base,
+          feeIva:        r.fee_iva,
+          feeTotal:      r.fee_total,
+          total:         r.total,
+          items:         r.items,
+          issuedAt:      r.issued_at,
+          autoCompleted: r.auto_completed,
+        })));
+      });
+
+    // Realtime: nueva factura generada (p.ej. auto-complete en BD)
+    const ch = supabase.channel(`invoices:${user.id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'invoices', filter: `recipient_id=eq.${user.id}` }, (payload) => {
+        const r = payload.new as any;
+        setInvoices((prev: Invoice[]) => [{
+          id: r.id, orderId: r.order_id, recipientType: r.recipient_type,
+          recipientId: r.recipient_id, invoiceNumber: r.invoice_number,
+          storeId: r.store_id, storeName: r.store_name, storeCif: r.store_cif,
+          storeAddress: r.store_address, customerName: r.customer_name,
+          customerEmail: r.customer_email, subtotal: r.subtotal,
+          feeBase: r.fee_base, feeIva: r.fee_iva, feeTotal: r.fee_total,
+          total: r.total, items: r.items, issuedAt: r.issued_at,
+          autoCompleted: r.auto_completed,
+        }, ...prev]);
+      }).subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [user.id]);
+
   // ── Reviews ───────────────────────────────────────────────────────────────
   const [reviews, setReviews] = useState<Review[]>([]);
 
@@ -844,7 +893,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const cartValue          = useMemo(() => ({ cartItems, addToCart, clearCart, removeFromCart, updateQuantity }), [cartItems, addToCart, clearCart, removeFromCart, updateQuantity]);
   const favoritesValue     = useMemo(() => ({ favorites, toggleFavorite, isFavorite }), [favorites, toggleFavorite, isFavorite]);
   const followedStoresValue= useMemo(() => ({ followedStoreIds: followedIds, toggleFollow, isFollowing }), [followedIds, toggleFollow, isFollowing]);
-  const orderValue         = useMemo(() => ({ orders, addOrder, requestReturn, processReturn, updateOrderStatus }), [orders, addOrder, requestReturn, processReturn, updateOrderStatus]);
+  const orderValue         = useMemo(() => ({ orders, invoices, addOrder, requestReturn, processReturn, updateOrderStatus }), [orders, invoices, addOrder, requestReturn, processReturn, updateOrderStatus]);
   const reviewValue        = useMemo(() => ({ addReview, getStoreReviews, getUserReviews }), [addReview, getStoreReviews, getUserReviews]);
   const notificationValue  = useMemo(() => ({
     settings:                 notifSettings,
