@@ -1674,7 +1674,7 @@ export const OrdersScreen: React.FC = () => {
                         const diffInDays = (now.getTime() - orderDate.getTime()) / (1000 * 3600 * 24);
                         const isEligibleForReturn = !isCollab && order.status === 'Completado' && diffInDays < 14;
 
-                        const orderInvoice = invoices.find(inv => inv.orderId === order.id);
+                        const orderInvoice = invoices.find(inv => inv.orderId === order.id && inv.recipientType === (isCollab ? 'collaborator' : 'customer'));
 
                         return (
                             <div key={order.id} className={`bg-white dark:bg-accent-dark rounded-3xl border p-6 shadow-sm space-y-4 transition-all ${isReturned ? 'opacity-60 grayscale-[0.3] border-red-200 dark:border-red-900/20' : 'border-border-light dark:border-border-dark hover:border-primary/30'}`}>

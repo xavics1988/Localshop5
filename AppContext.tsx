@@ -230,8 +230,8 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setIsBootstrapping(true); // volver a true mientras carga el perfil (evita redirect prematuro)
     let active = true;
     (async () => {
-      const { data: profile } = await supabase
-        .from('profiles').select('*').eq('id', authUserId).single();
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles').select('*').eq('id', authUserId).maybeSingle();
       if (!active) return;
       if (profile) {
         const mapped = dbProfileToUserProfile(profile as any);
@@ -242,6 +242,37 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           if (ownedStore) mapped.storeId = ownedStore.id;
         }
         setUser(mapped);
+      } else if (!profileError) {
+        // Profile row genuinely missing (maybeSingle returns null with no error) —
+        // auto-create it from auth metadata so the user doesn't get sent to the
+        // onboarding screen on every login.
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (!active) return;
+        if (authUser) {
+          const meta = authUser.user_metadata ?? {};
+          const nameFromMeta = meta.full_name || meta.name || authUser.email?.split('@')[0] || 'Usuario';
+          const roleFromMeta: 'cliente' | 'colaborador' =
+            meta.role === 'colaborador' ? 'colaborador' : 'cliente';
+          const cleanName = nameFromMeta.replace(/\s+/g, '').toUpperCase().substring(0, 5);
+          const referralCode = `${cleanName}${Math.floor(1000 + Math.random() * 9000)}`;
+          await supabase.from('profiles').upsert({
+            id:               authUserId,
+            email:            authUser.email ?? '',
+            name:             nameFromMeta,
+            location:         '',
+            bio:              '',
+            phone:            '',
+            role:             roleFromMeta,
+            store_id:         null,
+            referral_code:    referralCode,
+            referral_balance: 0,
+          }, { onConflict: 'id' });
+          if (!active) return;
+          const { data: newProfile } = await supabase
+            .from('profiles').select('*').eq('id', authUserId).single();
+          if (!active) return;
+          if (newProfile) setUser(dbProfileToUserProfile(newProfile as any));
+        }
       }
       setIsBootstrapping(false);
     })();

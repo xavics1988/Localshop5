@@ -1,7 +1,7 @@
 
-import React, { useEffect } from 'react';
-import { HashRouter, Routes, Route, useLocation, Navigate, useNavigate } from 'react-router-dom';
-import { AppContextProvider, useUser } from './AppContext';
+import React from 'react';
+import { HashRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
+import { AppContextProvider } from './AppContext';
 import { OnboardingScreen, SignUpScreen, LoginScreen, OAuthCompleteProfileScreen } from './screens/AuthScreens';
 import DiscoverScreen from './screens/DiscoverScreen';
 import ProductDetailScreen from './screens/ProductDetailScreen';
@@ -30,14 +30,6 @@ const ScrollToTop = () => {
 
 const AppContent: React.FC = () => {
     const location = useLocation();
-    const navigate = useNavigate();
-    const { user, isBootstrapping, hasAuthSession } = useUser();
-
-    useEffect(() => {
-        if (!isBootstrapping && hasAuthSession && !user.id) {
-            navigate('/complete-profile', { replace: true });
-        }
-    }, [isBootstrapping, hasAuthSession, user.id]);
 
     // Rutas que no deben mostrar la barra de navegación inferior
     const noNavRoutes = [
