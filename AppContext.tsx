@@ -42,10 +42,14 @@ export const LOCALSHOP_FEE_BASE        = parseFloat((LOCALSHOP_FEE / (1 + IVA_RA
 export const LOCALSHOP_FEE_IVA         = parseFloat((LOCALSHOP_FEE - LOCALSHOP_FEE_BASE).toFixed(2)); // 0.69 IVA repercutido
 export const SHIPPING_FEE              = 4.50;  // € gastos de envío cobrados al cliente si subtotal < FREE_SHIPPING_THRESHOLD
 export const FREE_SHIPPING_THRESHOLD   = 70;    // € — por encima el colaborador gestiona el envío (gratis para el cliente)
-export const SUBSCRIPTION_FREE_MONTHS  = 6;     // meses gratis para colaboradores
-export const SUBSCRIPTION_MONTHLY_FEE  = 7.00;  // € /mes — tarifa estándar
-export const FOUNDING_MEMBER_FEE       = 4.00;  // € /mes — tarifa de por vida para socios fundadores
-export const FOUNDING_MEMBER_WINDOW_MONTHS = 6; // meses desde el lanzamiento con derecho a tarifa fundador
+export const SUBSCRIPTION_FREE_MONTHS       = 6;     // meses gratis para colaboradores
+export const SUBSCRIPTION_MONTHLY_FEE       = 7.00;  // € /mes tarifa estándar (IVA incluido)
+export const SUBSCRIPTION_MONTHLY_FEE_BASE  = parseFloat((SUBSCRIPTION_MONTHLY_FEE / (1 + IVA_RATE)).toFixed(2)); // 5.79 base imponible
+export const SUBSCRIPTION_MONTHLY_FEE_IVA   = parseFloat((SUBSCRIPTION_MONTHLY_FEE - SUBSCRIPTION_MONTHLY_FEE_BASE).toFixed(2)); // 1.21 IVA
+export const FOUNDING_MEMBER_FEE             = 4.00;  // € /mes tarifa fundador de por vida (IVA incluido)
+export const FOUNDING_MEMBER_FEE_BASE        = parseFloat((FOUNDING_MEMBER_FEE / (1 + IVA_RATE)).toFixed(2)); // 3.31 base imponible
+export const FOUNDING_MEMBER_FEE_IVA         = parseFloat((FOUNDING_MEMBER_FEE - FOUNDING_MEMBER_FEE_BASE).toFixed(2)); // 0.69 IVA
+export const FOUNDING_MEMBER_WINDOW_MONTHS   = 6; // meses desde el lanzamiento con derecho a tarifa fundador
 
 // Fecha de lanzamiento oficial de la plataforma.
 // ⚠️  Actualiza VITE_APP_LAUNCH_DATE en .env.local con el formato YYYY-MM-DD.
@@ -65,11 +69,16 @@ export function getCollaboratorSubscription(joinedAt: string): CollaboratorSubsc
 
   const now = new Date();
   const daysRemaining = Math.ceil((trialEndsAt.getTime() - now.getTime()) / 86_400_000);
+  const monthlyFee     = isFoundingMember ? FOUNDING_MEMBER_FEE      : SUBSCRIPTION_MONTHLY_FEE;
+  const monthlyFeeBase = isFoundingMember ? FOUNDING_MEMBER_FEE_BASE  : SUBSCRIPTION_MONTHLY_FEE_BASE;
+  const monthlyFeeIva  = isFoundingMember ? FOUNDING_MEMBER_FEE_IVA   : SUBSCRIPTION_MONTHLY_FEE_IVA;
   return {
     status:               now < trialEndsAt ? 'trial' : 'active',
     trialEndsAt,
     daysRemainingInTrial: daysRemaining,
-    monthlyFee:           isFoundingMember ? FOUNDING_MEMBER_FEE : SUBSCRIPTION_MONTHLY_FEE,
+    monthlyFee,
+    monthlyFeeBase,
+    monthlyFeeIva,
     isFoundingMember,
   };
 }

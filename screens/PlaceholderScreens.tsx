@@ -1300,9 +1300,10 @@ export const ProfileScreen: React.FC = () => {
                                     <p className="text-xs text-text-subtle-light leading-relaxed">
                                         Prueba gratuita hasta el <span className="font-bold text-text-light dark:text-text-dark">{trialEndStr}</span>.
                                         A partir de esa fecha, la suscripción es de{' '}
-                                        <span className="font-black text-primary">€{sub.monthlyFee.toFixed(2)}/mes</span>
+                                        <span className="font-black text-primary">€{sub.monthlyFee.toFixed(2)}/mes</span>{' '}
+                                        <span className="text-text-subtle-light">(IVA incluido)</span>
                                         {sub.isFoundingMember && (
-                                            <span className="text-amber-600 dark:text-amber-400"> (tarifa fundador de por vida)</span>
+                                            <span className="text-amber-600 dark:text-amber-400"> — tarifa fundador de por vida</span>
                                         )}.
                                     </p>
                                 </div>
@@ -1315,7 +1316,18 @@ export const ProfileScreen: React.FC = () => {
                                                 <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold uppercase tracking-widest">Tarifa fundador — de por vida</p>
                                             )}
                                         </div>
-                                        <span className="text-2xl font-black text-primary">€{sub.monthlyFee.toFixed(2)}</span>
+                                        <div className="text-right">
+                                            <span className="text-2xl font-black text-primary">€{sub.monthlyFee.toFixed(2)}</span>
+                                            <p className="text-[10px] text-text-subtle-light">IVA incluido</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-between text-[11px] text-text-subtle-light">
+                                        <span>Base imponible</span>
+                                        <span>€{sub.monthlyFeeBase.toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-[11px] text-text-subtle-light">
+                                        <span>IVA (21%)</span>
+                                        <span>€{sub.monthlyFeeIva.toFixed(2)}</span>
                                     </div>
                                     <p className="text-xs text-text-subtle-light leading-relaxed">
                                         Periodo de prueba finalizado el <span className="font-bold">{trialEndStr}</span>.
@@ -1328,7 +1340,8 @@ export const ProfileScreen: React.FC = () => {
                                 <p className="text-xs font-bold text-text-light dark:text-text-dark">{LOCALSHOP_COMPANY_ACCOUNT.holder}</p>
                                 <p className="text-xs font-mono text-primary break-all font-black">{LOCALSHOP_COMPANY_ACCOUNT.iban}</p>
                                 <p className="text-[10px] text-text-subtle-light">{LOCALSHOP_COMPANY_ACCOUNT.bankName}</p>
-                                <p className="text-[10px] text-text-subtle-light mt-1">Concepto: <span className="font-bold">Suscripción LocalShop — {user.name}</span></p>
+                                <p className="text-[10px] text-text-subtle-light mt-1">Importe: <span className="font-bold">€{sub.monthlyFee.toFixed(2)} (IVA incluido)</span></p>
+                                <p className="text-[10px] text-text-subtle-light">Concepto: <span className="font-bold">Suscripción LocalShop — {user.name}</span></p>
                             </div>
                         </div>
                     );
