@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Product, OrderItem, Order, OrderStatus, Review, Store, BankAccount, PaymentCard, PlatformAccount, OrderContextType, OrderEvent, UserProfile, CollaboratorSubscription, Invoice } from './types';
+import { Product, OrderItem, Order, OrderStatus, Review, Store, BankAccount, PaymentCard, PlatformAccount, OrderContextType, OrderEvent, UserProfile, CollaboratorSubscription, Invoice, Payout } from './types';
 import { CLOTHING_CATEGORIES } from './data';
 import {
   supabase,
@@ -101,6 +101,7 @@ interface UserContextType {
   bankAccounts: BankAccount[];
   addBankAccount: (account: Omit<BankAccount, 'id' | 'userId'>) => void;
   removeBankAccount: (id: string) => void;
+  setDefaultBankAccount: (id: string) => void;
   useReferralBalance: (amount: number) => void;
   isBootstrapping: boolean;
   hasAuthSession: boolean;
@@ -158,7 +159,7 @@ interface NotificationSettings {
 interface NotificationContextType {
   settings:                 NotificationSettings;
   updateSettings:           (newSettings: Partial<NotificationSettings>) => void;
-  notify:                   (title: string, message: string, icon?: string, category?: keyof NotificationSettings) => void;
+  notify:                   (title: string, message: string, icon?: string, category?: keyof NotificationSettings, link?: string) => void;
   enablePushNotifications:  () => Promise<boolean>;
   disablePushNotifications: () => Promise<void>;
   pushPermission:           NotificationPermission | 'unsupported';
@@ -251,36 +252,47 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           if (ownedStore) mapped.storeId = ownedStore.id;
         }
         setUser(mapped);
+        // If there's a pending OAuth role the DB trigger couldn't know about,
+        // redirect to the profile completion screen to apply it.
+        if (localStorage.getItem('oauth_pending_role')) {
+          navigate('/complete-profile');
+        }
       } else if (!profileError) {
-        // Profile row genuinely missing (maybeSingle returns null with no error) —
-        // auto-create it from auth metadata so the user doesn't get sent to the
-        // onboarding screen on every login.
+        // Profile row genuinely missing — check auth provider to decide next step.
         const { data: { user: authUser } } = await supabase.auth.getUser();
         if (!active) return;
         if (authUser) {
-          const meta = authUser.user_metadata ?? {};
-          const nameFromMeta = meta.full_name || meta.name || authUser.email?.split('@')[0] || 'Usuario';
-          const roleFromMeta: 'cliente' | 'colaborador' =
-            meta.role === 'colaborador' ? 'colaborador' : 'cliente';
-          const cleanName = nameFromMeta.replace(/\s+/g, '').toUpperCase().substring(0, 5);
-          const referralCode = `${cleanName}${Math.floor(1000 + Math.random() * 9000)}`;
-          await supabase.from('profiles').upsert({
-            id:               authUserId,
-            email:            authUser.email ?? '',
-            name:             nameFromMeta,
-            location:         '',
-            bio:              '',
-            phone:            '',
-            role:             roleFromMeta,
-            store_id:         null,
-            referral_code:    referralCode,
-            referral_balance: 0,
-          }, { onConflict: 'id' });
-          if (!active) return;
-          const { data: newProfile } = await supabase
-            .from('profiles').select('*').eq('id', authUserId).single();
-          if (!active) return;
-          if (newProfile) setUser(dbProfileToUserProfile(newProfile as any));
+          const provider = authUser.app_metadata?.provider;
+          const isOAuth = provider === 'google' || provider === 'apple';
+          if (isOAuth) {
+            // OAuth user: send to profile completion screen to pick role properly
+            navigate('/complete-profile');
+          } else {
+            // Email signup race condition: auto-create from signUp metadata
+            const meta = authUser.user_metadata ?? {};
+            const nameFromMeta = meta.full_name || meta.name || authUser.email?.split('@')[0] || 'Usuario';
+            const roleFromMeta: 'cliente' | 'colaborador' =
+              meta.role === 'colaborador' ? 'colaborador' : 'cliente';
+            const cleanName = nameFromMeta.replace(/\s+/g, '').toUpperCase().substring(0, 5);
+            const referralCode = `${cleanName}${Math.floor(1000 + Math.random() * 9000)}`;
+            await supabase.from('profiles').upsert({
+              id:               authUserId,
+              email:            authUser.email ?? '',
+              name:             nameFromMeta,
+              location:         '',
+              bio:              '',
+              phone:            '',
+              role:             roleFromMeta,
+              store_id:         null,
+              referral_code:    referralCode,
+              referral_balance: 0,
+            }, { onConflict: 'id' });
+            if (!active) return;
+            const { data: newProfile } = await supabase
+              .from('profiles').select('*').eq('id', authUserId).single();
+            if (!active) return;
+            if (newProfile) setUser(dbProfileToUserProfile(newProfile as any));
+          }
         }
       }
       setIsBootstrapping(false);
@@ -297,9 +309,14 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       notify('Permisos denegados', 'Actívalos en la configuración del navegador.', 'notifications_off');
       return false;
     }
-    if (!user.id || user.role !== 'colaborador') return false;
+    if (!user.id) return false;
     const ok = await subscribeToPush(user.id);
-    if (ok) notify('¡Notificaciones activadas!', 'Recibirás alertas de nuevas ventas.', 'notifications_active');
+    if (ok) {
+      const msg = user.role === 'colaborador'
+        ? 'Recibirás alertas de nuevas ventas.'
+        : 'Recibirás actualizaciones de tus pedidos.';
+      notify('¡Notificaciones activadas!', msg, 'notifications_active');
+    }
     return ok;
   }, [user.id, user.role, notify]);
 
@@ -309,22 +326,20 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     notify('Notificaciones desactivadas', 'Ya no recibirás alertas push.', 'notifications_off');
   }, [user.id, notify]);
 
-  // Auto-subscribe: solicita permiso automáticamente al login del colaborador
+  // Auto-subscribe: solicita permiso al login (colaboradores y clientes)
   useEffect(() => {
-    if (!user.id || user.role !== 'colaborador') return;
+    if (!user.id) return;
     if (!isPushSupported()) return;
     registerServiceWorker().catch(console.error);
     if (Notification.permission === 'granted') {
-      // Ya tiene permiso — reuscribir silenciosamente
       subscribeToPush(user.id).catch(console.error);
     } else if (Notification.permission === 'default') {
-      // Pedir permiso automáticamente al hacer login
       requestNotificationPermission().then((perm) => {
         setPushPermission(perm);
         if (perm === 'granted') subscribeToPush(user.id).catch(console.error);
       });
     }
-  }, [user.id, user.role]);
+  }, [user.id]);
 
   const updateUser = useCallback(async (data: Partial<UserProfile>) => {
     setUser(prev => ({ ...prev, ...data }));
@@ -417,6 +432,13 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setBankAccounts(prev => prev.filter(a => a.id !== id));
     await supabase.from('bank_accounts').delete().eq('id', id);
   }, []);
+
+  const setDefaultBankAccount = useCallback(async (id: string) => {
+    if (!user.id) return;
+    setBankAccounts(prev => prev.map((a: BankAccount) => ({ ...a, isDefault: a.id === id })));
+    await supabase.from('bank_accounts').update({ is_default: false }).eq('user_id', user.id);
+    await supabase.from('bank_accounts').update({ is_default: true }).eq('id', id);
+  }, [user.id]);
 
   const useReferralBalance = useCallback(async (amount: number) => {
     const newBalance = Math.max(0, (user.referralBalance || 0) - amount);
@@ -655,17 +677,27 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       if (!data) return;
       setOrders(data.map(dbOrderToOrder as any));
 
-      // Notificación al colaborador al entrar: pedidos nuevos pendientes
-      // Push OS inmediata + toast a los 5s (después del "Hola de nuevo")
-      if (user.role === 'colaborador' && newOrdersNotifShown.current !== user.id) {
+      // Notificación al entrar: colaborador ve pedidos nuevos; cliente ve pedidos en proceso
+      if (newOrdersNotifShown.current !== user.id) {
         newOrdersNotifShown.current = user.id;
-        const pending = data.filter((o: any) => o.status === 'Nuevo');
-        if (pending.length > 0) {
-          const s = pending.length > 1 ? 's' : '';
-          const title = `${pending.length} pedido${s} nuevo${s}`;
-          const body  = `Tienes ${pending.length} pedido${s} pendiente${s} de gestionar.`;
-          showBrowserNotification(title, body, '/orders');
-          setTimeout(() => notify(title, body, 'shopping_bag', undefined, '/orders'), 5000);
+        if (user.role === 'colaborador') {
+          const pending = data.filter((o: any) => o.status === 'Nuevo');
+          if (pending.length > 0) {
+            const s = pending.length > 1 ? 's' : '';
+            const title = `${pending.length} pedido${s} nuevo${s}`;
+            const body  = `Tienes ${pending.length} pedido${s} pendiente${s} de gestionar.`;
+            showBrowserNotification(title, body, '/orders');
+            setTimeout(() => notify(title, body, 'shopping_bag', undefined, '/orders'), 5000);
+          }
+        } else if (user.role === 'cliente') {
+          const inProcess = data.filter((o: any) => o.status === 'En Proceso');
+          if (inProcess.length > 0) {
+            const s = inProcess.length > 1 ? 's' : '';
+            const title = `¡Tu${s} pedido${s} está${inProcess.length > 1 ? 'n' : ''} en camino! 🚚`;
+            const body  = `${inProcess.length > 1 ? `${inProcess.length} pedidos han sido aceptados` : 'Un colaborador ha aceptado tu pedido'} y los está preparando.`;
+            showBrowserNotification(title, body, '/purchase-history');
+            setTimeout(() => notify(title, body, 'local_shipping', undefined, '/purchase-history'), 5000);
+          }
         }
       }
     });
@@ -893,6 +925,50 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return () => { supabase.removeChannel(ch); };
   }, [user.id]);
 
+  // ── Payouts ───────────────────────────────────────────────────────────────
+  const [payouts, setPayouts] = useState<Payout[]>([]);
+
+  useEffect(() => {
+    if (!user.id || user.role !== 'colaborador') { setPayouts([]); return; }
+    supabase.from('payouts').select('*').eq('seller_id', user.id).order('created_at', { ascending: false })
+      .then(({ data }) => {
+        if (!data) return;
+        setPayouts(data.map((r: any) => ({
+          id: r.id, sellerId: r.seller_id, storeId: r.store_id,
+          periodStart: r.period_start, periodEnd: r.period_end,
+          grossAmount: r.gross_amount, status: r.status,
+          iban: r.iban, reference: r.reference,
+          processedAt: r.processed_at, createdAt: r.created_at,
+        })));
+      });
+
+    const ch = supabase.channel(`payouts:${user.id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'payouts', filter: `seller_id=eq.${user.id}` }, (payload) => {
+        const r = payload.new as any;
+        const p: Payout = {
+          id: r.id, sellerId: r.seller_id, storeId: r.store_id,
+          periodStart: r.period_start, periodEnd: r.period_end,
+          grossAmount: r.gross_amount, status: r.status,
+          iban: r.iban, reference: r.reference,
+          processedAt: r.processed_at, createdAt: r.created_at,
+        };
+        setPayouts(prev => [p, ...prev]);
+        notify('¡Pago generado!', `Tu pago quincenal de €${r.gross_amount.toFixed(2)} está siendo procesado.`, 'payments');
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'payouts', filter: `seller_id=eq.${user.id}` }, (payload) => {
+        const r = payload.new as any;
+        setPayouts((prev: Payout[]) => prev.map((p: Payout) => p.id === r.id
+          ? { ...p, status: r.status, reference: r.reference, processedAt: r.processed_at }
+          : p
+        ));
+        if (r.status === 'completed') {
+          notify('¡Pago transferido!', `€${r.gross_amount.toFixed(2)} enviados a tu cuenta. Disponible en 1-2 días hábiles.`, 'payments');
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [user.id, user.role, notify]);
+
   // ── Reviews ───────────────────────────────────────────────────────────────
   const [reviews, setReviews] = useState<Review[]>([]);
 
@@ -927,13 +1003,13 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const getUserReviews  = useCallback((userName: string)  => reviews.filter(r => r.userName === userName), [reviews]);
 
   // ── Memoized context values ───────────────────────────────────────────────
-  const userValue          = useMemo(() => ({ user, updateUser, logout, reloadProfile, paymentMethods, addPaymentMethod, removePaymentMethod, bankAccounts, addBankAccount, removeBankAccount, useReferralBalance, isBootstrapping, hasAuthSession: authUserId !== null && authUserId !== undefined }), [user, updateUser, logout, reloadProfile, paymentMethods, addPaymentMethod, removePaymentMethod, bankAccounts, addBankAccount, removeBankAccount, useReferralBalance, isBootstrapping, authUserId]);
+  const userValue          = useMemo(() => ({ user, updateUser, logout, reloadProfile, paymentMethods, addPaymentMethod, removePaymentMethod, bankAccounts, addBankAccount, removeBankAccount, setDefaultBankAccount, useReferralBalance, isBootstrapping, hasAuthSession: authUserId !== null && authUserId !== undefined }), [user, updateUser, logout, reloadProfile, paymentMethods, addPaymentMethod, removePaymentMethod, bankAccounts, addBankAccount, removeBankAccount, setDefaultBankAccount, useReferralBalance, isBootstrapping, authUserId]);
   const storeValue         = useMemo(() => ({ stores, addStore, updateStore, getStoreById: (id: string) => stores.find(s => s.id === id) }), [stores, addStore, updateStore]);
   const productValue       = useMemo(() => ({ products, addProduct, updateProduct, deleteProduct, getProductById: (id: string) => products.find(p => p.id === id), clearLocalProducts }), [products, addProduct, updateProduct, deleteProduct, clearLocalProducts]);
   const cartValue          = useMemo(() => ({ cartItems, addToCart, clearCart, removeFromCart, updateQuantity }), [cartItems, addToCart, clearCart, removeFromCart, updateQuantity]);
   const favoritesValue     = useMemo(() => ({ favorites, toggleFavorite, isFavorite }), [favorites, toggleFavorite, isFavorite]);
   const followedStoresValue= useMemo(() => ({ followedStoreIds: followedIds, toggleFollow, isFollowing }), [followedIds, toggleFollow, isFollowing]);
-  const orderValue         = useMemo(() => ({ orders, invoices, addOrder, requestReturn, processReturn, updateOrderStatus }), [orders, invoices, addOrder, requestReturn, processReturn, updateOrderStatus]);
+  const orderValue         = useMemo(() => ({ orders, invoices, payouts, addOrder, requestReturn, processReturn, updateOrderStatus }), [orders, invoices, payouts, addOrder, requestReturn, processReturn, updateOrderStatus]);
   const reviewValue        = useMemo(() => ({ addReview, getStoreReviews, getUserReviews }), [addReview, getStoreReviews, getUserReviews]);
   const notificationValue  = useMemo(() => ({
     settings:                 notifSettings,

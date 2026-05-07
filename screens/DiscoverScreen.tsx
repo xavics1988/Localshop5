@@ -159,24 +159,42 @@ const DiscoverScreen: React.FC = () => {
     };
     
     const groupedProducts = useMemo((): Product[] => {
-        const byBarcode = new Map<string, Product>();
-        const noBarcode: Product[] = [];
+        const byBarcode = new Map<string, { best: Product; storeIds: Set<string> }>();
+        const byStoreName = new Map<string, Product>();
 
         for (const product of products) {
             const bc = product.barcode?.trim();
             if (bc) {
-                const existing = byBarcode.get(bc);
-                if (!existing || product.price < existing.price) {
-                    byBarcode.set(bc, { ...product, storeCount: (existing?.storeCount ?? 0) + 1 });
+                const entry = byBarcode.get(bc);
+                if (!entry) {
+                    byBarcode.set(bc, { best: product, storeIds: new Set([product.storeId]) });
                 } else {
-                    byBarcode.set(bc, { ...existing, storeCount: (existing.storeCount ?? 1) + 1 });
+                    entry.storeIds.add(product.storeId);
+                    if (product.price < entry.best.price) {
+                        entry.best = product;
+                    }
                 }
             } else {
-                noBarcode.push(product);
+                const key = `${product.storeId}||${product.name.trim().toLowerCase()}`;
+                const existing = byStoreName.get(key);
+                if (!existing) {
+                    byStoreName.set(key, product);
+                } else {
+                    const mergedStockPerSize = { ...(existing.stockPerSize || {}), ...(product.stockPerSize || {}) };
+                    byStoreName.set(key, {
+                        ...existing,
+                        sizes: [...new Set([...(existing.sizes || []), ...(product.sizes || [])])],
+                        stockPerSize: mergedStockPerSize,
+                        stock: (existing.stock || 0) + (product.stock || 0),
+                    });
+                }
             }
         }
 
-        return [...byBarcode.values(), ...noBarcode];
+        return [
+            ...Array.from(byBarcode.values()).map(e => ({ ...e.best, storeCount: e.storeIds.size })),
+            ...Array.from(byStoreName.values()),
+        ];
     }, [products]);
 
     const filteredProducts = useMemo(() => {

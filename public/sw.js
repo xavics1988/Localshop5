@@ -23,6 +23,8 @@ self.addEventListener('push', (event) => {
   }
 
   const title = data.title || '¡Nueva venta!';
+  const orderId = data.data?.orderId || '';
+  const tag = orderId ? `order-${orderId}` : 'order-update';
   const options = {
     body:               data.body  || 'Tienes un nuevo pedido.',
     icon:               data.icon  || '/icon-192.png',
@@ -30,7 +32,7 @@ self.addEventListener('push', (event) => {
     data:               data.data  || {},
     vibrate:            [200, 100, 200],
     requireInteraction: false,
-    tag:                'new-order',
+    tag,
     renotify:           true,
     actions: [
       { action: 'view',    title: 'Ver pedido' },

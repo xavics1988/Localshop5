@@ -1,0 +1,26 @@
+-- ============================================================
+-- MIGRACIÓN 015: Webhook para notificación al cliente cuando
+-- el colaborador acepta un pedido (estado → 'En Proceso')
+-- ============================================================
+
+-- ⚠️  Esta migración requiere configuración manual en el dashboard de Supabase.
+--
+-- 1. Ve a: Database > Webhooks > Create a new hook
+--
+-- 2. Rellena los campos:
+--    - Name:    notify_order_accepted
+--    - Table:   orders
+--    - Events:  UPDATE
+--    - URL:     https://<TU_PROYECTO>.supabase.co/functions/v1/send-order-accepted-notification
+--    - Headers: Authorization: Bearer <SERVICE_ROLE_KEY>
+--
+-- 3. (Opcional) Añade un filtro de columna para solo disparar cuando
+--    status cambia a 'En Proceso', usando el campo "Conditions":
+--    new.status = 'En Proceso'
+--
+-- El webhook enviará el payload completo del registro actualizado a la
+-- edge function, que extraerá customer_id y enviará la push al cliente.
+--
+-- La edge function ya está desplegada en:
+--   supabase/functions/send-order-accepted-notification/index.ts
+-- ============================================================

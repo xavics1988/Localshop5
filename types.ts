@@ -152,9 +152,24 @@ export interface Invoice {
   autoCompleted: boolean;
 }
 
+export interface Payout {
+  id: string;
+  sellerId: string;
+  storeId?: string;
+  periodStart: string;
+  periodEnd: string;
+  grossAmount: number;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  iban?: string;
+  reference?: string;
+  processedAt?: string;
+  createdAt: string;
+}
+
 export interface OrderContextType {
     orders: Order[];
     invoices: Invoice[];
+    payouts: Payout[];
     addOrder: (order: Omit<Order, 'id' | 'date' | 'status' | 'customerId'>) => void;
     requestReturn: (orderId: string) => void;
     processReturn: (orderId: string) => void;

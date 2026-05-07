@@ -15,7 +15,7 @@ import { GoogleGenAI } from "@google/genai";
 import { removeBackground } from '@imgly/background-removal';
 import { SPANISH_PROVINCES } from './AuthScreens';
 import { CLOTHING_CATEGORIES } from '../data';
-import { uploadBase64Image } from '../src/lib/supabase';
+import { uploadBase64Image, supabase, dbProductToProduct } from '../src/lib/supabase';
 
 const Placeholder = ({ title, backTo = "/" }: { title: string; backTo?: string }) => (
     <div className="bg-background-light dark:bg-background-dark min-h-screen">
@@ -98,9 +98,25 @@ export const ManageCatalogScreen: React.FC = () => {
     const navigate = useNavigate();
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
-    // Filtrar solo los productos que pertenecen a la tienda del colaborador actual
+    // Filtrar y agrupar por nombre para evitar mostrar duplicados por talla
     const myProducts = useMemo(() => {
-        return products.filter(p => p.storeId === user.storeId);
+        const byName = new Map<string, Product>();
+        for (const p of products.filter(p => p.storeId === user.storeId)) {
+            const key = p.name.trim().toLowerCase();
+            const existing = byName.get(key);
+            if (!existing) {
+                byName.set(key, p);
+            } else {
+                const mergedStockPerSize = { ...(existing.stockPerSize || {}), ...(p.stockPerSize || {}) };
+                byName.set(key, {
+                    ...existing,
+                    sizes: [...new Set([...(existing.sizes || []), ...(p.sizes || [])])],
+                    stockPerSize: mergedStockPerSize,
+                    stock: (existing.stock || 0) + (p.stock || 0),
+                });
+            }
+        }
+        return Array.from(byName.values());
     }, [products, user.storeId]);
 
     const handleDelete = () => {
@@ -1588,13 +1604,36 @@ const OrderTimeline: React.FC<{ history?: OrderEvent[], initialDate: string }> =
 };
 
 export const OrdersScreen: React.FC = () => {
-    const { orders, invoices, requestReturn, processReturn, updateOrderStatus } = useOrders();
+    const { orders, invoices, payouts, requestReturn, processReturn, updateOrderStatus } = useOrders();
     const { user } = useUser();
     const { notify } = useNotifications();
     const isCollab = user.role === 'colaborador';
 
     const [expandedHistory, setExpandedHistory] = useState<Record<string, boolean>>({});
     const [activeInvoice, setActiveInvoice] = useState<Invoice | null>(null);
+
+    const nextPayoutDate = useMemo(() => {
+        const now = new Date();
+        const day = now.getDate();
+        const next = new Date(now);
+        // Pagos los días 1 y 15 de cada mes
+        if (day < 15) {
+            next.setDate(15);
+        } else {
+            next.setMonth(next.getMonth() + 1);
+            next.setDate(1);
+        }
+        next.setHours(8, 0, 0, 0);
+        return next;
+    }, []);
+
+    const pendingEarnings = useMemo(() => {
+        if (!isCollab) return 0;
+        const lastPayoutEnd = payouts.length > 0 ? new Date(payouts[0].periodEnd) : new Date(0);
+        return invoices
+            .filter(inv => inv.recipientType === 'collaborator' && new Date(inv.issuedAt) > lastPayoutEnd)
+            .reduce((sum, inv) => sum + inv.subtotal, 0);
+    }, [invoices, payouts, isCollab]);
 
     const toggleHistory = (orderId: string) => {
         setExpandedHistory(prev => ({
@@ -1636,7 +1675,7 @@ export const OrdersScreen: React.FC = () => {
 
     const handleAcceptOrder = (orderId: string) => {
         updateOrderStatus(orderId, 'En Proceso');
-        notify('Pedido Aceptado', 'El cliente ha sido notificado y el pedido está en proceso.', 'local_shipping');
+        notify('Pedido Aceptado', 'El cliente ha sido notificado y el pedido está en proceso.', 'local_shipping', undefined, '/orders');
     };
 
     const handleCancelOrder = (orderId: string) => {
@@ -1651,18 +1690,45 @@ export const OrdersScreen: React.FC = () => {
             <DetailHeader title={isCollab ? "Mis Ventas" : "Mis Pedidos"} backTo="/profile" />
             <main className="p-4 space-y-4 animate-fade-in">
 
-                {isCollab && displayedOrders.length > 0 && (
-                    <div className="bg-primary/10 border border-primary/20 p-6 rounded-[32px] mb-6 flex justify-between items-center shadow-sm">
-                        <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">Resumen Contable</p>
-                            <h2 className="text-xl font-black text-text-light dark:text-text-dark">Ingresos Netos</h2>
+                {isCollab && (
+                    <div className="space-y-3">
+                        {/* Banner: próximo pago quincenal */}
+                        <div className="bg-gradient-to-br from-primary/5 to-primary/15 border border-primary/20 rounded-[28px] p-5 shadow-sm">
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-primary mb-1.5">Pagos quincenales automáticos</p>
+                                    <p className="text-[11px] font-bold text-text-subtle-light">Próximo envío</p>
+                                    <p className="text-lg font-black text-text-light dark:text-text-dark mt-0.5">
+                                        {nextPayoutDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}
+                                    </p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-text-subtle-light mb-1">Pendiente</p>
+                                    <p className="text-2xl font-black text-primary">€{pendingEarnings.toFixed(2)}</p>
+                                    <p className="text-[8px] font-bold text-text-subtle-light uppercase tracking-tight mt-0.5">subtotal de ventas</p>
+                                </div>
+                            </div>
+                            <div className="flex items-start gap-2.5 bg-white/60 dark:bg-white/5 rounded-2xl p-3.5 border border-primary/10">
+                                <Icon name="info" className="text-primary text-base mt-0.5 flex-shrink-0" filled />
+                                <p className="text-[10px] text-text-subtle-light leading-relaxed">
+                                    Los <span className="font-black text-text-light dark:text-text-dark">días 1 y 15 de cada mes</span> transferimos automáticamente el subtotal de tus ventas completadas a tu IBAN registrado. Este margen de 15 días permite gestionar posibles devoluciones. El dinero estará disponible en <span className="font-black text-text-light dark:text-text-dark">1–2 días hábiles</span>.
+                                </p>
+                            </div>
                         </div>
-                        <div className="text-right">
-                            <p className="text-2xl font-black text-primary">
-                                €{totalNetRevenue.toFixed(2)}
-                            </p>
-                            <p className="text-[8px] font-bold text-text-subtle-light uppercase tracking-tighter">Excluyendo anulaciones</p>
-                        </div>
+
+                        {/* Resumen contable */}
+                        {displayedOrders.length > 0 && (
+                            <div className="bg-primary/10 border border-primary/20 p-5 rounded-[28px] flex justify-between items-center shadow-sm">
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">Resumen Contable</p>
+                                    <h2 className="text-lg font-black text-text-light dark:text-text-dark">Ingresos Netos</h2>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-2xl font-black text-primary">€{totalNetRevenue.toFixed(2)}</p>
+                                    <p className="text-[8px] font-bold text-text-subtle-light uppercase tracking-tighter">Excluyendo anulaciones</p>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -1819,6 +1885,42 @@ export const OrdersScreen: React.FC = () => {
                             </div>
                         );
                     })
+                )}
+                {/* Historial de pagos recibidos */}
+                {isCollab && payouts.length > 0 && (
+                    <div className="mt-6">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light px-1 mb-3">Historial de Pagos</p>
+                        <div className="space-y-2">
+                            {payouts.map(payout => {
+                                const statusConfig = {
+                                    pending:    { label: 'Pendiente',      color: 'text-amber-500',  bg: 'bg-amber-50 dark:bg-amber-900/10',   icon: 'schedule' },
+                                    processing: { label: 'Procesando',     color: 'text-blue-500',   bg: 'bg-blue-50 dark:bg-blue-900/10',     icon: 'sync' },
+                                    completed:  { label: 'Transferido',    color: 'text-green-600',  bg: 'bg-green-50 dark:bg-green-900/10',   icon: 'check_circle' },
+                                    failed:     { label: 'Error',          color: 'text-red-500',    bg: 'bg-red-50 dark:bg-red-900/10',       icon: 'error' },
+                                }[payout.status];
+                                return (
+                                    <div key={payout.id} className="bg-white dark:bg-accent-dark rounded-2xl border border-border-light dark:border-border-dark p-4 flex justify-between items-center">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`size-9 rounded-xl ${statusConfig.bg} flex items-center justify-center`}>
+                                                <Icon name={statusConfig.icon} className={`text-base ${statusConfig.color}`} filled={payout.status === 'completed'} />
+                                            </div>
+                                            <div>
+                                                <p className="text-xs font-black text-text-light dark:text-text-dark">
+                                                    {new Date(payout.periodStart).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} – {new Date(payout.periodEnd).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                                                </p>
+                                                <p className={`text-[9px] font-black uppercase tracking-widest mt-0.5 ${statusConfig.color}`}>
+                                                    {statusConfig.label}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <p className={`text-lg font-black ${payout.status === 'completed' ? 'text-green-600' : 'text-primary'}`}>
+                                            €{payout.grossAmount.toFixed(2)}
+                                        </p>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
                 )}
             </main>
         </div>
@@ -2071,7 +2173,7 @@ export const CollaboratorRegistrationScreen: React.FC = () => <Placeholder title
 export const PaymentMethodsScreen: React.FC = () => {
     const navigate = useNavigate();
     const { notify } = useNotifications();
-    const { addBankAccount, paymentMethods, addPaymentMethod, removePaymentMethod, user } = useUser();
+    const { addBankAccount, removeBankAccount, bankAccounts, setDefaultBankAccount, paymentMethods, addPaymentMethod, removePaymentMethod, user } = useUser();
     const isCollab = user.role === 'colaborador';
 
     const [cardForm, setCardForm] = useState({
@@ -2087,6 +2189,8 @@ export const PaymentMethodsScreen: React.FC = () => {
         bankName: '',
         bic: ''
     });
+
+    const [showAddForm, setShowAddForm] = useState(bankAccounts.length === 0);
 
     const handleAddCard = () => {
         if (!cardForm.number || !cardForm.holder || !cardForm.expiry || !cardForm.cvv) {
@@ -2135,15 +2239,17 @@ export const PaymentMethodsScreen: React.FC = () => {
             const bicErr = validateBIC(bankForm.bic);
             if (bicErr) { notify('Error', bicErr, 'error'); return; }
         }
+        const isFirst = bankAccounts.length === 0;
         addBankAccount({
             holder: sanitizeRaw(bankForm.holder),
             iban: bankForm.iban,
             bankName: sanitizeRaw(bankForm.bankName) || 'Banco Desconocido',
             bic: sanitizeRaw(bankForm.bic),
-            isDefault: true
+            isDefault: isFirst
         });
-        notify('Cuenta Guardada', 'Tus depósitos se enviarán a esta cuenta.', 'check_circle');
-        navigate(-1);
+        setBankForm({ holder: '', iban: '', bankName: '', bic: '' });
+        setShowAddForm(false);
+        notify('Cuenta Guardada', isFirst ? 'Tus depósitos se enviarán a esta cuenta.' : 'Cuenta añadida. Pulsa "Usar para cobros" para activarla.', 'check_circle');
     };
 
     if (!isCollab) {
@@ -2252,70 +2358,128 @@ export const PaymentMethodsScreen: React.FC = () => {
                     <div className="space-y-1">
                         <h4 className="font-black text-sm text-primary">Depósitos Directos</h4>
                         <p className="text-xs text-text-subtle-light dark:text-text-subtle-dark leading-relaxed">
-                            Configura tu cuenta bancaria para recibir los ingresos de tus ventas. Las transferencias se realizan automáticamente cada 15 días.
+                            Elige la cuenta bancaria donde recibirás tus ingresos. Las transferencias se realizan automáticamente los días 1 y 15 de cada mes.
                         </p>
                     </div>
                 </div>
-                <div className="bg-white dark:bg-accent-dark rounded-[32px] border border-primary/30 p-6 shadow-sm space-y-6">
-                    <div className="flex items-center gap-3 mb-2">
-                        <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                            <Icon name="account_balance" className="text-primary text-lg" />
-                        </div>
-                        <h3 className="text-sm font-black uppercase tracking-wider text-text-light dark:text-text-dark">Añadir Cuenta Bancaria</h3>
+
+                {bankAccounts.length > 0 && (
+                    <div className="space-y-3">
+                        <h3 className="text-xs font-black uppercase tracking-widest text-text-subtle-light px-1">Tus cuentas</h3>
+                        {bankAccounts.map(account => {
+                            const raw = account.iban.replace(/\s/g, '');
+                            const masked = raw.slice(0, 4) + ' •••• •••• •••• •••• ' + raw.slice(-4);
+                            return (
+                                <div key={account.id} className={`bg-white dark:bg-accent-dark p-4 rounded-[24px] border ${account.isDefault ? 'border-primary/40' : 'border-border-light dark:border-border-dark'} shadow-sm`}>
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <div className={`size-10 rounded-xl flex items-center justify-center shrink-0 ${account.isDefault ? 'bg-primary/10' : 'bg-accent-light dark:bg-background-dark'}`}>
+                                                <Icon name="account_balance" className={account.isDefault ? 'text-primary' : 'text-text-subtle-light'} />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <p className="text-sm font-bold text-text-light dark:text-white truncate">{account.holder}</p>
+                                                    {account.isDefault && (
+                                                        <span className="bg-primary/10 text-primary text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full">Activa</span>
+                                                    )}
+                                                </div>
+                                                <p className="text-[11px] font-mono text-text-subtle-light dark:text-text-subtle-dark mt-0.5">{masked}</p>
+                                                {account.bankName && <p className="text-[10px] font-bold text-text-subtle-light uppercase tracking-wide mt-0.5">{account.bankName}</p>}
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => removeBankAccount(account.id)}
+                                            className="text-red-400 p-1.5 shrink-0 active:scale-90 transition-transform"
+                                        >
+                                            <Icon name="delete" className="text-xl" />
+                                        </button>
+                                    </div>
+                                    {!account.isDefault && (
+                                        <button
+                                            onClick={() => setDefaultBankAccount(account.id)}
+                                            className="mt-3 w-full h-9 rounded-xl border border-primary/30 text-primary text-xs font-black uppercase tracking-wider active:scale-95 transition-all"
+                                        >
+                                            Usar para cobros
+                                        </button>
+                                    )}
+                                </div>
+                            );
+                        })}
                     </div>
-                    <div className="space-y-4">
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Titular de la cuenta</label>
-                            <input
-                                value={bankForm.holder}
-                                onChange={e => setBankForm(p => ({ ...p, holder: truncate(sanitizeRaw(e.target.value), MAX_LENGTHS.bankHolder) }))}
-                                className="w-full h-12 bg-accent-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded-xl px-4 text-sm font-bold text-text-light dark:text-white outline-none focus:ring-2 focus:ring-primary/20"
-                                placeholder="Ej: Elena García Martín"
-                            />
+                )}
+
+                {showAddForm ? (
+                    <div className="bg-white dark:bg-accent-dark rounded-[32px] border border-primary/30 p-6 shadow-sm space-y-6">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                                <Icon name="add_card" className="text-primary text-lg" />
+                            </div>
+                            <h3 className="text-sm font-black uppercase tracking-wider text-text-light dark:text-text-dark">Nueva Cuenta</h3>
                         </div>
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">IBAN (24 caracteres)</label>
-                            <input
-                                value={bankForm.iban}
-                                maxLength={29}
-                                onChange={e => {
-                                    const raw = e.target.value.replace(/[^A-Z0-9]/gi, '').toUpperCase().substring(0, 24);
-                                    const formatted = raw.match(/.{1,4}/g)?.join(' ') || '';
-                                    setBankForm(p => ({ ...p, iban: formatted }));
-                                }}
-                                className="w-full h-12 bg-accent-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded-xl px-4 text-sm font-bold text-text-light dark:text-white outline-none focus:ring-2 focus:ring-primary/20"
-                                placeholder="ES00 0000 0000 0000 0000 0000"
-                            />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-4">
                             <div className="space-y-1.5">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Nombre del banco</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Titular de la cuenta</label>
                                 <input
-                                    value={bankForm.bankName}
-                                    onChange={e => setBankForm(p => ({ ...p, bankName: truncate(sanitizeRaw(e.target.value), MAX_LENGTHS.bankName) }))}
+                                    value={bankForm.holder}
+                                    onChange={e => setBankForm(p => ({ ...p, holder: truncate(sanitizeRaw(e.target.value), MAX_LENGTHS.bankHolder) }))}
                                     className="w-full h-12 bg-accent-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded-xl px-4 text-sm font-bold text-text-light dark:text-white outline-none focus:ring-2 focus:ring-primary/20"
-                                    placeholder="Ej: BBVA, Santander..."
+                                    placeholder="Ej: Elena García Martín"
                                 />
                             </div>
                             <div className="space-y-1.5">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">BIC / SWIFT</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">IBAN (24 caracteres)</label>
                                 <input
-                                    value={bankForm.bic}
-                                    onChange={e => setBankForm(p => ({ ...p, bic: truncate(sanitizeRaw(e.target.value), MAX_LENGTHS.bic).toUpperCase() }))}
+                                    value={bankForm.iban}
+                                    maxLength={29}
+                                    onChange={e => {
+                                        const raw = e.target.value.replace(/[^A-Z0-9]/gi, '').toUpperCase().substring(0, 24);
+                                        const formatted = raw.match(/.{1,4}/g)?.join(' ') || '';
+                                        setBankForm(p => ({ ...p, iban: formatted }));
+                                    }}
                                     className="w-full h-12 bg-accent-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded-xl px-4 text-sm font-bold text-text-light dark:text-white outline-none focus:ring-2 focus:ring-primary/20"
-                                    placeholder="Opcional"
+                                    placeholder="ES00 0000 0000 0000 0000 0000"
                                 />
                             </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Nombre del banco</label>
+                                    <input
+                                        value={bankForm.bankName}
+                                        onChange={e => setBankForm(p => ({ ...p, bankName: truncate(sanitizeRaw(e.target.value), MAX_LENGTHS.bankName) }))}
+                                        className="w-full h-12 bg-accent-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded-xl px-4 text-sm font-bold text-text-light dark:text-white outline-none focus:ring-2 focus:ring-primary/20"
+                                        placeholder="BBVA, Santander..."
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">BIC / SWIFT</label>
+                                    <input
+                                        value={bankForm.bic}
+                                        onChange={e => setBankForm(p => ({ ...p, bic: truncate(sanitizeRaw(e.target.value), MAX_LENGTHS.bic).toUpperCase() }))}
+                                        className="w-full h-12 bg-accent-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded-xl px-4 text-sm font-bold text-text-light dark:text-white outline-none focus:ring-2 focus:ring-primary/20"
+                                        placeholder="Opcional"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex gap-4 pt-4">
+                            {bankAccounts.length > 0 && (
+                                <button onClick={() => { setShowAddForm(false); setBankForm({ holder: '', iban: '', bankName: '', bic: '' }); }} className="flex-1 h-12 rounded-xl bg-accent-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm font-bold text-text-subtle-light active:scale-95 transition-all">Cancelar</button>
+                            )}
+                            <button onClick={handleAddBank} className="flex-[1.5] h-12 rounded-xl bg-primary text-white text-sm font-black uppercase tracking-wider shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
+                                <span className="material-symbols-outlined text-white text-lg">check</span>
+                                Guardar cuenta
+                            </button>
                         </div>
                     </div>
-                    <div className="flex gap-4 pt-4">
-                        <button onClick={() => navigate(-1)} className="flex-1 h-12 rounded-xl bg-accent-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm font-bold text-text-subtle-light active:scale-95 transition-all">Cancelar</button>
-                        <button onClick={handleAddBank} className="flex-[1.5] h-12 rounded-xl bg-primary text-white text-sm font-black uppercase tracking-wider shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
-                            <span className="material-symbols-outlined text-white text-lg">check</span>
-                            Confirmar
-                        </button>
-                    </div>
-                </div>
+                ) : (
+                    <button
+                        onClick={() => setShowAddForm(true)}
+                        className="w-full h-14 rounded-2xl border-2 border-dashed border-primary/30 text-primary font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 active:scale-95 transition-all"
+                    >
+                        <Icon name="add" className="text-xl" />
+                        Añadir cuenta bancaria
+                    </button>
+                )}
             </main>
         </div>
     );
@@ -2593,7 +2757,7 @@ const SIZE_GROUPS: Record<string, string[]> = {
 };
 
 export const PublishScreen: React.FC = () => {
-    const { addProduct, updateProduct, getProductById } = useProducts();
+    const { products, addProduct, updateProduct, getProductById } = useProducts();
     const { productId } = useParams();
     const isEditMode = !!productId;
     const { user, bankAccounts } = useUser();
@@ -3106,6 +3270,58 @@ New background: warm terracotta studio (#8B5535), smooth gradient lighter toward
                     notify('Error', 'No se encontró tu tienda. Recarga la página e inténtalo de nuevo.', 'error');
                     return;
                 }
+
+                // Si hay código de barras, consultar en DB si ya existe ese producto en la tienda
+                const trimmedBarcode = sanitizeRaw(barcode.trim());
+                if (trimmedBarcode) {
+                    const { data: existingRows } = await supabase
+                        .from('products')
+                        .select('*')
+                        .eq('barcode', trimmedBarcode)
+                        .eq('store_id', user.storeId)
+                        .eq('is_deleted', false)
+                        .limit(1);
+
+                    if (existingRows && existingRows.length > 0) {
+                        const existing = dbProductToProduct(existingRows[0] as any);
+                        const mergedStockPerSize = { ...(existing.stockPerSize || {}), ...stockPerSize };
+                        const mergedStock = (Object.values(mergedStockPerSize) as number[]).reduce((a, b) => a + b, 0);
+                        if (updateProduct(existing.id, {
+                            stockPerSize: mergedStockPerSize,
+                            sizes: Object.keys(mergedStockPerSize),
+                            stock: mergedStock,
+                        })) {
+                            notify('¡Tallas añadidas!', 'Las tallas se han incorporado al producto existente.', 'check_circle');
+                            navigate('/manage-catalog');
+                        }
+                        return;
+                    }
+                }
+
+                // Sin código de barras: buscar por nombre exacto en la misma tienda para evitar duplicados
+                const { data: existingByName } = await supabase
+                    .from('products')
+                    .select('*')
+                    .eq('store_id', user.storeId)
+                    .ilike('name', finalName)
+                    .eq('is_deleted', false)
+                    .limit(1);
+
+                if (existingByName && existingByName.length > 0) {
+                    const existing = dbProductToProduct(existingByName[0] as any);
+                    const mergedStockPerSize = { ...(existing.stockPerSize || {}), ...stockPerSize };
+                    const mergedStock = (Object.values(mergedStockPerSize) as number[]).reduce((a, b) => a + b, 0);
+                    if (updateProduct(existing.id, {
+                        stockPerSize: mergedStockPerSize,
+                        sizes: Object.keys(mergedStockPerSize),
+                        stock: mergedStock,
+                    })) {
+                        notify('¡Tallas añadidas!', 'Las tallas se han incorporado al producto existente.', 'check_circle');
+                        navigate('/manage-catalog');
+                    }
+                    return;
+                }
+
                 const newProduct: Product = {
                     id: `PROD-${Date.now()}`,
                     storeName: user.name,

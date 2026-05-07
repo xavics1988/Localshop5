@@ -168,18 +168,24 @@ export const SignUpScreen: React.FC = () => {
                 let storeId: string | undefined;
 
                 if (isCollab) {
-                    storeId = `STORE-${Date.now()}`;
-                    await supabase.from('stores').insert({
-                        id:            storeId,
-                        name:          formData.storePublicName,
-                        business_name: sanitizeRaw(formData.name),
-                        category:      'Concept Store',
-                        image_url:     'https://picsum.photos/id/1011/800/600',
-                        address:       formData.location,
-                        description:   'Bienvenido a mi nueva tienda local.',
-                        contact_email: formData.email,
-                        owner_id:      userId
-                    });
+                    const { data: existingStore } = await supabase
+                        .from('stores').select('id').eq('owner_id', userId).maybeSingle();
+                    if (existingStore) {
+                        storeId = existingStore.id;
+                    } else {
+                        storeId = `STORE-${Date.now()}`;
+                        await supabase.from('stores').insert({
+                            id:            storeId,
+                            name:          formData.storePublicName,
+                            business_name: sanitizeRaw(formData.name),
+                            category:      'Concept Store',
+                            image_url:     'https://picsum.photos/id/1011/800/600',
+                            address:       formData.location,
+                            description:   'Bienvenido a mi nueva tienda local.',
+                            contact_email: formData.email,
+                            owner_id:      userId
+                        });
+                    }
                 }
 
                 await supabase.from('profiles').upsert({
@@ -268,6 +274,7 @@ export const SignUpScreen: React.FC = () => {
     };
 
     const handleSocialAuth = async (provider: 'google' | 'apple') => {
+        if (role) localStorage.setItem('oauth_pending_role', role);
         await supabase.auth.signInWithOAuth({
             provider,
             options: { redirectTo: `${window.location.origin}/` }
@@ -817,6 +824,12 @@ export const OAuthCompleteProfileScreen: React.FC = () => {
     };
 
     useEffect(() => {
+        const pendingRole = localStorage.getItem('oauth_pending_role') as 'cliente' | 'colaborador' | null;
+        if (pendingRole) {
+            setRole(pendingRole);
+            setStep(2);
+            localStorage.removeItem('oauth_pending_role');
+        }
         supabase.auth.getUser().then(({ data }) => {
             const meta = data.user?.user_metadata;
             const oauthName = meta?.full_name || meta?.name || '';
@@ -866,18 +879,24 @@ export const OAuthCompleteProfileScreen: React.FC = () => {
 
             let storeId: string | undefined;
             if (isCollab) {
-                storeId = `STORE-${Date.now()}`;
-                await supabase.from('stores').insert({
-                    id:            storeId,
-                    name:          storePublicName,
-                    business_name: sanitizeRaw(name || storePublicName),
-                    category:      'Concept Store',
-                    image_url:     'https://picsum.photos/id/1011/800/600',
-                    address:       location,
-                    description:   'Bienvenido a mi nueva tienda local.',
-                    contact_email: authUser.email ?? '',
-                    owner_id:      userId
-                });
+                const { data: existingStore } = await supabase
+                    .from('stores').select('id').eq('owner_id', userId).maybeSingle();
+                if (existingStore) {
+                    storeId = existingStore.id;
+                } else {
+                    storeId = `STORE-${Date.now()}`;
+                    await supabase.from('stores').insert({
+                        id:            storeId,
+                        name:          storePublicName,
+                        business_name: sanitizeRaw(name || storePublicName),
+                        category:      'Concept Store',
+                        image_url:     'https://picsum.photos/id/1011/800/600',
+                        address:       location,
+                        description:   'Bienvenido a mi nueva tienda local.',
+                        contact_email: authUser.email ?? '',
+                        owner_id:      userId
+                    });
+                }
             }
 
             await supabase.from('profiles').upsert({
