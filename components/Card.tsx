@@ -78,7 +78,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             </Link>
             <div className="px-0.5">
                 <p className="text-text-light dark:text-text-dark text-[10px] font-bold leading-tight truncate">{product.name}</p>
-                <p className="text-text-subtle-light dark:text-text-subtle-dark text-[9px] font-medium leading-tight truncate">{(product.storeCount ?? 1) > 1 ? `desde €${product.price.toFixed(0)}` : `€${product.price.toFixed(0)}`} {product.storeName}</p>
+                <p className="text-text-light dark:text-text-dark text-sm font-bold leading-tight">{(product.storeCount ?? 1) > 1 ? `desde €${product.price.toFixed(0)}` : `€${product.price.toFixed(0)}`}</p>
+                <p className="text-text-subtle-light dark:text-text-subtle-dark text-[9px] font-medium leading-tight truncate">{product.storeName}</p>
             </div>
         </div>
     );

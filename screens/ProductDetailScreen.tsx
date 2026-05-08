@@ -35,7 +35,14 @@ const ProductDetailScreen: React.FC = () => {
 
     const otherStores = useMemo(() => {
         if (!product?.barcode) return [];
-        return products.filter(p => p.barcode === product.barcode && p.id !== product.id && (p.stock ?? 1) > 0);
+        const sameBarcode = products.filter(p => p.barcode === product.barcode && p.storeId !== product.storeId && (p.stock ?? 1) > 0);
+        const byStore = new Map<string, typeof sameBarcode[0]>();
+        for (const p of sameBarcode) {
+            const key = p.storeId ?? p.storeName ?? p.id;
+            const existing = byStore.get(key);
+            if (!existing || p.price < existing.price) byStore.set(key, p);
+        }
+        return Array.from(byStore.values());
     }, [products, product]);
 
     const availableSizes = React.useMemo(() => {
