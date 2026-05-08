@@ -546,9 +546,9 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const deleteProduct = useCallback((id: string) => {
     setProducts(prev => prev.filter(p => p.id !== id));
-    supabase.from('products').update({ is_deleted: true }).eq('id', id)
+    supabase.rpc('soft_delete_product', { product_id: id })
       .then(({ error }) => {
-        if (error) notify('Error', 'No se pudo eliminar el producto.', 'error');
+        if (error) { console.error('[deleteProduct] Supabase error:', error); notify('Error', 'No se pudo eliminar el producto.', 'error'); }
       });
     notify('Eliminado', 'Producto borrado correctamente.', 'delete');
   }, [notify]);
