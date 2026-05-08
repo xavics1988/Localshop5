@@ -58,7 +58,7 @@ serve(async (req: Request) => {
       body:  `El colaborador ha aceptado tu pedido de €${Number(total).toFixed(2)} y lo está preparando.`,
       icon:  '/icon-192.png',
       badge: '/icon-96.png',
-      data:  { orderId, url: '/purchase-history' },
+      data:  { orderId, url: '/orders' },
     });
 
     const results = await Promise.allSettled(

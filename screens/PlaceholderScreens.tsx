@@ -1536,7 +1536,7 @@ const InvoiceModal: React.FC<{ invoice: Invoice; onClose: () => void }> = ({ inv
                             <span>Subtotal productos</span>
                             <span className="font-bold">€{invoice.subtotal.toFixed(2)}</span>
                         </div>
-                        {invoice.feeBase != null && (
+                        {invoice.feeBase != null && !isCollab && (
                             <>
                                 <div className="flex justify-between text-[11px] text-text-subtle-light">
                                     <span>Comisión LocalShop (base)</span>
@@ -1549,16 +1549,20 @@ const InvoiceModal: React.FC<{ invoice: Invoice; onClose: () => void }> = ({ inv
                             </>
                         )}
                         <div className="flex justify-between items-center pt-2 border-t border-border-light dark:border-border-dark">
-                            <span className="text-sm font-black uppercase tracking-widest text-text-light dark:text-text-dark">Total pagado</span>
-                            <span className="text-xl font-black text-primary">€{invoice.total.toFixed(2)}</span>
+                            <span className="text-sm font-black uppercase tracking-widest text-text-light dark:text-text-dark">
+                                {isCollab ? 'Total de tu venta' : 'Total pagado'}
+                            </span>
+                            <span className="text-xl font-black text-primary">
+                                €{(isCollab ? invoice.subtotal : invoice.total).toFixed(2)}
+                            </span>
                         </div>
-                        {isCollab && (
-                            <div className="flex justify-between items-center pt-1">
-                                <span className="text-[10px] font-black uppercase tracking-widest text-green-600">Tu ingreso neto</span>
-                                <span className="text-base font-black text-green-600">€{netRevenue.toFixed(2)}</span>
-                            </div>
-                        )}
                     </div>
+
+                    {isCollab && invoice.subtotal >= 70 && (
+                        <p className="text-xs text-amber-600 dark:text-amber-400 text-center italic">
+                            * Pedido superior a €70 — los gastos de envío corren a cargo del colaborador.
+                        </p>
+                    )}
 
                     {invoice.autoCompleted && (
                         <p className="text-[9px] text-text-subtle-light text-center italic">Completado automáticamente tras 7 días sin confirmación.</p>
@@ -1630,10 +1634,18 @@ export const OrdersScreen: React.FC = () => {
     const pendingEarnings = useMemo(() => {
         if (!isCollab) return 0;
         const lastPayoutEnd = payouts.length > 0 ? new Date(payouts[0].periodEnd) : new Date(0);
-        return invoices
-            .filter(inv => inv.recipientType === 'collaborator' && new Date(inv.issuedAt) > lastPayoutEnd)
-            .reduce((sum, inv) => sum + inv.subtotal, 0);
-    }, [invoices, payouts, isCollab]);
+        return orders
+            .filter(o =>
+                o.status !== 'Devuelto' && o.status !== 'Cancelado' &&
+                o.items.some(i => i.product.storeId === user.storeId) &&
+                new Date(o.date) > lastPayoutEnd
+            )
+            .reduce((sum, o) => {
+                const myItems = o.items.filter(i => i.product.storeId === user.storeId);
+                const productSum = myItems.reduce((s, i) => s + i.product.price * i.quantity, 0);
+                return sum + (productSum >= FREE_SHIPPING_THRESHOLD ? productSum - SHIPPING_FEE : productSum);
+            }, 0);
+    }, [orders, payouts, isCollab, user.storeId]);
 
     const toggleHistory = (orderId: string) => {
         setExpandedHistory(prev => ({
@@ -1654,7 +1666,8 @@ export const OrdersScreen: React.FC = () => {
         return displayedOrders.reduce((acc, order) => {
             if (order.status === 'Devuelto' || order.status === 'Cancelado') return acc;
             const myItems = order.items.filter(i => i.product.storeId === user.storeId);
-            return acc + myItems.reduce((sum, i) => sum + (i.product.price * i.quantity), 0);
+            const productSum = myItems.reduce((sum, i) => sum + (i.product.price * i.quantity), 0);
+            return acc + (productSum >= FREE_SHIPPING_THRESHOLD ? productSum - SHIPPING_FEE : productSum);
         }, 0);
     }, [displayedOrders, isCollab, user.storeId]);
 
@@ -1744,8 +1757,12 @@ export const OrdersScreen: React.FC = () => {
                         const isExpanded = expandedHistory[order.id] || false;
 
                         // Accounting logic: if returned, order value is 0 for net revenue
-                        const orderValue = isReturned ? 0 : myItems.reduce((acc, i) => acc + (i.product.price * i.quantity), 0);
-                        const originalValue = myItems.reduce((acc, i) => acc + (i.product.price * i.quantity), 0);
+                        const productSum = myItems.reduce((acc, i) => acc + (i.product.price * i.quantity), 0);
+                        const collabPayout = isCollab
+                            ? (productSum >= FREE_SHIPPING_THRESHOLD ? productSum - SHIPPING_FEE : productSum)
+                            : productSum;
+                        const orderValue = isReturned ? 0 : collabPayout;
+                        const originalValue = collabPayout;
 
                         // Lógica de elegibilidad para devolución (Sin usar Hooks dentro de bucles)
                         const orderDate = new Date(order.date);
