@@ -174,4 +174,5 @@ export interface OrderContextType {
     requestReturn: (orderId: string) => void;
     processReturn: (orderId: string) => void;
     updateOrderStatus: (orderId: string, status: OrderStatus) => void;
+    refetchInvoices: () => Promise<void>;
 }

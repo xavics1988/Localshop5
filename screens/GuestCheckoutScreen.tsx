@@ -236,21 +236,10 @@ const GuestCheckoutScreen: React.FC = () => {
                             <span className="text-sm font-bold text-text-light dark:text-text-dark">Subtotal</span>
                             <span className="text-sm font-bold text-text-light dark:text-text-dark">€{subtotal.toFixed(2)}</span>
                         </div>
-                        <div className="py-2 border-b border-border-light/50 space-y-1">
+                        <div className="py-2 border-b border-border-light/50">
                             <div className="flex justify-between items-center">
-                                <div className="flex flex-col">
-                                    <span className="text-sm font-bold text-text-light dark:text-text-dark">Gestión LocalShop</span>
-                                    <span className="text-[10px] text-text-subtle-light">Comisión de intermediación (IVA incl.)</span>
-                                </div>
+                                <span className="text-sm font-bold text-text-light dark:text-text-dark">Gastos de gestión</span>
                                 <span className="text-sm font-bold text-text-light dark:text-text-dark">€{LOCALSHOP_FEE.toFixed(2)}</span>
-                            </div>
-                            <div className="flex justify-between items-center pl-2">
-                                <span className="text-[10px] text-text-subtle-light">Base imponible</span>
-                                <span className="text-[10px] text-text-subtle-light">€{LOCALSHOP_FEE_BASE.toFixed(2)}</span>
-                            </div>
-                            <div className="flex justify-between items-center pl-2">
-                                <span className="text-[10px] text-text-subtle-light">IVA (21%)</span>
-                                <span className="text-[10px] text-text-subtle-light">€{LOCALSHOP_FEE_IVA.toFixed(2)}</span>
                             </div>
                         </div>
                         <div className="flex justify-between items-center py-2 border-b border-border-light/50">

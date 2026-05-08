@@ -1009,7 +1009,23 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const cartValue          = useMemo(() => ({ cartItems, addToCart, clearCart, removeFromCart, updateQuantity }), [cartItems, addToCart, clearCart, removeFromCart, updateQuantity]);
   const favoritesValue     = useMemo(() => ({ favorites, toggleFavorite, isFavorite }), [favorites, toggleFavorite, isFavorite]);
   const followedStoresValue= useMemo(() => ({ followedStoreIds: followedIds, toggleFollow, isFollowing }), [followedIds, toggleFollow, isFollowing]);
-  const orderValue         = useMemo(() => ({ orders, invoices, payouts, addOrder, requestReturn, processReturn, updateOrderStatus }), [orders, invoices, payouts, addOrder, requestReturn, processReturn, updateOrderStatus]);
+  const refetchInvoices = useCallback(async () => {
+    if (!user.id) return;
+    const { data } = await supabase.from('invoices').select('*').eq('recipient_id', user.id).order('issued_at', { ascending: false });
+    if (!data) return;
+    setInvoices(data.map((r: any) => ({
+      id: r.id, orderId: r.order_id, recipientType: r.recipient_type,
+      recipientId: r.recipient_id, invoiceNumber: r.invoice_number,
+      storeId: r.store_id, storeName: r.store_name, storeCif: r.store_cif,
+      storeAddress: r.store_address, customerName: r.customer_name,
+      customerEmail: r.customer_email, subtotal: r.subtotal,
+      feeBase: r.fee_base, feeIva: r.fee_iva, feeTotal: r.fee_total,
+      total: r.total, items: r.items, issuedAt: r.issued_at,
+      autoCompleted: r.auto_completed,
+    })));
+  }, [user.id]);
+
+  const orderValue         = useMemo(() => ({ orders, invoices, payouts, addOrder, requestReturn, processReturn, updateOrderStatus, refetchInvoices }), [orders, invoices, payouts, addOrder, requestReturn, processReturn, updateOrderStatus, refetchInvoices]);
   const reviewValue        = useMemo(() => ({ addReview, getStoreReviews, getUserReviews }), [addReview, getStoreReviews, getUserReviews]);
   const notificationValue  = useMemo(() => ({
     settings:                 notifSettings,

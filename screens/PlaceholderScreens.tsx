@@ -1061,21 +1061,10 @@ export const CartScreen: React.FC = () => {
                                 <span className="text-sm font-bold text-text-light dark:text-text-dark">Subtotal</span>
                                 <span className="text-sm font-bold text-text-light dark:text-text-dark">€{subtotal.toFixed(2)}</span>
                             </div>
-                            <div className="py-1.5 border-b border-border-light/50 space-y-1">
+                            <div className="py-1.5 border-b border-border-light/50">
                                 <div className="flex justify-between items-center">
-                                    <div className="flex flex-col">
-                                        <span className="text-sm font-bold text-text-light dark:text-text-dark">Gestión LocalShop</span>
-                                        <span className="text-[10px] text-text-subtle-light">Comisión de intermediación (IVA incl.)</span>
-                                    </div>
+                                    <span className="text-sm font-bold text-text-light dark:text-text-dark">Gastos de gestión</span>
                                     <span className="text-sm font-bold text-text-light dark:text-text-dark">€{LOCALSHOP_FEE.toFixed(2)}</span>
-                                </div>
-                                <div className="flex justify-between items-center pl-2">
-                                    <span className="text-[10px] text-text-subtle-light">Base imponible</span>
-                                    <span className="text-[10px] text-text-subtle-light">€{LOCALSHOP_FEE_BASE.toFixed(2)}</span>
-                                </div>
-                                <div className="flex justify-between items-center pl-2">
-                                    <span className="text-[10px] text-text-subtle-light">IVA (21%)</span>
-                                    <span className="text-[10px] text-text-subtle-light">€{LOCALSHOP_FEE_IVA.toFixed(2)}</span>
                                 </div>
                             </div>
                             <div className="flex justify-between items-center py-1.5 border-b border-border-light/50">
@@ -1473,7 +1462,12 @@ export const FollowedStoresScreen: React.FC = () => {
  */
 const InvoiceModal: React.FC<{ invoice: Invoice; onClose: () => void }> = ({ invoice, onClose }) => {
     const isCollab = invoice.recipientType === 'collaborator';
-    const netRevenue = invoice.subtotal;
+    const itemsTotal = (invoice.items as any[]).reduce((sum, item) => {
+        const price = item.product?.price ?? item.price ?? 0;
+        const qty = item.quantity ?? 1;
+        return sum + price * qty;
+    }, 0);
+    const clientShipping = Math.round((invoice.subtotal - itemsTotal) * 100) / 100;
 
     return (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={onClose}>
@@ -1534,8 +1528,20 @@ const InvoiceModal: React.FC<{ invoice: Invoice; onClose: () => void }> = ({ inv
                     <div className="border-t border-border-light dark:border-border-dark pt-4 space-y-2">
                         <div className="flex justify-between text-[11px] text-text-subtle-light">
                             <span>Subtotal productos</span>
-                            <span className="font-bold">€{invoice.subtotal.toFixed(2)}</span>
+                            <span className="font-bold">€{itemsTotal.toFixed(2)}</span>
                         </div>
+                        {isCollab && clientShipping > 0 && (
+                            <div className="flex justify-between text-[11px] text-blue-600 dark:text-blue-400">
+                                <span>Envío aportado por el cliente</span>
+                                <span className="font-bold">€{clientShipping.toFixed(2)}</span>
+                            </div>
+                        )}
+                        {!isCollab && clientShipping > 0 && (
+                            <div className="flex justify-between text-[11px] text-text-subtle-light">
+                                <span>Gastos de envío <span className="italic">(pedido inferior a €{FREE_SHIPPING_THRESHOLD})</span></span>
+                                <span className="font-bold">€{clientShipping.toFixed(2)}</span>
+                            </div>
+                        )}
                         {invoice.feeBase != null && !isCollab && (
                             <>
                                 <div className="flex justify-between text-[11px] text-text-subtle-light">
@@ -1558,7 +1564,12 @@ const InvoiceModal: React.FC<{ invoice: Invoice; onClose: () => void }> = ({ inv
                         </div>
                     </div>
 
-                    {isCollab && invoice.subtotal >= 70 && (
+                    {isCollab && clientShipping > 0 && (
+                        <p className="text-xs text-blue-600 dark:text-blue-400 text-center italic">
+                            * Los €{clientShipping.toFixed(2)} de envío son aportados por el cliente para cubrir los gastos de envío.
+                        </p>
+                    )}
+                    {isCollab && invoice.subtotal >= FREE_SHIPPING_THRESHOLD && (
                         <p className="text-xs text-amber-600 dark:text-amber-400 text-center italic">
                             * Pedido superior a €70 — los gastos de envío corren a cargo del colaborador.
                         </p>
@@ -1608,7 +1619,7 @@ const OrderTimeline: React.FC<{ history?: OrderEvent[], initialDate: string }> =
 };
 
 export const OrdersScreen: React.FC = () => {
-    const { orders, invoices, payouts, requestReturn, processReturn, updateOrderStatus } = useOrders();
+    const { orders, invoices, payouts, requestReturn, processReturn, updateOrderStatus, refetchInvoices } = useOrders();
     const { user } = useUser();
     const { notify } = useNotifications();
     const isCollab = user.role === 'colaborador';
@@ -1643,7 +1654,7 @@ export const OrdersScreen: React.FC = () => {
             .reduce((sum, o) => {
                 const myItems = o.items.filter(i => i.product.storeId === user.storeId);
                 const productSum = myItems.reduce((s, i) => s + i.product.price * i.quantity, 0);
-                return sum + (productSum >= FREE_SHIPPING_THRESHOLD ? productSum - SHIPPING_FEE : productSum);
+                return sum + (productSum >= FREE_SHIPPING_THRESHOLD ? productSum : productSum + SHIPPING_FEE);
             }, 0);
     }, [orders, payouts, isCollab, user.storeId]);
 
@@ -1667,13 +1678,14 @@ export const OrdersScreen: React.FC = () => {
             if (order.status === 'Devuelto' || order.status === 'Cancelado') return acc;
             const myItems = order.items.filter(i => i.product.storeId === user.storeId);
             const productSum = myItems.reduce((sum, i) => sum + (i.product.price * i.quantity), 0);
-            return acc + (productSum >= FREE_SHIPPING_THRESHOLD ? productSum - SHIPPING_FEE : productSum);
+            return acc + (productSum >= FREE_SHIPPING_THRESHOLD ? productSum : productSum + SHIPPING_FEE);
         }, 0);
     }, [displayedOrders, isCollab, user.storeId]);
 
-    const handleConfirmReceipt = (orderId: string) => {
-        updateOrderStatus(orderId, 'Completado');
+    const handleConfirmReceipt = async (orderId: string) => {
+        await updateOrderStatus(orderId, 'Completado');
         notify('¡Pedido recibido!', 'Tu compra ha sido marcada como completada.', 'check_circle');
+        setTimeout(() => refetchInvoices(), 1500);
     };
 
     const handleRequestReturn = (orderId: string) => {
@@ -1705,20 +1717,22 @@ export const OrdersScreen: React.FC = () => {
 
                 {isCollab && (
                     <div className="space-y-3">
-                        {/* Banner: próximo pago quincenal */}
+                        {/* Banner unificado: resumen contable + próximo pago */}
                         <div className="bg-gradient-to-br from-primary/5 to-primary/15 border border-primary/20 rounded-[28px] p-5 shadow-sm">
                             <div className="flex justify-between items-start mb-4">
                                 <div>
-                                    <p className="text-[9px] font-black uppercase tracking-widest text-primary mb-1.5">Pagos quincenales automáticos</p>
-                                    <p className="text-[11px] font-bold text-text-subtle-light">Próximo envío</p>
-                                    <p className="text-lg font-black text-text-light dark:text-text-dark mt-0.5">
-                                        {nextPayoutDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}
-                                    </p>
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-primary mb-1.5">Resumen contable</p>
+                                    <p className="text-[11px] font-bold text-text-subtle-light">Ingresos netos</p>
+                                    <p className="text-2xl font-black text-primary mt-0.5">€{totalNetRevenue.toFixed(2)}</p>
+                                    <p className="text-[8px] font-bold text-text-subtle-light uppercase tracking-tight mt-0.5">Excluyendo anulaciones</p>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-[9px] font-black uppercase tracking-widest text-text-subtle-light mb-1">Pendiente</p>
-                                    <p className="text-2xl font-black text-primary">€{pendingEarnings.toFixed(2)}</p>
-                                    <p className="text-[8px] font-bold text-text-subtle-light uppercase tracking-tight mt-0.5">subtotal de ventas</p>
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-text-subtle-light mb-1">Próximo pago</p>
+                                    <p className="text-sm font-black text-text-light dark:text-text-dark">
+                                        {nextPayoutDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}
+                                    </p>
+                                    <p className="text-xl font-black text-primary mt-1">€{pendingEarnings.toFixed(2)}</p>
+                                    <p className="text-[8px] font-bold text-text-subtle-light uppercase tracking-tight mt-0.5">pendiente de cobro</p>
                                 </div>
                             </div>
                             <div className="flex items-start gap-2.5 bg-white/60 dark:bg-white/5 rounded-2xl p-3.5 border border-primary/10">
@@ -1728,20 +1742,6 @@ export const OrdersScreen: React.FC = () => {
                                 </p>
                             </div>
                         </div>
-
-                        {/* Resumen contable */}
-                        {displayedOrders.length > 0 && (
-                            <div className="bg-primary/10 border border-primary/20 p-5 rounded-[28px] flex justify-between items-center shadow-sm">
-                                <div>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">Resumen Contable</p>
-                                    <h2 className="text-lg font-black text-text-light dark:text-text-dark">Ingresos Netos</h2>
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-2xl font-black text-primary">€{totalNetRevenue.toFixed(2)}</p>
-                                    <p className="text-[8px] font-bold text-text-subtle-light uppercase tracking-tighter">Excluyendo anulaciones</p>
-                                </div>
-                            </div>
-                        )}
                     </div>
                 )}
 
@@ -1759,7 +1759,7 @@ export const OrdersScreen: React.FC = () => {
                         // Accounting logic: if returned, order value is 0 for net revenue
                         const productSum = myItems.reduce((acc, i) => acc + (i.product.price * i.quantity), 0);
                         const collabPayout = isCollab
-                            ? (productSum >= FREE_SHIPPING_THRESHOLD ? productSum - SHIPPING_FEE : productSum)
+                            ? (productSum >= FREE_SHIPPING_THRESHOLD ? productSum : productSum + SHIPPING_FEE)
                             : productSum;
                         const orderValue = isReturned ? 0 : collabPayout;
                         const originalValue = collabPayout;
@@ -1840,7 +1840,7 @@ export const OrdersScreen: React.FC = () => {
                                             {isCollab ? `Cliente: ${order.customerName}` : `${order.items.length} artículos`}
                                         </span>
                                         <p className={`text-xl font-black ${isReturned ? 'text-text-subtle-light line-through' : 'text-primary'}`}>
-                                            €{(isReturned ? originalValue : orderValue).toFixed(2)}
+                                            €{(isCollab && productSum < FREE_SHIPPING_THRESHOLD ? productSum + SHIPPING_FEE : productSum).toFixed(2)}
                                         </p>
                                     </div>
 
@@ -2040,21 +2040,10 @@ export const PaymentScreen: React.FC = () => {
                         <span className="text-sm font-bold text-text-light dark:text-text-dark">Subtotal</span>
                         <span className="text-sm font-bold text-text-light dark:text-text-dark">€{subtotal.toFixed(2)}</span>
                     </div>
-                    <div className="py-2 border-b border-border-light/50 space-y-1">
+                    <div className="py-2 border-b border-border-light/50">
                         <div className="flex justify-between items-center">
-                            <div className="flex flex-col">
-                                <span className="text-sm font-bold text-text-light dark:text-text-dark">Gestión LocalShop</span>
-                                <span className="text-[10px] text-text-subtle-light">Comisión de intermediación (IVA incl.)</span>
-                            </div>
+                            <span className="text-sm font-bold text-text-light dark:text-text-dark">Gastos de gestión</span>
                             <span className="text-sm font-bold text-text-light dark:text-text-dark">€{LOCALSHOP_FEE.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between items-center pl-2">
-                            <span className="text-[10px] text-text-subtle-light">Base imponible</span>
-                            <span className="text-[10px] text-text-subtle-light">€{LOCALSHOP_FEE_BASE.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between items-center pl-2">
-                            <span className="text-[10px] text-text-subtle-light">IVA (21%)</span>
-                            <span className="text-[10px] text-text-subtle-light">€{LOCALSHOP_FEE_IVA.toFixed(2)}</span>
                         </div>
                     </div>
                     <div className="flex justify-between items-center py-2 border-b border-border-light/50">
