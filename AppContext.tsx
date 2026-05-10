@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Product, OrderItem, Order, OrderStatus, Review, Store, BankAccount, PaymentCard, PlatformAccount, OrderContextType, OrderEvent, UserProfile, CollaboratorSubscription, Invoice, Payout } from './types';
+import { Product, OrderItem, Order, OrderStatus, Review, Store, BankAccount, PaymentCard, PlatformAccount, OrderContextType, OrderEvent, UserProfile, CollaboratorSubscription, Invoice, Payout, ReturnRequest, ReturnMessage, DevolucionTipo } from './types';
 import { CLOTHING_CATEGORIES } from './data';
 import {
   supabase,
@@ -876,7 +876,150 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           }));
         });
     }
+    // Cerrar la disputa: marcar return_request como 'completado' y borrar mensajes del chat
+    const { data: rr } = await supabase
+      .from('return_requests')
+      .select('id')
+      .eq('order_id', orderId)
+      .in('status', ['acordado', 'pendiente'])
+      .maybeSingle();
+    if (rr?.id) {
+      await supabase.from('return_messages').delete().eq('return_id', rr.id);
+      await supabase.from('return_requests').update({ status: 'completado' }).eq('id', rr.id);
+      setReturnRequests((prev: ReturnRequest[]) => prev.map((r: ReturnRequest) => r.id === rr.id ? { ...r, status: 'completado' as const } : r));
+    }
   }, [orders, notify]);
+
+  // ── Return Requests ───────────────────────────────────────────────────────
+  const [returnRequests, setReturnRequests] = useState<ReturnRequest[]>([]);
+
+  const dbReturnToReturnRequest = (r: any): ReturnRequest => ({
+    id:                 r.id,
+    orderId:            r.order_id,
+    customerId:         r.customer_id,
+    collaboratorId:     r.collaborator_id,
+    type:               r.type,
+    reason:             r.reason,
+    status:             r.status,
+    returnShippingCost: r.return_shipping_cost,
+    refundAmount:       r.refund_amount,
+    collaboratorCharge: r.collaborator_charge,
+    resolvedAt:         r.resolved_at,
+    createdAt:          r.created_at,
+  });
+
+  useEffect(() => {
+    if (!user.id) { setReturnRequests([]); return; }
+    const col = user.role === 'colaborador' ? 'collaborator_id' : 'customer_id';
+    supabase.from('return_requests').select('*').eq(col, user.id).order('created_at', { ascending: false })
+      .then(({ data }) => {
+        if (data) setReturnRequests(data.map(dbReturnToReturnRequest));
+      });
+
+    const ch = supabase.channel(`return_requests:${user.id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'return_requests', filter: `${col}=eq.${user.id}` }, (payload) => {
+        setReturnRequests(prev => [dbReturnToReturnRequest(payload.new), ...prev]);
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'return_requests', filter: `${col}=eq.${user.id}` }, (payload) => {
+        setReturnRequests(prev => prev.map(r => r.id === payload.new.id ? dbReturnToReturnRequest(payload.new) : r));
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [user.id, user.role]);
+
+  const getReturnForOrder = useCallback((orderId: string) =>
+    returnRequests.find(r => r.orderId === orderId),
+  [returnRequests]);
+
+  const requestReturnWithType = useCallback(async (orderId: string, type: DevolucionTipo, reason: string, collaboratorId: string) => {
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+
+    if (order.status !== 'Completado') {
+      notify('No disponible', 'Solo se pueden devolver pedidos en estado "Completado".', 'error');
+      return;
+    }
+    const diffInDays = (Date.now() - new Date(order.date).getTime()) / (1000 * 3600 * 24);
+    if (diffInDays > 14) {
+      notify('Plazo vencido', 'El periodo de 14 días para devoluciones ha finalizado.', 'error');
+      return;
+    }
+
+    const shippingCost = 4.50;
+    const isDesistimiento = type === 'desistimiento';
+
+    const { data: rr, error } = await supabase.from('return_requests').insert({
+      order_id:             orderId,
+      customer_id:          user.id,
+      collaborator_id:      collaboratorId,
+      type,
+      reason,
+      return_shipping_cost: shippingCost,
+      status:               isDesistimiento ? 'acordado' : 'pendiente',
+      refund_amount:        isDesistimiento ? order.total - shippingCost : null,
+      collaborator_charge:  isDesistimiento ? 0 : null,
+      resolved_at:          isDesistimiento ? new Date().toISOString() : null,
+    }).select().single();
+
+    if (error || !rr) {
+      notify('Error', 'No se pudo crear la solicitud de devolución.', 'error');
+      return;
+    }
+
+    if (isDesistimiento) {
+      const event = createEvent('Devolución Solicitada', 'Devolución por Desistimiento – Envío de vuelta a cargo del cliente');
+      const newHistory = [...(order.history || []), event];
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'Devolución Solicitada', history: newHistory } : o));
+      await supabase.from('orders').update({ status: 'Devolución Solicitada', history: newHistory }).eq('id', orderId);
+      notify('Devolución iniciada', `Importe a reembolsar: €${(order.total - shippingCost).toFixed(2)} (se descuentan €${shippingCost.toFixed(2)} de envío de vuelta).`, 'assignment_return');
+    } else {
+      notify('Chat abierto', 'Hemos abierto un chat con el colaborador para resolver la incidencia.', 'chat');
+    }
+  }, [orders, user.id, createEvent, notify]);
+
+  const sendReturnMessage = useCallback(async (returnId: string, body?: string, imageFile?: File) => {
+    let imageUrl: string | undefined;
+    if (imageFile) {
+      const ext = imageFile.name.split('.').pop();
+      const path = `${returnId}/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from('return-evidence').upload(path, imageFile);
+      if (upErr) { notify('Error', 'No se pudo subir la imagen.', 'error'); return; }
+      const { data: urlData } = supabase.storage.from('return-evidence').getPublicUrl(path);
+      imageUrl = urlData?.publicUrl;
+    }
+    await supabase.from('return_messages').insert({
+      return_id:  returnId,
+      sender_id:  user.id,
+      body:       body || null,
+      image_url:  imageUrl || null,
+    });
+  }, [user.id, notify]);
+
+  const fetchReturnMessages = useCallback(async (returnId: string): Promise<ReturnMessage[]> => {
+    const { data } = await supabase.from('return_messages').select('*').eq('return_id', returnId).order('created_at', { ascending: true });
+    if (!data) return [];
+    return data.map((m: any) => ({
+      id:        m.id,
+      returnId:  m.return_id,
+      senderId:  m.sender_id,
+      body:      m.body,
+      imageUrl:  m.image_url,
+      createdAt: m.created_at,
+    }));
+  }, []);
+
+  const resolveReturnDispute = useCallback(async (returnId: string, decision: 'acordado' | 'rechazado') => {
+    const { error } = await supabase.rpc('resolve_return', { p_return_id: returnId, p_decision: decision });
+    if (error) {
+      notify('Error', 'No se pudo resolver la disputa.', 'error');
+      return;
+    }
+    if (decision === 'acordado') {
+      notify('Acuerdo alcanzado', 'La devolución ha sido aceptada. El cliente devolverá el artículo.', 'handshake');
+    } else {
+      notify('Disputa cerrada', 'Has rechazado la reclamación de error.', 'cancel');
+    }
+  }, [notify]);
 
   // Cargar facturas del usuario actual
   useEffect(() => {
@@ -1025,7 +1168,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     })));
   }, [user.id]);
 
-  const orderValue         = useMemo(() => ({ orders, invoices, payouts, addOrder, requestReturn, processReturn, updateOrderStatus, refetchInvoices }), [orders, invoices, payouts, addOrder, requestReturn, processReturn, updateOrderStatus, refetchInvoices]);
+  const orderValue         = useMemo(() => ({ orders, invoices, payouts, returnRequests, addOrder, requestReturn, requestReturnWithType, processReturn, updateOrderStatus, refetchInvoices, sendReturnMessage, fetchReturnMessages, resolveReturnDispute, getReturnForOrder }), [orders, invoices, payouts, returnRequests, addOrder, requestReturn, requestReturnWithType, processReturn, updateOrderStatus, refetchInvoices, sendReturnMessage, fetchReturnMessages, resolveReturnDispute, getReturnForOrder]);
   const reviewValue        = useMemo(() => ({ addReview, getStoreReviews, getUserReviews }), [addReview, getStoreReviews, getUserReviews]);
   const notificationValue  = useMemo(() => ({
     settings:                 notifSettings,

@@ -8,7 +8,7 @@ import {
     validateCardNumber, validateCardExpiry, validateCVV,
     validateIBAN, validateBIC, validateProductField, validatePrice
 } from '../utils/validation';
-import { Product, Order, OrderStatus, Store, OrderItem, BankAccount, Review, PaymentCard, OrderEvent, Invoice } from '../types';
+import { Product, Order, OrderStatus, Store, OrderItem, BankAccount, Review, PaymentCard, OrderEvent, Invoice, ReturnRequest, ReturnMessage, DevolucionTipo } from '../types';
 import { useProducts, useCart, useFavorites, useFollowedStores, useNotifications, useOrders, useReviews, useUser, useStores, LOCALSHOP_PLATFORM_ACCOUNT, LOCALSHOP_COMPANY_ACCOUNT, LOCALSHOP_FEE, LOCALSHOP_FEE_BASE, LOCALSHOP_FEE_IVA, SHIPPING_FEE, FREE_SHIPPING_THRESHOLD, getCollaboratorSubscription } from '../AppContext';
 import { StoreCard, ProductCard } from '../components/Card';
 import { GoogleGenAI } from "@google/genai";
@@ -1618,14 +1618,404 @@ const OrderTimeline: React.FC<{ history?: OrderEvent[], initialDate: string }> =
     );
 };
 
+// ── Hoja de selección: cámara o galería ──────────────────────────────────
+const PhotoSourceSheet: React.FC<{
+    onSelect: (file: File) => void;
+    onClose: () => void;
+}> = ({ onSelect, onClose }) => {
+    const cameraRef = useRef<HTMLInputElement>(null);
+    const galleryRef = useRef<HTMLInputElement>(null);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) { onSelect(file); onClose(); }
+        e.target.value = '';
+    };
+
+    return (
+        <div className="fixed inset-0 z-[3000] flex items-end justify-center bg-black/40" onClick={onClose}>
+            <div className="w-full max-w-md bg-white dark:bg-accent-dark rounded-t-3xl p-4 pb-8 space-y-2 animate-slide-up" onClick={e => e.stopPropagation()}>
+                <div className="w-10 h-1 bg-border-light dark:bg-border-dark rounded-full mx-auto mb-3" />
+                <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleChange} />
+                <input ref={galleryRef} type="file" accept="image/*" className="hidden" onChange={handleChange} />
+                <button
+                    onClick={() => cameraRef.current?.click()}
+                    className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl bg-background-light dark:bg-background-dark hover:bg-primary/5 transition-colors"
+                >
+                    <span className="material-symbols-outlined text-primary text-2xl">photo_camera</span>
+                    <div className="text-left">
+                        <p className="text-sm font-black">Tomar foto</p>
+                        <p className="text-[10px] text-text-subtle-light">Usa la cámara del dispositivo</p>
+                    </div>
+                </button>
+                <button
+                    onClick={() => galleryRef.current?.click()}
+                    className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl bg-background-light dark:bg-background-dark hover:bg-primary/5 transition-colors"
+                >
+                    <span className="material-symbols-outlined text-primary text-2xl">photo_library</span>
+                    <div className="text-left">
+                        <p className="text-sm font-black">Elegir de galería</p>
+                        <p className="text-[10px] text-text-subtle-light">Selecciona una foto existente</p>
+                    </div>
+                </button>
+                <button onClick={onClose} className="w-full py-3 text-xs font-black text-text-subtle-light uppercase tracking-widest">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    );
+};
+
+// ── Modal: Solicitar devolución (2 pasos) ─────────────────────────────────
+const ReturnRequestModal: React.FC<{
+    order: Order;
+    onClose: () => void;
+    onSubmit: (type: DevolucionTipo, reason: string, collaboratorId: string, evidenceFiles: File[]) => void;
+    collaboratorId: string;
+}> = ({ order, onClose, onSubmit, collaboratorId }) => {
+    const [step, setStep] = useState<1 | 2>(1);
+    const [type, setType] = useState<DevolucionTipo | null>(null);
+    const [reason, setReason] = useState('');
+    const [evidenceFiles, setEvidenceFiles] = useState<File[]>([]);
+    const [evidencePreviews, setEvidencePreviews] = useState<string[]>([]);
+    const [showPhotoSheet, setShowPhotoSheet] = useState(false);
+    const shippingCost = 4.50;
+
+    const handleNext = () => {
+        if (!type) return;
+        setStep(2);
+    };
+
+    const addEvidenceFile = (file: File) => {
+        if (evidenceFiles.length >= 3) return;
+        setEvidenceFiles(prev => [...prev, file]);
+        setEvidencePreviews(prev => [...prev, URL.createObjectURL(file)]);
+    };
+
+    const removeEvidence = (idx: number) => {
+        URL.revokeObjectURL(evidencePreviews[idx]);
+        setEvidenceFiles(prev => prev.filter((_, i) => i !== idx));
+        setEvidencePreviews(prev => prev.filter((_, i) => i !== idx));
+    };
+
+    const handleSubmit = () => {
+        if (!type || !reason.trim()) return;
+        onSubmit(type, reason.trim(), collaboratorId, evidenceFiles);
+        onClose();
+    };
+
+    return (
+        <div className="fixed inset-0 z-[2000] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div className="bg-white dark:bg-accent-dark rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-slide-up">
+                <div className="p-6 space-y-5">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-sm font-black uppercase tracking-widest">Solicitar Devolución</h2>
+                        <button onClick={onClose} className="text-text-subtle-light hover:text-text-light"><span className="material-symbols-outlined text-xl">close</span></button>
+                    </div>
+                    <p className="text-[10px] text-text-subtle-light font-bold uppercase tracking-widest">Pedido #{order.id.split('-')[1]}</p>
+
+                    {step === 1 && (
+                        <div className="space-y-3">
+                            <p className="text-xs font-bold text-text-light dark:text-text-dark">¿Por qué quieres devolver este pedido?</p>
+
+                            {/* Opción: Desistimiento */}
+                            <button
+                                onClick={() => setType('desistimiento')}
+                                className={`w-full text-left p-4 rounded-2xl border-2 transition-all space-y-1 ${type === 'desistimiento' ? 'border-primary bg-primary/5' : 'border-border-light dark:border-border-dark'}`}
+                            >
+                                <div className="flex items-center gap-2">
+                                    <span className={`material-symbols-outlined text-base ${type === 'desistimiento' ? 'text-primary' : 'text-text-subtle-light'}`}>sentiment_dissatisfied</span>
+                                    <span className="text-xs font-black">Ya no lo quiero</span>
+                                </div>
+                                <p className="text-[10px] text-text-subtle-light leading-relaxed pl-6">Cambio de opinión, talla equivocada al pedir, ya no lo necesito.</p>
+                                <div className="pl-6 mt-1 flex items-center gap-1.5 text-amber-600">
+                                    <span className="material-symbols-outlined text-xs">info</span>
+                                    <span className="text-[10px] font-bold">Los gastos de envío de vuelta (€{shippingCost.toFixed(2)}) corren a tu cargo. Reembolso estimado: <strong>€{(order.total - shippingCost).toFixed(2)}</strong></span>
+                                </div>
+                            </button>
+
+                            {/* Opción: Error/Tara */}
+                            <button
+                                onClick={() => setType('error_tara')}
+                                className={`w-full text-left p-4 rounded-2xl border-2 transition-all space-y-1 ${type === 'error_tara' ? 'border-red-500 bg-red-500/5' : 'border-border-light dark:border-border-dark'}`}
+                            >
+                                <div className="flex items-center gap-2">
+                                    <span className={`material-symbols-outlined text-base ${type === 'error_tara' ? 'text-red-500' : 'text-text-subtle-light'}`}>error</span>
+                                    <span className="text-xs font-black">Artículo incorrecto o con tara</span>
+                                </div>
+                                <p className="text-[10px] text-text-subtle-light leading-relaxed pl-6">Talla incorrecta enviada, artículo equivocado, producto dañado o defectuoso.</p>
+                                <div className="pl-6 mt-1 flex items-center gap-1.5 text-green-600">
+                                    <span className="material-symbols-outlined text-xs">check_circle</span>
+                                    <span className="text-[10px] font-bold">Reembolso del <strong>100% (€{order.total.toFixed(2)})</strong>. Gastos de envío a cargo del colaborador.</span>
+                                </div>
+                            </button>
+
+                            <button
+                                onClick={handleNext}
+                                disabled={!type}
+                                className="w-full h-12 bg-primary text-white font-black uppercase tracking-widest rounded-2xl disabled:opacity-40 active:scale-95 transition-all"
+                            >
+                                Continuar
+                            </button>
+                        </div>
+                    )}
+
+                    {step === 2 && (
+                        <div className="space-y-4">
+                            <button onClick={() => setStep(1)} className="flex items-center gap-1 text-[10px] text-text-subtle-light font-bold uppercase tracking-widest hover:text-primary transition-colors">
+                                <span className="material-symbols-outlined text-sm">arrow_back</span>
+                                Volver
+                            </button>
+                            <div>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light block mb-2">
+                                    {type === 'error_tara' ? 'Describe el problema (se enviará al colaborador para resolverlo)' : 'Motivo de la devolución'}
+                                </label>
+                                <textarea
+                                    value={reason}
+                                    onChange={e => setReason(sanitizeRaw(e.target.value))}
+                                    rows={4}
+                                    maxLength={500}
+                                    placeholder={type === 'error_tara' ? 'Ej: Me enviaron la talla M cuando pedí la L...' : 'Ej: Al probármelo no me convence el corte...'}
+                                    className="w-full rounded-2xl border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark p-3 text-xs resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                />
+                                <p className="text-[9px] text-text-subtle-light text-right mt-1">{reason.length}/500</p>
+                            </div>
+                            {type === 'error_tara' && (
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light block">
+                                        Fotos de prueba <span className="font-normal normal-case">(opcional, máx. 3)</span>
+                                    </label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {evidencePreviews.map((src, idx) => (
+                                            <div key={idx} className="relative size-20 rounded-xl overflow-hidden border border-border-light dark:border-border-dark">
+                                                <img src={src} alt={`Prueba ${idx + 1}`} className="size-full object-cover" />
+                                                <button
+                                                    onClick={() => removeEvidence(idx)}
+                                                    className="absolute top-0.5 right-0.5 size-5 rounded-full bg-black/60 text-white flex items-center justify-center"
+                                                >
+                                                    <span className="material-symbols-outlined text-[10px]">close</span>
+                                                </button>
+                                            </div>
+                                        ))}
+                                        {evidencePreviews.length < 3 && (
+                                            <button
+                                                onClick={() => setShowPhotoSheet(true)}
+                                                className="size-20 rounded-xl border-2 border-dashed border-border-light dark:border-border-dark flex flex-col items-center justify-center gap-1 text-text-subtle-light hover:border-primary hover:text-primary transition-colors"
+                                            >
+                                                <span className="material-symbols-outlined text-xl">add_photo_alternate</span>
+                                                <span className="text-[8px] font-bold uppercase">Añadir</span>
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/30 rounded-2xl p-3 flex items-start gap-2">
+                                        <span className="material-symbols-outlined text-blue-500 text-base mt-0.5">chat</span>
+                                        <p className="text-[10px] text-blue-700 dark:text-blue-300 leading-relaxed">Las fotos se enviarán al colaborador en el chat de la disputa como prueba del error.</p>
+                                    </div>
+                                </div>
+                            )}
+                            {showPhotoSheet && (
+                                <PhotoSourceSheet onSelect={addEvidenceFile} onClose={() => setShowPhotoSheet(false)} />
+                            )}
+                            <button
+                                onClick={handleSubmit}
+                                disabled={!reason.trim()}
+                                className="w-full h-12 bg-primary text-white font-black uppercase tracking-widest rounded-2xl disabled:opacity-40 active:scale-95 transition-all"
+                            >
+                                {type === 'error_tara' ? 'Abrir disputa' : 'Confirmar devolución'}
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// ── Modal: Chat de devolución (Error/Tara) ────────────────────────────────
+const ReturnChatModal: React.FC<{
+    returnRequest: ReturnRequest;
+    order: Order;
+    currentUserId: string;
+    onClose: () => void;
+    onResolve: (decision: 'acordado' | 'rechazado') => void;
+    fetchMessages: (returnId: string) => Promise<ReturnMessage[]>;
+    sendMessage: (returnId: string, body?: string, imageFile?: File) => Promise<void>;
+    isCollab: boolean;
+}> = ({ returnRequest, order, currentUserId, onClose, onResolve, fetchMessages, sendMessage, isCollab }) => {
+    const [messages, setMessages] = useState<ReturnMessage[]>([]);
+    const [text, setText] = useState('');
+    const [sending, setSending] = useState(false);
+    const [resolving, setResolving] = useState(false);
+    const [showPhotoSheet, setShowPhotoSheet] = useState(false);
+    const bottomRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        fetchMessages(returnRequest.id).then(setMessages);
+        const ch = supabase.channel(`return_msgs:${returnRequest.id}`)
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'return_messages', filter: `return_id=eq.${returnRequest.id}` }, async () => {
+                const msgs = await fetchMessages(returnRequest.id);
+                setMessages(msgs);
+            })
+            .subscribe();
+        return () => { supabase.removeChannel(ch); };
+    }, [returnRequest.id]);
+
+    useEffect(() => {
+        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages]);
+
+    const handleSend = async () => {
+        if (!text.trim()) return;
+        setSending(true);
+        await sendMessage(returnRequest.id, text.trim());
+        setText('');
+        setSending(false);
+    };
+
+    const handleImage = async (file: File) => {
+        setSending(true);
+        await sendMessage(returnRequest.id, undefined, file);
+        setSending(false);
+    };
+
+    const handleResolve = async (decision: 'acordado' | 'rechazado') => {
+        setResolving(true);
+        await onResolve(decision);
+        setResolving(false);
+        onClose();
+    };
+
+    const isPending = returnRequest.status === 'pendiente';
+
+    return (
+        <div className="fixed inset-0 z-[2000] flex flex-col bg-background-light dark:bg-background-dark">
+            {/* Header */}
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-border-light dark:border-border-dark bg-white dark:bg-accent-dark">
+                <button onClick={onClose} className="text-text-subtle-light hover:text-primary transition-colors">
+                    <span className="material-symbols-outlined">arrow_back</span>
+                </button>
+                <div className="flex-1 min-w-0">
+                    <p className="text-xs font-black uppercase tracking-widest truncate">Resolver incidencia</p>
+                    <p className="text-[10px] text-text-subtle-light font-bold">Pedido #{order.id.split('-')[1]}</p>
+                </div>
+                <span className={`text-[9px] font-black px-2 py-1 rounded-full uppercase tracking-widest ${returnRequest.status === 'pendiente' ? 'bg-amber-100 text-amber-700' : returnRequest.status === 'acordado' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+                    {returnRequest.status === 'pendiente' ? 'En disputa' : returnRequest.status === 'acordado' ? 'Acordado' : 'Rechazado'}
+                </span>
+            </div>
+
+            {/* Mensajes */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                {/* Banner de contexto */}
+                <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/20 rounded-2xl p-3 text-center">
+                    <p className="text-[10px] font-bold text-red-700 dark:text-red-400">
+                        {isCollab
+                            ? `El cliente reclama un error en el pedido. Si lo aceptas, reembolsarás €${order.total.toFixed(2)} y asumirás los gastos de envío de vuelta (€4.50).`
+                            : `Has reportado un problema. Habla con el colaborador para resolverlo. Puedes adjuntar fotos como prueba.`
+                        }
+                    </p>
+                </div>
+
+                {messages.length === 0 && (
+                    <p className="text-center text-[10px] text-text-subtle-light py-6">Aún no hay mensajes. Sé el primero en escribir.</p>
+                )}
+
+                {messages.map(msg => {
+                    const isMe = msg.senderId === currentUserId;
+                    return (
+                        <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 space-y-1.5 ${isMe ? 'bg-primary text-white rounded-br-sm' : 'bg-white dark:bg-accent-dark border border-border-light dark:border-border-dark rounded-bl-sm'}`}>
+                                {msg.imageUrl && (
+                                    <img src={msg.imageUrl} alt="Prueba" className="rounded-xl max-w-full max-h-48 object-cover" />
+                                )}
+                                {msg.body && (
+                                    <p className={`text-xs leading-relaxed ${isMe ? 'text-white' : 'text-text-light dark:text-text-dark'}`}>{msg.body}</p>
+                                )}
+                                <p className={`text-[9px] ${isMe ? 'text-white/60' : 'text-text-subtle-light'} text-right`}>
+                                    {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                            </div>
+                        </div>
+                    );
+                })}
+                <div ref={bottomRef} />
+            </div>
+
+            {/* Botones resolución (solo colaborador, solo cuando está pendiente) */}
+            {isCollab && isPending && (
+                <div className="flex gap-2 px-4 py-2 border-t border-border-light dark:border-border-dark bg-white dark:bg-accent-dark">
+                    <button
+                        onClick={() => handleResolve('rechazado')}
+                        disabled={resolving}
+                        className="flex-1 h-10 bg-red-500/10 text-red-500 border border-red-500/20 font-black uppercase text-[9px] tracking-widest rounded-xl active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-1"
+                    >
+                        <span className="material-symbols-outlined text-sm">cancel</span>
+                        Rechazar error
+                    </button>
+                    <button
+                        onClick={() => handleResolve('acordado')}
+                        disabled={resolving}
+                        className="flex-1 h-10 bg-green-500 text-white font-black uppercase text-[9px] tracking-widest rounded-xl active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-1 shadow-lg shadow-green-500/20"
+                    >
+                        <span className="material-symbols-outlined text-sm">handshake</span>
+                        Aceptar error
+                    </button>
+                </div>
+            )}
+
+            {/* Resumen si acordado */}
+            {returnRequest.status === 'acordado' && (
+                <div className="px-4 py-3 bg-green-50 dark:bg-green-900/10 border-t border-green-200 dark:border-green-800/20">
+                    <p className="text-[10px] font-bold text-green-700 dark:text-green-400 text-center">
+                        ✓ Acuerdo alcanzado — Reembolso: €{returnRequest.refundAmount?.toFixed(2)} {returnRequest.collaboratorCharge ? `· Cargo colaborador: €${returnRequest.collaboratorCharge.toFixed(2)}` : ''}
+                    </p>
+                </div>
+            )}
+
+            {/* Input de mensaje (solo si pendiente) */}
+            {isPending && (
+                <div className="flex items-end gap-2 px-4 py-3 border-t border-border-light dark:border-border-dark bg-white dark:bg-accent-dark">
+                    <button
+                        onClick={() => setShowPhotoSheet(true)}
+                        className="size-10 rounded-xl bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark flex items-center justify-center text-text-subtle-light hover:text-primary transition-colors flex-shrink-0"
+                    >
+                        <span className="material-symbols-outlined text-base">attach_file</span>
+                    </button>
+                    <textarea
+                        value={text}
+                        onChange={e => setText(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+                        rows={1}
+                        placeholder="Escribe un mensaje..."
+                        className="flex-1 rounded-2xl border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark px-4 py-2.5 text-xs resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                    <button
+                        onClick={handleSend}
+                        disabled={!text.trim() || sending}
+                        className="size-10 rounded-xl bg-primary text-white flex items-center justify-center flex-shrink-0 disabled:opacity-40 active:scale-95 transition-all"
+                    >
+                        <span className="material-symbols-outlined text-base">send</span>
+                    </button>
+                </div>
+            )}
+
+            {showPhotoSheet && (
+                <PhotoSourceSheet onSelect={handleImage} onClose={() => setShowPhotoSheet(false)} />
+            )}
+        </div>
+    );
+};
+
 export const OrdersScreen: React.FC = () => {
-    const { orders, invoices, payouts, requestReturn, processReturn, updateOrderStatus, refetchInvoices } = useOrders();
+    const { orders, invoices, payouts, requestReturn, requestReturnWithType, processReturn, updateOrderStatus, refetchInvoices, getReturnForOrder, sendReturnMessage, fetchReturnMessages, resolveReturnDispute } = useOrders();
     const { user } = useUser();
+    const { stores } = useStores();
     const { notify } = useNotifications();
     const isCollab = user.role === 'colaborador';
 
     const [expandedHistory, setExpandedHistory] = useState<Record<string, boolean>>({});
     const [activeInvoice, setActiveInvoice] = useState<Invoice | null>(null);
+    const [returnModalOrder, setReturnModalOrder] = useState<Order | null>(null);
+    const [chatReturn, setChatReturn] = useState<{ returnRequest: ReturnRequest; order: Order } | null>(null);
 
     const nextPayoutDate = useMemo(() => {
         const now = new Date();
@@ -1688,9 +2078,32 @@ export const OrdersScreen: React.FC = () => {
         setTimeout(() => refetchInvoices(), 1500);
     };
 
-    const handleRequestReturn = (orderId: string) => {
-        requestReturn(orderId);
-        notify('Solicitud enviada', 'success');
+    const handleRequestReturn = (order: Order) => {
+        setReturnModalOrder(order);
+    };
+
+    const handleReturnSubmit = async (type: DevolucionTipo, reason: string, collaboratorId: string, evidenceFiles: File[]) => {
+        if (!returnModalOrder) return;
+        await requestReturnWithType(returnModalOrder.id, type, reason, collaboratorId);
+        // Si hay fotos de prueba, enviarlas como mensajes iniciales en el chat
+        if (type === 'error_tara' && evidenceFiles.length > 0) {
+            // Pequeña espera para que el return_request esté en BD antes de insertar mensajes
+            await new Promise(res => setTimeout(res, 800));
+            // El return_request ya estará en returnRequests via realtime, pero hacemos fetch directo
+            const { data } = await (await import('../src/lib/supabase')).supabase
+                .from('return_requests')
+                .select('id')
+                .eq('order_id', returnModalOrder.id)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single();
+            if (data?.id) {
+                for (const file of evidenceFiles) {
+                    await sendReturnMessage(data.id, undefined, file);
+                }
+            }
+        }
+        setReturnModalOrder(null);
     };
 
     const handleConfirmReception = (orderId: string) => {
@@ -1756,21 +2169,26 @@ export const OrdersScreen: React.FC = () => {
                         const isReturned = order.status === 'Devuelto' || order.status === 'Cancelado';
                         const isExpanded = expandedHistory[order.id] || false;
 
-                        // Accounting logic: if returned, order value is 0 for net revenue
                         const productSum = myItems.reduce((acc, i) => acc + (i.product.price * i.quantity), 0);
                         const collabPayout = isCollab
                             ? (productSum >= FREE_SHIPPING_THRESHOLD ? productSum : productSum + SHIPPING_FEE)
                             : productSum;
-                        const orderValue = isReturned ? 0 : collabPayout;
-                        const originalValue = collabPayout;
 
-                        // Lógica de elegibilidad para devolución (Sin usar Hooks dentro de bucles)
                         const orderDate = new Date(order.date);
                         const now = new Date();
                         const diffInDays = (now.getTime() - orderDate.getTime()) / (1000 * 3600 * 24);
                         const isEligibleForReturn = !isCollab && order.status === 'Completado' && diffInDays < 14;
 
                         const orderInvoice = invoices.find(inv => inv.orderId === order.id && inv.recipientType === (isCollab ? 'collaborator' : 'customer'));
+
+                        // Return request associated with this order
+                        const returnReq = getReturnForOrder(order.id);
+                        const hasActiveReturn = !!returnReq && returnReq.status !== 'completado' && returnReq.status !== 'rechazado';
+                        const hasChat = returnReq?.type === 'error_tara' && (returnReq.status === 'pendiente' || returnReq.status === 'acordado');
+                        // Collaborator ID from the store linked to the first item
+                        const orderStoreId = order.items[0]?.product?.storeId;
+                        const orderStore = stores.find(s => s.id === orderStoreId);
+                        const collaboratorId = orderStore?.ownerId ?? '';
 
                         return (
                             <div key={order.id} className={`bg-white dark:bg-accent-dark rounded-3xl border p-6 shadow-sm space-y-4 transition-all ${isReturned ? 'opacity-60 grayscale-[0.3] border-red-200 dark:border-red-900/20' : 'border-border-light dark:border-border-dark hover:border-primary/30'}`}>
@@ -1779,6 +2197,31 @@ export const OrdersScreen: React.FC = () => {
                                     <div className="flex items-center gap-2 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 p-3 rounded-2xl mb-2 border border-red-100 dark:border-red-900/20">
                                         <Icon name={order.status === 'Cancelado' ? 'cancel' : 'assignment_return'} className="text-sm" filled />
                                         <span className="text-[10px] font-black uppercase tracking-widest">Contabilidad: Venta Anulada</span>
+                                    </div>
+                                )}
+
+                                {/* Banners de devolución tipada */}
+                                {returnReq && returnReq.status === 'acordado' && !isReturned && (
+                                    <div className="bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800/20 rounded-2xl p-3 space-y-1">
+                                        <p className="text-[10px] font-black text-green-700 dark:text-green-400 uppercase tracking-widest">Devolución acordada</p>
+                                        {returnReq.type === 'desistimiento' ? (
+                                            <p className="text-[10px] text-green-600 dark:text-green-300">Reembolso estimado: <strong>€{returnReq.refundAmount?.toFixed(2)}</strong> (se descuentan €4.50 de envío de vuelta)</p>
+                                        ) : (
+                                            <p className="text-[10px] text-green-600 dark:text-green-300">Reembolso al cliente: <strong>€{returnReq.refundAmount?.toFixed(2)} (100%)</strong>{isCollab ? ` · Cargo a tu payout: €${returnReq.collaboratorCharge?.toFixed(2)}` : ''}</p>
+                                        )}
+                                    </div>
+                                )}
+
+                                {returnReq && returnReq.status === 'rechazado' && (
+                                    <div className="bg-gray-50 dark:bg-gray-900/10 border border-gray-200 rounded-2xl p-3">
+                                        <p className="text-[10px] font-bold text-gray-600">La reclamación de error fue rechazada por el colaborador.</p>
+                                    </div>
+                                )}
+
+                                {returnReq && returnReq.type === 'error_tara' && returnReq.status === 'pendiente' && (
+                                    <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/20 rounded-2xl p-3 flex items-center gap-2">
+                                        <span className="material-symbols-outlined text-amber-500 text-base">chat</span>
+                                        <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400">{isCollab ? 'El cliente ha reportado una incidencia. Revisa el chat.' : 'Disputa en curso. El colaborador debe responder.'}</p>
                                     </div>
                                 )}
 
@@ -1827,6 +2270,16 @@ export const OrdersScreen: React.FC = () => {
                                         </button>
                                     )}
 
+                                    {hasChat && returnReq && (
+                                        <button
+                                            onClick={() => setChatReturn({ returnRequest: returnReq, order })}
+                                            className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.1em] text-amber-600 hover:text-amber-700 transition-colors bg-amber-500/10 px-3 py-1.5 rounded-full"
+                                        >
+                                            <span className="material-symbols-outlined text-[12px]">chat</span>
+                                            {returnReq.status === 'pendiente' ? 'Chat – Disputa' : 'Ver chat'}
+                                        </button>
+                                    )}
+
                                     {isExpanded && (
                                         <div className="w-full animate-fade-in border-t border-border-light dark:border-border-dark mt-1 pt-1">
                                             <OrderTimeline history={order.history} initialDate={order.date} />
@@ -1856,9 +2309,9 @@ export const OrdersScreen: React.FC = () => {
                                                 </button>
                                             )}
 
-                                            {isEligibleForReturn && (
+                                            {isEligibleForReturn && !hasActiveReturn && (
                                                 <button
-                                                    onClick={() => handleRequestReturn(order.id)}
+                                                    onClick={() => handleRequestReturn(order)}
                                                     className="bg-red-500/10 text-red-500 border border-red-500/20 h-10 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform flex items-center justify-center gap-1"
                                                 >
                                                     <Icon name="assignment_return" className="text-sm" />
@@ -1944,6 +2397,28 @@ export const OrdersScreen: React.FC = () => {
 
         {activeInvoice && (
             <InvoiceModal invoice={activeInvoice} onClose={() => setActiveInvoice(null)} />
+        )}
+
+        {returnModalOrder && (
+            <ReturnRequestModal
+                order={returnModalOrder}
+                collaboratorId={stores.find(s => s.id === returnModalOrder.items[0]?.product?.storeId)?.ownerId ?? ''}
+                onClose={() => setReturnModalOrder(null)}
+                onSubmit={handleReturnSubmit}
+            />
+        )}
+
+        {chatReturn && (
+            <ReturnChatModal
+                returnRequest={chatReturn.returnRequest}
+                order={chatReturn.order}
+                currentUserId={user.id ?? ''}
+                isCollab={isCollab}
+                onClose={() => setChatReturn(null)}
+                onResolve={async (decision) => { await resolveReturnDispute(chatReturn.returnRequest.id, decision); }}
+                fetchMessages={fetchReturnMessages}
+                sendMessage={sendReturnMessage}
+            />
         )}
         </>
     );

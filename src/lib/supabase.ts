@@ -144,6 +144,7 @@ export function dbStoreToStore(s: DbStore): Store {
     contactEmail: s.contact_email ?? undefined,
     contactPhone: s.contact_phone ?? undefined,
     iban:         s.iban ?? undefined,
+    ownerId:      (s as any).owner_id ?? undefined,
   };
 }
 

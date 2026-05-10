@@ -43,6 +43,7 @@ export interface Store {
   contactEmail?: string;
   contactPhone?: string;
   iban?: string;
+  ownerId?: string; // FK → profiles.id del colaborador propietario
 }
 
 export interface UserProfile {
@@ -166,13 +167,46 @@ export interface Payout {
   createdAt: string;
 }
 
+export type DevolucionTipo = 'desistimiento' | 'error_tara';
+export type ReturnStatus = 'pendiente' | 'acordado' | 'rechazado' | 'completado';
+
+export interface ReturnRequest {
+  id: string;
+  orderId: string;
+  customerId: string;
+  collaboratorId: string;
+  type: DevolucionTipo;
+  reason: string;
+  status: ReturnStatus;
+  returnShippingCost: number;
+  refundAmount?: number;
+  collaboratorCharge?: number;
+  resolvedAt?: string;
+  createdAt: string;
+}
+
+export interface ReturnMessage {
+  id: string;
+  returnId: string;
+  senderId: string;
+  body?: string;
+  imageUrl?: string;
+  createdAt: string;
+}
+
 export interface OrderContextType {
     orders: Order[];
     invoices: Invoice[];
     payouts: Payout[];
+    returnRequests: ReturnRequest[];
     addOrder: (order: Omit<Order, 'id' | 'date' | 'status' | 'customerId'>) => void;
     requestReturn: (orderId: string) => void;
+    requestReturnWithType: (orderId: string, type: DevolucionTipo, reason: string, collaboratorId: string) => Promise<void>;
     processReturn: (orderId: string) => void;
     updateOrderStatus: (orderId: string, status: OrderStatus) => void;
     refetchInvoices: () => Promise<void>;
+    sendReturnMessage: (returnId: string, body?: string, imageFile?: File) => Promise<void>;
+    fetchReturnMessages: (returnId: string) => Promise<ReturnMessage[]>;
+    resolveReturnDispute: (returnId: string, decision: 'acordado' | 'rechazado') => Promise<void>;
+    getReturnForOrder: (orderId: string) => ReturnRequest | undefined;
 }

@@ -250,7 +250,7 @@ const ProductDetailScreen: React.FC = () => {
                                 <button
                                     key={size}
                                     onClick={() => setSelectedSize(size)}
-                                    className={`size-12 rounded-xl border-2 font-bold transition-all active:scale-95 ${selectedSize === size ? 'bg-primary border-primary text-white shadow-md' : 'border-border-light dark:border-border-dark text-text-light dark:text-text-dark'}`}
+                                    className={`min-h-12 min-w-12 px-3 py-2 rounded-xl border-2 font-bold text-sm text-center leading-tight transition-all active:scale-95 ${selectedSize === size ? 'bg-primary border-primary text-white shadow-md' : 'border-border-light dark:border-border-dark text-text-light dark:text-text-dark'}`}
                                 >
                                     {size}
                                 </button>
