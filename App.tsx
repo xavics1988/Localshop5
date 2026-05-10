@@ -22,6 +22,18 @@ import {
 } from './screens/PlaceholderScreens';
 import GuestCheckoutScreen from './screens/GuestCheckoutScreen';
 import { BottomNav } from './components/Layout';
+import { useUser } from './AppContext';
+
+const RootRoute: React.FC = () => {
+    const { user } = useUser();
+    const isAuthenticated = !!user.id;
+    const isGuestMode = sessionStorage.getItem('guestMode') === 'true';
+
+    if (!isAuthenticated && !isGuestMode) {
+        return <Navigate to="/welcome" replace />;
+    }
+    return <DiscoverScreen />;
+};
 
 const ScrollToTop = () => {
     const { pathname } = useLocation();
@@ -61,7 +73,7 @@ const AppContent: React.FC = () => {
             <div className={showNav ? "pb-20" : ""}>
                 <Routes>
                     {/* La pantalla inicial por defecto es Explorar (/) */}
-                    <Route path="/" element={<DiscoverScreen />} />
+                    <Route path="/" element={<RootRoute />} />
                     
                     {/* Pantallas de autenticación y bienvenida */}
                     <Route path="/welcome" element={<OnboardingScreen />} />

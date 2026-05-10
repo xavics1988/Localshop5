@@ -2836,12 +2836,18 @@ export const PaymentMethodsScreen: React.FC = () => {
 
     const location = useLocation();
 
-    // Detectar retorno del onboarding de Stripe Connect
+    // Detectar retorno del onboarding de Stripe Connect y actualizar DB
     useEffect(() => {
-        if (location.search.includes('connect=success')) {
-            notify('¡Cuenta conectada!', 'Tu cuenta de Stripe ha sido configurada correctamente.', 'check_circle');
+        if (location.search.includes('connect=success') && currentStore?.id) {
+            supabase
+                .from('stores')
+                .update({ stripe_connect_onboarded: true })
+                .eq('id', currentStore.id)
+                .then(() => {
+                    notify('¡Cuenta conectada!', 'Tu cuenta de Stripe ha sido configurada correctamente.', 'check_circle');
+                });
         }
-    }, []);
+    }, [currentStore?.id]);
 
     const [connectLoading, setConnectLoading] = useState(false);
 

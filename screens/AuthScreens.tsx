@@ -35,6 +35,7 @@ export const OnboardingScreen: React.FC = () => {
     };
 
     const handleGuestEntry = () => {
+        sessionStorage.setItem('guestMode', 'true');
         updateUser({ role: 'cliente' });
         navigate('/');
     };
