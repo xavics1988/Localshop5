@@ -1,7 +1,13 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { useStripe, useElements, CardElement } from '@stripe/react-stripe-js';
 import { DetailHeader, Logo } from '../components/Layout';
 import { useNavigate, Link, useLocation, useParams, Navigate } from 'react-router-dom';
+
+const SUPABASE_URL      = import.meta.env.VITE_SUPABASE_URL as string;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+const STRIPE_PRICE_FOUNDING = import.meta.env.VITE_STRIPE_PRICE_FOUNDING as string;
+const STRIPE_PRICE_STANDARD = import.meta.env.VITE_STRIPE_PRICE_STANDARD as string;
 import {
     sanitizeRaw, truncate, MAX_LENGTHS,
     validateName, validateEmail, validatePhone,
@@ -1185,6 +1191,122 @@ const ReferralCard: React.FC = () => {
     );
 };
 
+// Componente interno para el pago de la suscripción de colaborador con Stripe
+const SubscribeWithStripe: React.FC<{ monthlyFee: number; isFoundingMember: boolean; userId: string }> = ({ monthlyFee, isFoundingMember, userId }) => {
+    const stripe   = useStripe();
+    const elements = useElements();
+    const { notify } = useNotifications();
+    const [open, setOpen]       = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [done, setDone]       = useState(false);
+    const [isDark, setIsDark]   = useState(false);
+
+    useEffect(() => {
+        const check = () => setIsDark(document.documentElement.classList.contains('dark'));
+        check();
+        const observer = new MutationObserver(check);
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+        return () => observer.disconnect();
+    }, []);
+
+    const priceId = isFoundingMember ? STRIPE_PRICE_FOUNDING : STRIPE_PRICE_STANDARD;
+
+    const handleSubscribe = async () => {
+        if (!stripe || !elements) return;
+        const cardElement = elements.getElement(CardElement);
+        if (!cardElement) return;
+
+        setLoading(true);
+        try {
+            const res = await fetch(`${SUPABASE_URL}/functions/v1/create-subscription`, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+                body: JSON.stringify({ userId, priceId }),
+            });
+            const { clientSecret, error: subError } = await res.json();
+            if (subError) throw new Error(subError);
+
+            const { error } = await stripe.confirmCardPayment(clientSecret, {
+                payment_method: {
+                    card: cardElement as any,
+                    billing_details: { name: userId },
+                },
+            });
+            if (error) throw new Error(error.message);
+
+            setDone(true);
+            notify('¡Suscripción activada!', `Tu suscripción de €${monthlyFee.toFixed(2)}/mes ha sido procesada.`, 'check_circle');
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Error al procesar la suscripción';
+            notify('Error de pago', message, 'error');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (done) {
+        return (
+            <div className="flex items-center gap-3 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl border border-emerald-200 dark:border-emerald-800">
+                <Icon name="check_circle" className="text-emerald-600 dark:text-emerald-400 text-xl" filled />
+                <div>
+                    <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">Suscripción activada</p>
+                    <p className="text-[10px] text-emerald-600/80 dark:text-emerald-500">€{monthlyFee.toFixed(2)}/mes — próximo cobro en 30 días</p>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-3">
+            {open ? (
+                <div className="space-y-3 animate-fade-in">
+                    <div className="border border-border-light dark:border-border-dark rounded-xl px-4 py-3.5 bg-white dark:bg-accent-dark">
+                        <CardElement
+                            options={{
+                                style: {
+                                    base: {
+                                        fontSize: '15px',
+                                        color: isDark ? '#F0F2F4' : '#6B7785',
+                                        fontFamily: 'Inter, sans-serif',
+                                        '::placeholder': { color: isDark ? '#94a3b8' : '#8E8E93' },
+                                        iconColor: '#c29b88',
+                                    },
+                                    invalid: { color: '#ef4444', iconColor: '#ef4444' },
+                                },
+                                hidePostalCode: true,
+                            }}
+                        />
+                    </div>
+                    <div className="flex gap-3">
+                        <button onClick={() => setOpen(false)} className="flex-1 h-11 rounded-xl border border-border-light dark:border-border-dark text-sm font-bold text-text-subtle-light active:scale-95 transition-all">
+                            Cancelar
+                        </button>
+                        <button
+                            onClick={handleSubscribe}
+                            disabled={loading || !stripe}
+                            className="flex-[2] h-11 rounded-xl bg-primary text-white text-sm font-black uppercase tracking-wider shadow active:scale-95 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+                        >
+                            {loading
+                                ? <span className="animate-spin material-symbols-outlined text-lg">progress_activity</span>
+                                : <><Icon name="lock" className="text-lg" /> Pagar €{monthlyFee.toFixed(2)}/mes</>
+                            }
+                        </button>
+                    </div>
+                    <p className="text-[10px] text-text-subtle-light text-center">Pago seguro procesado por Stripe. Puedes cancelar cuando quieras.</p>
+                </div>
+            ) : (
+                <button
+                    onClick={() => setOpen(true)}
+                    className="w-full h-12 rounded-xl bg-primary text-white text-sm font-black uppercase tracking-wider shadow active:scale-95 transition-all flex items-center justify-center gap-2"
+                >
+                    <Icon name="credit_card" className="text-lg" />
+                    Activar suscripción — €{monthlyFee.toFixed(2)}/mes
+                </button>
+            )}
+        </div>
+    );
+};
+
 export const ProfileScreen: React.FC = () => {
     const navigate = useNavigate();
     const { user, logout } = useUser();
@@ -1340,14 +1462,11 @@ export const ProfileScreen: React.FC = () => {
                                 </div>
                             )}
 
-                            <div className="bg-accent-light dark:bg-background-dark rounded-2xl p-4 space-y-1">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light mb-1">Transferir cuota mensual a</p>
-                                <p className="text-xs font-bold text-text-light dark:text-text-dark">{LOCALSHOP_COMPANY_ACCOUNT.holder}</p>
-                                <p className="text-xs font-mono text-primary break-all font-black">{LOCALSHOP_COMPANY_ACCOUNT.iban}</p>
-                                <p className="text-[10px] text-text-subtle-light">{LOCALSHOP_COMPANY_ACCOUNT.bankName}</p>
-                                <p className="text-[10px] text-text-subtle-light mt-1">Importe: <span className="font-bold">€{sub.monthlyFee.toFixed(2)} (IVA incluido)</span></p>
-                                <p className="text-[10px] text-text-subtle-light">Concepto: <span className="font-bold">Suscripción LocalShop — {user.name}</span></p>
-                            </div>
+                            <SubscribeWithStripe
+                                monthlyFee={sub.monthlyFee}
+                                isFoundingMember={sub.isFoundingMember}
+                                userId={user.id}
+                            />
                         </div>
                     );
                 })()}
@@ -2425,71 +2544,145 @@ export const OrdersScreen: React.FC = () => {
 };
 
 export const PaymentScreen: React.FC = () => {
-    const navigate = useNavigate();
+    const navigate   = useNavigate();
+    const stripe     = useStripe();
+    const elements   = useElements();
     const { cartItems, clearCart } = useCart();
     const { addOrder } = useOrders();
     const { user, paymentMethods, addPaymentMethod, useReferralBalance } = useUser();
     const { notify } = useNotifications();
-    const [success, setSuccess] = useState(false);
-    const [cardData, setCardData] = useState({ number: '', holder: user.name || '', expiry: '', cvv: '' });
+    const [success, setSuccess]   = useState(false);
+    const [loading, setLoading]   = useState(false);
     const [useReferral, setUseReferral] = useState(false);
+    const [useSavedCard, setUseSavedCard] = useState(true);
+    const [isDark, setIsDark]     = useState(false);
 
-    const subtotal = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-    const hasCard = paymentMethods.length > 0;
-    const selectedCard = hasCard ? paymentMethods[0] : null;
+    useEffect(() => {
+        const check = () => setIsDark(document.documentElement.classList.contains('dark'));
+        check();
+        const observer = new MutationObserver(check);
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+        return () => observer.disconnect();
+    }, []);
 
+    const subtotal     = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
     const freeShipping = subtotal >= FREE_SHIPPING_THRESHOLD;
     const shippingCost = freeShipping ? 0 : SHIPPING_FEE;
-    const referralDiscount = useReferral ? Math.min(subtotal + LOCALSHOP_FEE + shippingCost, user.referralBalance || 0) : 0;
+
+    // Tarjeta guardada con PM de Stripe (real) o cualquier tarjeta guardada
+    const savedCard    = paymentMethods.find(pm => pm.stripePaymentMethodId) ?? paymentMethods[0] ?? null;
+    const hasSavedCard = !!savedCard;
+
+    const referralDiscount = useReferral
+        ? Math.min(subtotal + LOCALSHOP_FEE + shippingCost, user.referralBalance || 0)
+        : 0;
     const finalTotal = Math.max(0, subtotal + LOCALSHOP_FEE + shippingCost - referralDiscount);
 
-    const handleConfirmPayment = () => {
-        if (cartItems.length === 0) return;
+    const cardElementOptions = {
+        style: {
+            base: {
+                fontSize:        '15px',
+                color:           isDark ? '#F0F2F4' : '#6B7785',
+                fontFamily:      'Inter, sans-serif',
+                '::placeholder': { color: isDark ? '#94a3b8' : '#8E8E93' },
+                iconColor:       '#c29b88',
+            },
+            invalid: { color: '#ef4444', iconColor: '#ef4444' },
+        },
+        hidePostalCode: true,
+    };
 
-        if (!hasCard) {
-            // Validaciones Estrictas
-            const rawNumber = cardData.number.replace(/\s/g, '');
-            if (!cardData.number || !cardData.expiry || !cardData.cvv) {
-                notify('Datos incompletos', 'Por favor, rellena los datos de tu tarjeta para continuar.', 'error');
-                return;
-            }
-            if (rawNumber.length !== 16) {
-                notify('Error', 'El número de tarjeta debe tener exactamente 16 dígitos.', 'error');
-                return;
-            }
-            if (cardData.cvv.length < 3 || cardData.cvv.length > 4) {
-                notify('Error', 'El CVV debe tener 3 o 4 dígitos.', 'error');
-                return;
-            }
-            if (!/^\d{2}\/\d{2}$/.test(cardData.expiry)) {
-                notify('Error', 'Formato de caducidad incorrecto (MM/YY).', 'error');
-                return;
-            }
+    const handleConfirmPayment = async () => {
+        if (!stripe || cartItems.length === 0) return;
 
-            // Guardamos la tarjeta automáticamente
-            addPaymentMethod({
-                last4: rawNumber.slice(-4),
-                brand: rawNumber.startsWith('4') ? 'Visa' : 'Mastercard',
-                expiry: cardData.expiry,
-                holder: cardData.holder || user.name
+        setLoading(true);
+        try {
+            // 1. Crear PaymentIntent en el servidor
+            const intentRes = await fetch(`${SUPABASE_URL}/functions/v1/create-payment-intent`, {
+                method:  'POST',
+                headers: {
+                    'Content-Type':  'application/json',
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                },
+                body: JSON.stringify({
+                    amount:   Math.round(finalTotal * 100),
+                    userId:   user.id,
+                    metadata: { customerId: user.id },
+                }),
             });
+            const { clientSecret, error: intentError } = await intentRes.json();
+            if (intentError) throw new Error(intentError);
+
+            // 2. Confirmar pago
+            let result;
+            let savedPmAfterPayment: { id: string; last4: string; brand: string; expiry: string } | null = null;
+
+            if (hasSavedCard && useSavedCard && savedCard.stripePaymentMethodId) {
+                // Usar tarjeta guardada (ya tokenizada por Stripe)
+                result = await stripe.confirmCardPayment(clientSecret, {
+                    payment_method: savedCard.stripePaymentMethodId,
+                });
+            } else {
+                // Crear PM primero para obtener detalles de la tarjeta, luego confirmar
+                const cardElement = elements?.getElement(CardElement);
+                if (!cardElement) throw new Error('No se pudo inicializar el elemento de pago');
+
+                const { paymentMethod: pm, error: pmError } = await stripe.createPaymentMethod({
+                    type:            'card',
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    card:            cardElement as any,
+                    billing_details: { name: user.name },
+                });
+                if (pmError) throw new Error(pmError.message);
+
+                if (pm?.card) {
+                    savedPmAfterPayment = {
+                        id:     pm.id,
+                        last4:  pm.card.last4,
+                        brand:  pm.card.brand.charAt(0).toUpperCase() + pm.card.brand.slice(1),
+                        expiry: `${String(pm.card.exp_month).padStart(2, '0')}/${String(pm.card.exp_year).slice(-2)}`,
+                    };
+                }
+
+                result = await stripe.confirmCardPayment(clientSecret, {
+                    payment_method: pm!.id,
+                });
+            }
+
+            if (result.error) throw new Error(result.error.message);
+
+            const paymentIntent = result.paymentIntent;
+
+            // 3. Guardar los detalles de la nueva tarjeta
+            if (savedPmAfterPayment) {
+                addPaymentMethod({
+                    last4:                 savedPmAfterPayment.last4,
+                    brand:                 savedPmAfterPayment.brand,
+                    expiry:                savedPmAfterPayment.expiry,
+                    holder:                user.name,
+                    stripePaymentMethodId: savedPmAfterPayment.id,
+                });
+            }
+
+            // 4. Aplicar saldo de referidos y crear pedido
+            if (referralDiscount > 0) useReferralBalance(referralDiscount);
+
+            await addOrder({
+                customerName:           user.name,
+                items:                  [...cartItems],
+                total:                  finalTotal,
+                shippingFee:            LOCALSHOP_FEE + shippingCost,
+                stripePaymentIntentId:  paymentIntent?.id,
+            });
+
+            setSuccess(true);
+            notify('¡Pago realizado!', '¡Tu pedido ha sido procesado correctamente!', 'lock');
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Error al procesar el pago';
+            notify('Error de pago', message, 'error');
+        } finally {
+            setLoading(false);
         }
-
-        // Si se usa saldo de referidos, descontarlo
-        if (referralDiscount > 0) {
-            useReferralBalance(referralDiscount);
-        }
-
-        // PROCESAMIENTO HACIA CUENTA CENTRAL
-        addOrder({
-            customerName: user.name,
-            items: [...cartItems],
-            total: finalTotal,
-            shippingFee: LOCALSHOP_FEE + shippingCost
-        });
-
-        setSuccess(true);
-        notify('¡Pago realizado!', `Fondos dirigidos a ${LOCALSHOP_PLATFORM_ACCOUNT.bankName}.`, 'lock');
     };
 
     if (success) {
@@ -2499,7 +2692,7 @@ export const PaymentScreen: React.FC = () => {
                     <Icon name="check_circle" className="text-6xl text-primary" filled />
                 </div>
                 <h1 className="text-3xl font-black mb-2 text-text-light dark:text-text-dark">¡Pedido confirmado!</h1>
-                <p className="text-text-subtle-light font-medium px-8 leading-relaxed">Tu compra se ha procesado con éxito. Los fondos han sido depositados en la cuenta de la plataforma y las tiendas están preparando tus artículos.</p>
+                <p className="text-text-subtle-light font-medium px-8 leading-relaxed">Tu compra se ha procesado con éxito. Las tiendas están preparando tus artículos.</p>
                 <button onClick={() => navigate('/')} className="mt-12 px-10 py-4 bg-primary text-white font-bold rounded-2xl shadow-xl active:scale-95 transition-transform">Volver al Inicio</button>
             </div>
         );
@@ -2509,6 +2702,7 @@ export const PaymentScreen: React.FC = () => {
         <div className="bg-background-light dark:bg-background-dark min-h-screen pb-24">
             <DetailHeader title="Finalizar Pedido" />
             <div className="p-4 space-y-6">
+                {/* Resumen */}
                 <div className="bg-white dark:bg-accent-dark p-6 rounded-[32px] border border-border-light dark:border-border-dark shadow-sm">
                     <h3 className="text-sm font-black uppercase tracking-widest text-text-subtle-light mb-4">Resumen del Pago</h3>
                     <div className="flex justify-between items-center py-2 border-b border-border-light/50">
@@ -2535,7 +2729,7 @@ export const PaymentScreen: React.FC = () => {
                         }
                     </div>
 
-                    {/* Selector de Saldo de Referidos */}
+                    {/* Saldo de referidos */}
                     {user.referralBalance > 0 && (
                         <div className="py-4 border-b border-border-light/50">
                             <label className="flex items-center justify-between cursor-pointer group">
@@ -2544,12 +2738,7 @@ export const PaymentScreen: React.FC = () => {
                                     <span className="text-[10px] font-black uppercase text-primary">Disponible: €{user.referralBalance.toFixed(2)}</span>
                                 </div>
                                 <div className="relative inline-flex items-center">
-                                    <input
-                                        type="checkbox"
-                                        checked={useReferral}
-                                        onChange={e => setUseReferral(e.target.checked)}
-                                        className="sr-only peer"
-                                    />
+                                    <input type="checkbox" checked={useReferral} onChange={e => setUseReferral(e.target.checked)} className="sr-only peer" />
                                     <div className="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-background-dark peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
                                 </div>
                             </label>
@@ -2568,79 +2757,61 @@ export const PaymentScreen: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Nueva sección de Método de Pago */}
+                {/* Método de Pago */}
                 <div className="bg-white dark:bg-accent-dark p-6 rounded-[32px] border border-border-light dark:border-border-dark shadow-sm space-y-4">
                     <h3 className="text-sm font-black uppercase tracking-widest text-text-subtle-light mb-2">Método de Pago</h3>
-                    {hasCard ? (
-                        <div className="flex items-center gap-4 bg-primary/5 p-4 rounded-2xl border border-primary/20">
+
+                    {hasSavedCard && (
+                        <div
+                            className={`flex items-center gap-4 p-4 rounded-2xl border cursor-pointer transition-all ${useSavedCard ? 'bg-primary/5 border-primary/30' : 'bg-accent-light dark:bg-background-dark border-border-light dark:border-border-dark'}`}
+                            onClick={() => setUseSavedCard(true)}
+                        >
                             <Icon name="credit_card" className="text-primary" />
                             <div className="flex-1">
-                                <p className="text-sm font-bold text-text-light dark:text-text-dark">{selectedCard?.brand} •••• {selectedCard?.last4}</p>
-                                <p className="text-[10px] font-bold text-text-subtle-light uppercase">Vence {selectedCard?.expiry}</p>
+                                <p className="text-sm font-bold text-text-light dark:text-text-dark">{savedCard.brand} •••• {savedCard.last4}</p>
+                                <p className="text-[10px] font-bold text-text-subtle-light uppercase">Vence {savedCard.expiry}</p>
                             </div>
-                            <Icon name="check_circle" className="text-green-500" filled />
+                            {useSavedCard && <Icon name="check_circle" className="text-green-500" filled />}
                         </div>
-                    ) : (
-                        <div className="space-y-4">
-                            <FormInput
-                                label="Número de tarjeta"
-                                placeholder="0000 0000 0000 0000"
-                                value={cardData.number}
-                                maxLength={19}
-                                onChange={(v: string) => {
-                                    const val = v.replace(/\D/g, '').substring(0, 16);
-                                    setCardData(p => ({ ...p, number: val.match(/.{1,4}/g)?.join(' ') || '' }));
-                                }}
-                            />
-                            <FormInput
-                                label="Titular"
-                                placeholder="Nombre completo"
-                                value={cardData.holder}
-                                onChange={(v: string) => setCardData(p => ({ ...p, holder: truncate(sanitizeRaw(v), MAX_LENGTHS.cardHolder) }))}
-                            />
-                            <div className="grid grid-cols-2 gap-4">
-                                <FormInput
-                                    label="Caducidad"
-                                    placeholder="MM/YY"
-                                    value={cardData.expiry}
-                                    maxLength={5}
-                                    onChange={(v: string) => {
-                                        const val = v.replace(/\D/g, '').substring(0, 4);
-                                        let formatted = val;
-                                        if (val.length > 2) formatted = val.substring(0, 2) + '/' + val.substring(2);
-                                        setCardData(p => ({ ...p, expiry: formatted }));
-                                    }}
-                                />
-                                <FormInput
-                                    label="CVV"
-                                    placeholder="123"
-                                    type="password"
-                                    maxLength={4}
-                                    value={cardData.cvv}
-                                    onChange={(v: string) => setCardData(p => ({ ...p, cvv: v.replace(/\D/g, '').substring(0, 4) }))}
-                                />
+                    )}
+
+                    {hasSavedCard && (
+                        <button
+                            className="text-xs font-black uppercase tracking-widest text-primary/70"
+                            onClick={() => setUseSavedCard(false)}
+                        >
+                            {useSavedCard ? 'Usar otra tarjeta' : 'Cancelar'}
+                        </button>
+                    )}
+
+                    {(!hasSavedCard || !useSavedCard) && (
+                        <div className="space-y-3">
+                            <div className="border border-border-light dark:border-border-dark rounded-xl px-4 py-3.5 bg-white dark:bg-accent-dark">
+                                <CardElement options={cardElementOptions} />
                             </div>
-                            <p className="text-[10px] text-text-subtle-light italic leading-tight">Tu tarjeta se guardará de forma segura en tu perfil para futuras compras.</p>
+                            <p className="text-[10px] text-text-subtle-light italic leading-tight">
+                                Tu tarjeta se guardará de forma segura para futuras compras.
+                            </p>
                         </div>
                     )}
                 </div>
 
                 <div className="bg-primary/5 border border-primary/20 p-5 rounded-2xl flex gap-4 items-center">
                     <Icon name="verified_user" className="text-primary text-2xl" />
-                    <div className="flex-1">
-                        <p className="text-[10px] font-bold text-primary/80 leading-relaxed">
-                            Pago 100% seguro gestionado por LocalShop. Fondos depositados en la cuenta de garantía:
-                            <span className="block font-black opacity-60">{LOCALSHOP_PLATFORM_ACCOUNT.iban}</span>
-                        </p>
-                    </div>
+                    <p className="text-[10px] font-bold text-primary/80 leading-relaxed flex-1">
+                        Pago 100% seguro procesado por <span className="font-black">Stripe</span>. Tus datos de tarjeta están cifrados y nunca pasan por nuestros servidores.
+                    </p>
                 </div>
 
                 <button
                     onClick={handleConfirmPayment}
-                    className="w-full h-16 bg-primary text-white font-bold rounded-2xl shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-3 text-lg"
+                    disabled={loading || !stripe}
+                    className="w-full h-16 bg-primary text-white font-bold rounded-2xl shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-3 text-lg disabled:opacity-60"
                 >
-                    <Icon name="lock" />
-                    Confirmar Pago a LocalShop
+                    {loading
+                        ? <span className="animate-spin material-symbols-outlined">progress_activity</span>
+                        : <><Icon name="lock" /> Confirmar Pago — €{finalTotal.toFixed(2)}</>
+                    }
                 </button>
             </div>
         </div>
@@ -2654,15 +2825,40 @@ export const CollaboratorRegistrationScreen: React.FC = () => <Placeholder title
 export const PaymentMethodsScreen: React.FC = () => {
     const navigate = useNavigate();
     const { notify } = useNotifications();
-    const { addBankAccount, removeBankAccount, bankAccounts, setDefaultBankAccount, paymentMethods, addPaymentMethod, removePaymentMethod, user } = useUser();
+    const { addBankAccount, removeBankAccount, bankAccounts, setDefaultBankAccount, paymentMethods, removePaymentMethod, user } = useUser();
+    const { stores } = useStores();
     const isCollab = user.role === 'colaborador';
+    const currentStore = isCollab ? stores.find(s => s.id === user.storeId) : null;
 
-    const [cardForm, setCardForm] = useState({
-        number: '',
-        holder: user.name || '',
-        expiry: '',
-        cvv: ''
-    });
+    const location = useLocation();
+
+    // Detectar retorno del onboarding de Stripe Connect
+    useEffect(() => {
+        if (location.search.includes('connect=success')) {
+            notify('¡Cuenta conectada!', 'Tu cuenta de Stripe ha sido configurada correctamente.', 'check_circle');
+        }
+    }, []);
+
+    const [connectLoading, setConnectLoading] = useState(false);
+
+    const handleStripeConnect = async () => {
+        if (!currentStore || !user.email) return;
+        setConnectLoading(true);
+        try {
+            const res = await fetch(`${SUPABASE_URL}/functions/v1/create-connect-account`, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+                body: JSON.stringify({ storeId: currentStore.id, email: user.email }),
+            });
+            const { onboardingUrl, error } = await res.json();
+            if (error) throw new Error(error);
+            window.location.href = onboardingUrl;
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Error al conectar con Stripe';
+            notify('Error', message, 'error');
+            setConnectLoading(false);
+        }
+    };
 
     const [bankForm, setBankForm] = useState({
         holder: '',
@@ -2672,37 +2868,6 @@ export const PaymentMethodsScreen: React.FC = () => {
     });
 
     const [showAddForm, setShowAddForm] = useState(bankAccounts.length === 0);
-
-    const handleAddCard = () => {
-        if (!cardForm.number || !cardForm.holder || !cardForm.expiry || !cardForm.cvv) {
-            notify('Error', 'Por favor, rellena todos los datos de la tarjeta.', 'error');
-            return;
-        }
-
-        const rawNumber = cardForm.number.replace(/\s/g, '');
-        const numErr = validateCardNumber(rawNumber);
-        if (numErr) { notify('Error', numErr, 'error'); return; }
-
-        const cvvErr = validateCVV(cardForm.cvv);
-        if (cvvErr) { notify('Error', cvvErr, 'error'); return; }
-
-        const expiryErr = validateCardExpiry(cardForm.expiry);
-        if (expiryErr) { notify('Error', expiryErr, 'error'); return; }
-
-        const holderErr = validateName(cardForm.holder);
-        if (holderErr) { notify('Error', `Titular: ${holderErr}`, 'error'); return; }
-
-        const last4 = rawNumber.slice(-4);
-        const brand = rawNumber.startsWith('4') ? 'Visa' : 'Mastercard';
-        addPaymentMethod({
-            last4,
-            brand,
-            expiry: cardForm.expiry,
-            holder: sanitizeRaw(cardForm.holder)
-        });
-        setCardForm({ number: '', holder: user.name || '', expiry: '', cvv: '' });
-        notify('Tarjeta Guardada', 'Tu método de pago ha sido añadido con éxito.', 'check_circle');
-    };
 
     const handleAddBank = () => {
         const rawIban = bankForm.iban.replace(/\s/g, '').toUpperCase();
@@ -2738,69 +2903,17 @@ export const PaymentMethodsScreen: React.FC = () => {
             <div className="bg-background-light dark:bg-background-dark min-h-screen pb-24">
                 <DetailHeader title="Métodos de Pago" backTo="/profile" />
                 <main className="p-4 space-y-6 animate-fade-in">
-                    <div className="bg-white dark:bg-accent-dark p-6 rounded-[32px] border border-border-light dark:border-border-dark shadow-sm space-y-6">
-                        <div className="flex items-center gap-3 mb-2">
-                            <Icon name="add_card" className="text-primary text-xl" />
-                            <h3 className="text-sm font-black uppercase tracking-widest text-text-light dark:text-text-dark">Nueva Tarjeta</h3>
-                        </div>
-                        <div className="space-y-4">
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Número de tarjeta (16 dígitos)</label>
-                                <input
-                                    value={cardForm.number}
-                                    maxLength={19}
-                                    onChange={e => {
-                                        const val = e.target.value.replace(/\D/g, '').substring(0, 16);
-                                        setCardForm(p => ({ ...p, number: val.match(/.{1,4}/g)?.join(' ') || '' }));
-                                    }}
-                                    className="w-full h-12 bg-accent-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded-xl px-4 text-sm font-bold text-text-light dark:text-text-dark outline-none focus:ring-2 focus:ring-primary/20"
-                                    placeholder="0000 0000 0000 0000"
-                                />
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Titular</label>
-                                <input
-                                    value={cardForm.holder}
-                                    onChange={e => setCardForm(p => ({ ...p, holder: truncate(sanitizeRaw(e.target.value), MAX_LENGTHS.cardHolder) }))}
-                                    className="form-input w-full rounded-lg border border-border-light bg-white dark:bg-background-dark dark:border-border-dark text-text-light dark:text-text-dark h-12 pl-3 pr-3 text-base outline-none focus:ring-2 focus:ring-primary/20 transition-all"
-                                    placeholder="Nombre como aparece en la tarjeta"
-                                />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Caducidad (MM/YY)</label>
-                                    <input
-                                        value={cardForm.expiry}
-                                        maxLength={5}
-                                        onChange={e => {
-                                            const val = e.target.value.replace(/\D/g, '').substring(0, 4);
-                                            let formatted = val;
-                                            if (val.length > 2) formatted = val.substring(0, 2) + '/' + val.substring(2);
-                                            setCardForm(p => ({ ...p, expiry: formatted }));
-                                        }}
-                                        className="w-full h-12 bg-accent-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded-xl px-4 text-sm font-bold text-text-light dark:text-text-dark outline-none focus:ring-2 focus:ring-primary/20"
-                                        placeholder="MM/YY"
-                                    />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">CVV (3-4 dígitos)</label>
-                                    <input
-                                        value={cardForm.cvv}
-                                        maxLength={4}
-                                        onChange={e => setCardForm(p => ({ ...p, cvv: e.target.value.replace(/\D/g, '').substring(0, 4) }))}
-                                        className="w-full h-12 bg-accent-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded-xl px-4 text-sm font-bold text-text-light dark:text-text-dark outline-none focus:ring-2 focus:ring-primary/20"
-                                        placeholder="123"
-                                        type="password"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                        <div className="flex gap-4 pt-4">
-                            <button onClick={() => navigate(-1)} className="flex-1 h-12 rounded-xl bg-accent-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm font-bold text-text-subtle-light active:scale-95 transition-all">Cancelar</button>
-                            <button onClick={handleAddCard} className="flex-[1.5] h-12 rounded-xl bg-primary text-white text-sm font-black uppercase tracking-wider shadow-lg active:scale-95 transition-all">Guardar</button>
+                    <div className="bg-primary/5 border border-primary/20 p-5 rounded-[24px] flex gap-4 items-start">
+                        <Icon name="verified_user" className="text-primary text-2xl shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                            <h4 className="font-black text-sm text-primary">Pagos seguros con Stripe</h4>
+                            <p className="text-xs text-text-subtle-light leading-relaxed">
+                                Tus tarjetas se guardan automáticamente de forma segura cuando realizas un pago. LocalShop nunca almacena tus datos de tarjeta — todo está gestionado por Stripe.
+                            </p>
                         </div>
                     </div>
-                    {paymentMethods.length > 0 && (
+
+                    {paymentMethods.length > 0 ? (
                         <div className="space-y-4">
                             <h3 className="text-xs font-black uppercase tracking-widest text-text-subtle-light px-1">Tus tarjetas guardadas</h3>
                             <div className="space-y-3">
@@ -2812,7 +2925,10 @@ export const PaymentMethodsScreen: React.FC = () => {
                                             </div>
                                             <div>
                                                 <p className="text-sm font-bold text-text-light dark:text-text-dark">{card.brand} •••• {card.last4}</p>
-                                                <p className="text-[10px] font-bold text-text-subtle-light uppercase">{card.expiry}</p>
+                                                <p className="text-[10px] font-bold text-text-subtle-light uppercase">Vence {card.expiry}</p>
+                                                {card.stripePaymentMethodId && (
+                                                    <p className="text-[9px] text-emerald-600 dark:text-emerald-400 font-black uppercase tracking-widest">Verificada por Stripe</p>
+                                                )}
                                             </div>
                                         </div>
                                         <button onClick={() => removePaymentMethod(card.id)} className="text-red-400 p-2 active:scale-90 transition-transform">
@@ -2821,6 +2937,15 @@ export const PaymentMethodsScreen: React.FC = () => {
                                     </div>
                                 ))}
                             </div>
+                        </div>
+                    ) : (
+                        <div className="bg-white dark:bg-accent-dark p-6 rounded-[32px] border border-border-light dark:border-border-dark text-center space-y-3">
+                            <Icon name="credit_card_off" className="text-4xl text-text-subtle-light" />
+                            <p className="text-sm font-bold text-text-subtle-light">No tienes tarjetas guardadas</p>
+                            <p className="text-xs text-text-subtle-light leading-relaxed">Realiza tu primer pedido y tu tarjeta se guardará automáticamente.</p>
+                            <button onClick={() => navigate('/')} className="mt-2 px-6 py-2.5 bg-primary text-white text-xs font-black uppercase tracking-wider rounded-xl active:scale-95 transition-transform">
+                                Explorar productos
+                            </button>
                         </div>
                     )}
                 </main>
@@ -2832,6 +2957,38 @@ export const PaymentMethodsScreen: React.FC = () => {
         <div className="bg-background-light dark:bg-background-dark min-h-screen pb-24">
             <DetailHeader title="Configuración de Cobros" backTo="/profile" />
             <main className="p-4 space-y-6 animate-fade-in">
+
+                {/* Bloque Stripe Connect */}
+                <div className={`p-5 rounded-[24px] border shadow-sm ${currentStore?.stripeConnectOnboarded ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800' : 'bg-white dark:bg-accent-dark border-border-light dark:border-border-dark'}`}>
+                    <div className="flex items-start gap-4">
+                        <div className={`size-10 rounded-xl flex items-center justify-center shrink-0 ${currentStore?.stripeConnectOnboarded ? 'bg-emerald-100 dark:bg-emerald-900/40' : 'bg-primary/10'}`}>
+                            <Icon name={currentStore?.stripeConnectOnboarded ? 'verified' : 'account_balance_wallet'} className={currentStore?.stripeConnectOnboarded ? 'text-emerald-600 dark:text-emerald-400' : 'text-primary'} />
+                        </div>
+                        <div className="flex-1 space-y-1">
+                            <h4 className={`font-black text-sm ${currentStore?.stripeConnectOnboarded ? 'text-emerald-700 dark:text-emerald-400' : 'text-text-light dark:text-text-dark'}`}>
+                                {currentStore?.stripeConnectOnboarded ? 'Cuenta de pagos activa' : 'Conecta tu cuenta de pagos'}
+                            </h4>
+                            <p className="text-xs text-text-subtle-light leading-relaxed">
+                                {currentStore?.stripeConnectOnboarded
+                                    ? 'Tu cuenta Stripe Connect está verificada. Los pagos de tus ventas se transferirán automáticamente.'
+                                    : 'Conecta tu cuenta bancaria vía Stripe para recibir los ingresos de tus ventas de forma automática y segura.'}
+                            </p>
+                        </div>
+                    </div>
+                    {!currentStore?.stripeConnectOnboarded && (
+                        <button
+                            onClick={handleStripeConnect}
+                            disabled={connectLoading}
+                            className="mt-4 w-full h-12 rounded-xl bg-primary text-white text-sm font-black uppercase tracking-wider shadow active:scale-95 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+                        >
+                            {connectLoading
+                                ? <span className="animate-spin material-symbols-outlined text-lg">progress_activity</span>
+                                : <><Icon name="open_in_new" className="text-lg" /> Configurar pagos con Stripe</>
+                            }
+                        </button>
+                    )}
+                </div>
+
                 <div className="bg-primary/5 dark:bg-primary/10 border border-primary/20 p-5 rounded-[24px] flex gap-4 items-start">
                     <div className="size-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0 mt-0.5">
                         <Icon name="info" className="text-primary text-xl" />
@@ -2839,7 +2996,7 @@ export const PaymentMethodsScreen: React.FC = () => {
                     <div className="space-y-1">
                         <h4 className="font-black text-sm text-primary">Depósitos Directos</h4>
                         <p className="text-xs text-text-subtle-light dark:text-text-subtle-dark leading-relaxed">
-                            Elige la cuenta bancaria donde recibirás tus ingresos. Las transferencias se realizan automáticamente los días 1 y 15 de cada mes.
+                            Las transferencias se realizan automáticamente a tu cuenta Stripe Connect una vez verificada. También puedes añadir un IBAN como respaldo.
                         </p>
                     </div>
                 </div>

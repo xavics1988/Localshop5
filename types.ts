@@ -44,6 +44,8 @@ export interface Store {
   contactPhone?: string;
   iban?: string;
   ownerId?: string; // FK → profiles.id del colaborador propietario
+  stripeConnectAccountId?: string;
+  stripeConnectOnboarded?: boolean;
 }
 
 export interface UserProfile {
@@ -61,6 +63,7 @@ export interface UserProfile {
     referredBy?: string;
     referralBalance: number;
     joinedAt?: string; // profiles.created_at — usado para calcular periodo de prueba
+    stripeCustomerId?: string;
 }
 
 export type SubscriptionStatus = 'trial' | 'active' | 'expired';
@@ -73,6 +76,7 @@ export interface CollaboratorSubscription {
     monthlyFeeBase: number;       // base imponible (sin IVA)
     monthlyFeeIva: number;        // IVA 21% sobre la cuota
     isFoundingMember: boolean;    // registrado en los 6 primeros meses del lanzamiento
+    stripeSubscriptionId?: string;
 }
 
 export interface OrderItem {
@@ -97,8 +101,9 @@ export interface Order {
   status: OrderStatus;
   items: OrderItem[];
   total: number;
-  shippingFee?: number;     // €3.99 — comisión LocalShop por gestión de envío
-  destinationIban?: string; // IBAN donde se recibió el pago (LocalShop)
+  shippingFee?: number;             // €3.99 — comisión LocalShop por gestión de envío
+  destinationIban?: string;         // IBAN donde se recibió el pago (LocalShop)
+  stripePaymentIntentId?: string;   // ID del PaymentIntent de Stripe
   history?: OrderEvent[];
 }
 
@@ -118,6 +123,7 @@ export interface PaymentCard {
   brand: string;
   expiry: string;
   holder: string;
+  stripePaymentMethodId?: string;
 }
 
 export interface PlatformAccount {
@@ -163,6 +169,7 @@ export interface Payout {
   status: 'pending' | 'processing' | 'completed' | 'failed';
   iban?: string;
   reference?: string;
+  stripeTransferId?: string;
   processedAt?: string;
   createdAt: string;
 }
@@ -199,7 +206,8 @@ export interface OrderContextType {
     invoices: Invoice[];
     payouts: Payout[];
     returnRequests: ReturnRequest[];
-    addOrder: (order: Omit<Order, 'id' | 'date' | 'status' | 'customerId'>) => void;
+    addOrder: (order: Omit<Order, 'id' | 'date' | 'status' | 'customerId'>) => Promise<void>;
+    initiateVendorPayout: (payoutId: string) => Promise<void>;
     requestReturn: (orderId: string) => void;
     requestReturnWithType: (orderId: string, type: DevolucionTipo, reason: string, collaboratorId: string) => Promise<void>;
     processReturn: (orderId: string) => void;

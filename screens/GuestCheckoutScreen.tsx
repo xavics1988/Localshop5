@@ -1,13 +1,17 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useStripe, useElements, CardElement } from '@stripe/react-stripe-js';
 import { DetailHeader } from '../components/Layout';
-import { useCart, useNotifications, LOCALSHOP_PLATFORM_ACCOUNT, LOCALSHOP_COMPANY_ACCOUNT, LOCALSHOP_FEE, LOCALSHOP_FEE_BASE, LOCALSHOP_FEE_IVA, SHIPPING_FEE, FREE_SHIPPING_THRESHOLD } from '../AppContext';
+import { useCart, useNotifications, LOCALSHOP_FEE, SHIPPING_FEE, FREE_SHIPPING_THRESHOLD } from '../AppContext';
 import { SPANISH_PROVINCES } from './AuthScreens';
 import {
     sanitizeRaw, truncate, MAX_LENGTHS,
     validateName, validateEmail, validatePhone,
 } from '../utils/validation';
+
+const SUPABASE_URL      = import.meta.env.VITE_SUPABASE_URL as string;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
 const Icon = ({ name, filled, className }: { name: string; filled?: boolean; className?: string }) => (
     <span
@@ -83,20 +87,29 @@ interface GuestData {
 }
 
 const GuestCheckoutScreen: React.FC = () => {
-    const navigate = useNavigate();
+    const navigate   = useNavigate();
+    const stripe     = useStripe();
+    const elements   = useElements();
     const { cartItems, clearCart } = useCart();
     const { notify } = useNotifications();
-    const [step, setStep] = useState<Step>('info');
+    const [step, setStep]     = useState<Step>('info');
     const [orderId, setOrderId] = useState('');
     const [loading, setLoading] = useState(false);
+    const [isDark, setIsDark]   = useState(false);
+
+    useEffect(() => {
+        const check = () => setIsDark(document.documentElement.classList.contains('dark'));
+        check();
+        const observer = new MutationObserver(check);
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+        return () => observer.disconnect();
+    }, []);
 
     const [guestData, setGuestData] = useState<GuestData>({
         nombre: '', apellidos: '', email: '', telefono: '',
         direccion: '', piso: '', ciudad: '', provincia: '',
         codigoPostal: '', notasEntrega: ''
     });
-
-    const [cardData, setCardData] = useState({ number: '', holder: '', expiry: '', cvv: '' });
 
     const subtotal = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
     const freeShipping = subtotal >= FREE_SHIPPING_THRESHOLD;
@@ -128,46 +141,71 @@ const GuestCheckoutScreen: React.FC = () => {
             return;
         }
 
-        setCardData(prev => ({ ...prev, holder: truncate(sanitizeRaw(`${nombre} ${apellidos}`), MAX_LENGTHS.cardHolder) }));
         setStep('payment');
         window.scrollTo(0, 0);
     };
 
     const handleConfirmPayment = async () => {
-        if (cartItems.length === 0) return;
+        if (!stripe || !elements || cartItems.length === 0) return;
 
-        const rawNumber = cardData.number.replace(/\s/g, '');
-        if (!cardData.number || !cardData.expiry || !cardData.cvv) {
-            notify('Datos incompletos', 'Por favor, rellena los datos de tu tarjeta.', 'error');
-            return;
-        }
-        if (rawNumber.length !== 16) {
-            notify('Tarjeta inválida', 'El número de tarjeta debe tener exactamente 16 dígitos.', 'error');
-            return;
-        }
-        if (cardData.cvv.length < 3 || cardData.cvv.length > 4) {
-            notify('CVV inválido', 'El CVV debe tener 3 o 4 dígitos.', 'error');
-            return;
-        }
-        if (!/^\d{2}\/\d{2}$/.test(cardData.expiry)) {
-            notify('Caducidad inválida', 'Formato incorrecto. Usa MM/YY.', 'error');
+        const cardElement = elements.getElement(CardElement);
+        if (!cardElement) {
+            notify('Error', 'No se pudo inicializar el formulario de pago.', 'error');
             return;
         }
 
         setLoading(true);
 
-        const generatedOrderId = `ORD-${Math.floor(1000 + Math.random() * 9000)}`;
+        try {
+            // 1. Crear PaymentIntent en el servidor
+            const totalInCents = Math.round(total * 100);
+            const intentRes = await fetch(`${SUPABASE_URL}/functions/v1/create-payment-intent`, {
+                method:  'POST',
+                headers: {
+                    'Content-Type':  'application/json',
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                },
+                body: JSON.stringify({
+                    amount:   totalInCents,
+                    metadata: { guestEmail: guestData.email },
+                }),
+            });
+            const { clientSecret, error: intentError } = await intentRes.json();
+            if (intentError) throw new Error(intentError);
 
-        // Pequeña pausa para simular el procesamiento del pago
-        await new Promise(resolve => setTimeout(resolve, 1200));
+            // 2. Confirmar el pago con los datos de la tarjeta (Stripe tokeniza el número)
+            const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+                payment_method: {
+                    card: cardElement as any,
+                    billing_details: {
+                        name:    `${guestData.nombre} ${guestData.apellidos}`,
+                        email:   guestData.email,
+                        phone:   guestData.telefono,
+                        address: {
+                            line1:       guestData.direccion,
+                            city:        guestData.ciudad,
+                            postal_code: guestData.codigoPostal,
+                            country:     'ES',
+                        },
+                    },
+                },
+            });
 
-        console.log(`[PAGO INVITADO] ${generatedOrderId} — Total: €${total.toFixed(2)} | Subtotal: €${subtotal.toFixed(2)} | Comisión LocalShop: €${LOCALSHOP_FEE.toFixed(2)} (Base: €${LOCALSHOP_FEE_BASE.toFixed(2)} + IVA 21%: €${LOCALSHOP_FEE_IVA.toFixed(2)}) -> ${LOCALSHOP_COMPANY_ACCOUNT.iban} | Envío: €${shippingCost.toFixed(2)}`);
+            if (error) throw new Error(error.message);
 
-        setLoading(false);
-        clearCart();
-        setOrderId(generatedOrderId);
-        setStep('success');
-        window.scrollTo(0, 0);
+            const generatedOrderId = `ORD-${Math.floor(1000 + Math.random() * 9000)}`;
+            console.log(`[STRIPE] PaymentIntent ${paymentIntent?.id} succeeded | Total: €${total.toFixed(2)}`);
+
+            clearCart();
+            setOrderId(generatedOrderId);
+            setStep('success');
+            window.scrollTo(0, 0);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Error al procesar el pago';
+            notify('Error de pago', message, 'error');
+        } finally {
+            setLoading(false);
+        }
     };
 
     if (step === 'success') {
@@ -275,62 +313,36 @@ const GuestCheckoutScreen: React.FC = () => {
                         <p className="text-xs text-text-subtle-light mt-1">{guestData.email} · {guestData.telefono}</p>
                     </div>
 
-                    {/* Datos de tarjeta */}
+                    {/* Datos de tarjeta — gestionado de forma segura por Stripe */}
                     <div className="bg-white dark:bg-accent-dark p-6 rounded-[32px] border border-border-light dark:border-border-dark shadow-sm space-y-4">
                         <h3 className="text-sm font-black uppercase tracking-widest text-text-subtle-light">Tarjeta de Pago</h3>
-                        <FormInput
-                            label="Número de tarjeta"
-                            placeholder="0000 0000 0000 0000"
-                            value={cardData.number}
-                            maxLength={19}
-                            onChange={(v: string) => {
-                                const val = v.replace(/\D/g, '').substring(0, 16);
-                                setCardData(p => ({ ...p, number: val.match(/.{1,4}/g)?.join(' ') || '' }));
-                            }}
-                            required
-                        />
-                        <FormInput
-                            label="Titular"
-                            placeholder="Nombre completo"
-                            value={cardData.holder}
-                            onChange={(v: string) => setCardData(p => ({ ...p, holder: truncate(sanitizeRaw(v), MAX_LENGTHS.cardHolder) }))}
-                            required
-                        />
-                        <div className="grid grid-cols-2 gap-4">
-                            <FormInput
-                                label="Caducidad"
-                                placeholder="MM/YY"
-                                value={cardData.expiry}
-                                maxLength={5}
-                                onChange={(v: string) => {
-                                    const val = v.replace(/\D/g, '').substring(0, 4);
-                                    const formatted = val.length > 2 ? val.substring(0, 2) + '/' + val.substring(2) : val;
-                                    setCardData(p => ({ ...p, expiry: formatted }));
+                        <div className="border border-border-light dark:border-border-dark rounded-xl px-4 py-3.5 bg-white dark:bg-accent-dark">
+                            <CardElement
+                                options={{
+                                    style: {
+                                        base: {
+                                            fontSize:        '15px',
+                                            color:           isDark ? '#F0F2F4' : '#6B7785',
+                                            fontFamily:      'Inter, sans-serif',
+                                            '::placeholder': { color: isDark ? '#94a3b8' : '#8E8E93' },
+                                            iconColor:       '#c29b88',
+                                        },
+                                        invalid: { color: '#ef4444', iconColor: '#ef4444' },
+                                    },
+                                    hidePostalCode: true,
                                 }}
-                                required
-                            />
-                            <FormInput
-                                label="CVV"
-                                placeholder="123"
-                                type="password"
-                                maxLength={4}
-                                value={cardData.cvv}
-                                onChange={(v: string) => setCardData(p => ({ ...p, cvv: v.replace(/\D/g, '').substring(0, 4) }))}
-                                required
                             />
                         </div>
+                        <p className="text-[10px] text-text-subtle-light leading-relaxed">
+                            Tus datos de pago se cifran y procesan de forma segura por Stripe. LocalShop nunca almacena tu número de tarjeta.
+                        </p>
                     </div>
 
                     <div className="bg-primary/5 border border-primary/20 p-5 rounded-2xl flex gap-4 items-start">
                         <Icon name="verified_user" className="text-primary text-2xl shrink-0 mt-0.5" />
                         <div className="flex-1 space-y-1.5">
                             <p className="text-[10px] font-bold text-primary/80 leading-relaxed">
-                                Pago 100% seguro gestionado por LocalShop. Fondos depositados en la cuenta de garantía:
-                                <span className="block font-black opacity-60">{LOCALSHOP_PLATFORM_ACCOUNT.iban}</span>
-                            </p>
-                            <p className="text-[10px] font-bold text-primary/80 leading-relaxed">
-                                Comisión de intermediación (€{LOCALSHOP_FEE.toFixed(2)}) transferida a cuenta empresa LocalShop:
-                                <span className="block font-black opacity-60">{LOCALSHOP_COMPANY_ACCOUNT.iban}</span>
+                                Pago 100% seguro procesado por <span className="font-black">Stripe</span>. Tus datos de tarjeta están cifrados y nunca pasan por nuestros servidores.
                             </p>
                         </div>
                     </div>

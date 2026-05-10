@@ -384,7 +384,12 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     supabase.from('payment_cards').select('*').eq('user_id', user.id)
       .then(({ data }) => {
         if (data) setPaymentMethods(data.map((c: any) => ({
-          id: c.id, last4: c.last4, brand: c.brand, expiry: c.expiry, holder: c.holder
+          id:                    c.id,
+          last4:                 c.last4,
+          brand:                 c.brand,
+          expiry:                c.expiry,
+          holder:                c.holder,
+          stripePaymentMethodId: c.stripe_payment_method_id ?? undefined,
         })));
       });
   }, [user.id]);
@@ -392,10 +397,24 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const addPaymentMethod = useCallback(async (card: Omit<PaymentCard, 'id'>) => {
     if (!user.id) return;
     const { data, error } = await supabase.from('payment_cards')
-      .insert({ ...card, user_id: user.id })
+      .insert({
+        last4:                   card.last4,
+        brand:                   card.brand,
+        expiry:                  card.expiry,
+        holder:                  card.holder,
+        stripe_payment_method_id: card.stripePaymentMethodId ?? null,
+        user_id:                 user.id,
+      })
       .select().single();
     if (!error && data) {
-      setPaymentMethods(prev => [...prev, { id: data.id, last4: data.last4, brand: data.brand, expiry: data.expiry, holder: data.holder }]);
+      setPaymentMethods(prev => [...prev, {
+        id:                    data.id,
+        last4:                 data.last4,
+        brand:                 data.brand,
+        expiry:                data.expiry,
+        holder:                data.holder,
+        stripePaymentMethodId: data.stripe_payment_method_id ?? undefined,
+      }]);
     }
   }, [user.id]);
 
@@ -750,20 +769,18 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     label
   }), []);
 
-  const addOrder = useCallback(async (orderData: Omit<Order, 'id' | 'date' | 'status'>) => {
+  const addOrder = useCallback(async (orderData: Omit<Order, 'id' | 'date' | 'status' | 'customerId'>) => {
     const newOrder: Order = {
       ...orderData,
-      id:              `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
-      customerId:      user.id,
-      date:            new Date().toISOString(),
-      status:          'Nuevo',
-      shippingFee:     orderData.shippingFee,
-      destinationIban: LOCALSHOP_PLATFORM_ACCOUNT.iban,
-      history:         [createEvent('Nuevo', 'Pedido Realizado')]
+      id:                     `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
+      customerId:             user.id,
+      date:                   new Date().toISOString(),
+      status:                 'Nuevo',
+      shippingFee:            orderData.shippingFee,
+      destinationIban:        LOCALSHOP_PLATFORM_ACCOUNT.iban,
+      stripePaymentIntentId:  orderData.stripePaymentIntentId,
+      history:                [createEvent('Nuevo', 'Pedido Realizado')]
     };
-
-    console.log(`[PAGO PROCESADO] Importe total: €${orderData.total.toFixed(2)} -> cuenta garantía ${LOCALSHOP_PLATFORM_ACCOUNT.holder} (${LOCALSHOP_PLATFORM_ACCOUNT.iban})`);
-    console.log(`[COMISIÓN LOCALSHOP] €${LOCALSHOP_FEE.toFixed(2)} -> cuenta empresa ${LOCALSHOP_COMPANY_ACCOUNT.holder} (${LOCALSHOP_COMPANY_ACCOUNT.iban})`);
 
     setOrders(prev => [newOrder, ...prev]);
     setCartItems([]);
@@ -788,6 +805,13 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return;
     }
 
+    // Guardar el stripe_payment_intent_id en la DB si viene informado
+    if (newOrder.stripePaymentIntentId) {
+      await supabase.from('orders')
+        .update({ stripe_payment_intent_id: newOrder.stripePaymentIntentId })
+        .eq('id', newOrder.id);
+    }
+
     // Refrescar stock desde la DB
     const productIds = orderData.items.map(i => i.product.id);
     supabase.from('products').select('id,stock,stock_per_size').in('id', productIds)
@@ -803,6 +827,26 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       notify('¡Recompensa!', 'Tu referidor ha ganado 2€ por tu primera compra', 'redeem');
     }
   }, [createEvent, user, orders, notify]);
+
+  const initiateVendorPayout = useCallback(async (payoutId: string) => {
+    try {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-payout`, {
+        method:  'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ payoutId }),
+      });
+      const { transferId, error } = await res.json();
+      if (error) throw new Error(error);
+      setPayouts(prev => prev.map(p => p.id === payoutId ? { ...p, status: 'processing', stripeTransferId: transferId } : p));
+      notify('Pago iniciado', 'La transferencia a la cuenta del colaborador está en proceso.', 'payments');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error al iniciar el pago';
+      notify('Error', message, 'error');
+    }
+  }, [notify]);
 
   const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus) => {
     const labels: Record<OrderStatus, string> = {
@@ -1168,7 +1212,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     })));
   }, [user.id]);
 
-  const orderValue         = useMemo(() => ({ orders, invoices, payouts, returnRequests, addOrder, requestReturn, requestReturnWithType, processReturn, updateOrderStatus, refetchInvoices, sendReturnMessage, fetchReturnMessages, resolveReturnDispute, getReturnForOrder }), [orders, invoices, payouts, returnRequests, addOrder, requestReturn, requestReturnWithType, processReturn, updateOrderStatus, refetchInvoices, sendReturnMessage, fetchReturnMessages, resolveReturnDispute, getReturnForOrder]);
+  const orderValue         = useMemo(() => ({ orders, invoices, payouts, returnRequests, addOrder, initiateVendorPayout, requestReturn, requestReturnWithType, processReturn, updateOrderStatus, refetchInvoices, sendReturnMessage, fetchReturnMessages, resolveReturnDispute, getReturnForOrder }), [orders, invoices, payouts, returnRequests, addOrder, initiateVendorPayout, requestReturn, requestReturnWithType, processReturn, updateOrderStatus, refetchInvoices, sendReturnMessage, fetchReturnMessages, resolveReturnDispute, getReturnForOrder]);
   const reviewValue        = useMemo(() => ({ addReview, getStoreReviews, getUserReviews }), [addReview, getStoreReviews, getUserReviews]);
   const notificationValue  = useMemo(() => ({
     settings:                 notifSettings,

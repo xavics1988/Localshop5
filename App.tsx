@@ -1,7 +1,12 @@
 
 import React from 'react';
 import { HashRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements } from '@stripe/react-stripe-js';
 import { AppContextProvider } from './AppContext';
+
+// Se inicializa fuera del componente para evitar re-creaciones en cada render
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ?? '');
 import { OnboardingScreen, SignUpScreen, LoginScreen, OAuthCompleteProfileScreen } from './screens/AuthScreens';
 import DiscoverScreen from './screens/DiscoverScreen';
 import ProductDetailScreen from './screens/ProductDetailScreen';
@@ -100,9 +105,11 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => (
     <HashRouter>
-        <AppContextProvider>
-            <AppContent />
-        </AppContextProvider>
+        <Elements stripe={stripePromise} options={{ locale: 'es' }}>
+            <AppContextProvider>
+                <AppContent />
+            </AppContextProvider>
+        </Elements>
     </HashRouter>
 );
 
