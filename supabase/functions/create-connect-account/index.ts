@@ -24,7 +24,7 @@ serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const { storeId, email } = await req.json() as { storeId: string; email: string };
+    const { storeId, email, returnUrl } = await req.json() as { storeId: string; email: string; returnUrl?: string };
 
     if (!storeId || !email) throw new Error('storeId y email son obligatorios');
 
@@ -55,12 +55,11 @@ serve(async (req: Request) => {
         .eq('id', storeId);
     }
 
+    const baseUrl = returnUrl || APP_BASE_URL;
     const accountLink = await stripe.accountLinks.create({
       account:     accountId,
-      // Si el onboarding falla o caduca, redirige de vuelta para reiniciar
-      refresh_url: `${APP_BASE_URL}/#/payment-methods`,
-      // Tras completar el onboarding, vuelve a la app con parámetro de éxito
-      return_url:  `${APP_BASE_URL}/#/payment-methods?connect=success`,
+      refresh_url: `${baseUrl}/payment-methods`,
+      return_url:  `${baseUrl}/payment-methods?connect=success`,
       type:        'account_onboarding',
     });
 

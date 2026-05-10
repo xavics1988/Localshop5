@@ -924,7 +924,7 @@ export const AppSettingsScreen: React.FC = () => {
 
     const handleDeleteAccount = () => {
         if (confirm('¿Estás seguro de que quieres eliminar tu cuenta? Esta acción es irreversible y perderás todos tus datos, pedidos y favoritos.')) {
-            localStorage.clear();
+            logout();
             notify('Cuenta eliminada', 'Sentimos verte partir. Tu cuenta ha sido borrada.', 'delete_forever');
             navigate('/welcome');
         }
@@ -1492,7 +1492,7 @@ export const ProfileScreen: React.FC = () => {
                 </div>
 
                 <div className="bg-white dark:bg-accent-dark rounded-[32px] border border-border-light dark:border-border-dark shadow-sm">
-                    <button onClick={() => { localStorage.clear(); navigate('/welcome'); }} className="w-full py-5 text-red-500 font-black text-center active:scale-95 transition-transform">
+                    <button onClick={() => { logout(); navigate('/welcome'); }} className="w-full py-5 text-red-500 font-black text-center active:scale-95 transition-transform">
                         Cerrar Sesión
                     </button>
                 </div>
@@ -2852,7 +2852,11 @@ export const PaymentMethodsScreen: React.FC = () => {
             const res = await fetch(`${SUPABASE_URL}/functions/v1/create-connect-account`, {
                 method:  'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
-                body: JSON.stringify({ storeId: currentStore.id, email: user.email }),
+                body: JSON.stringify({
+                    storeId:   currentStore.id,
+                    email:     user.email,
+                    returnUrl: `${window.location.protocol}//${window.location.host}/#`,
+                }),
             });
             const { onboardingUrl, error } = await res.json();
             if (error) throw new Error(error);
