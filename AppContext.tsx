@@ -372,7 +372,6 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, []);
 
   const logout = useCallback(async () => {
-    sessionStorage.removeItem('guestMode');
     await supabase.auth.signOut();
     notify('Sesión cerrada', 'Has cerrado sesión correctamente.', 'logout');
   }, [notify]);
