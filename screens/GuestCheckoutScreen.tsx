@@ -167,6 +167,10 @@ const GuestCheckoutScreen: React.FC = () => {
                 },
                 body: JSON.stringify({
                     amount:   totalInCents,
+                    // Si todos los items son de la misma tienda, pasar storeId para reparto automático
+                    ...(new Set(cartItems.map(i => i.product.storeId)).size === 1
+                        ? { storeId: cartItems[0].product.storeId }
+                        : {}),
                     metadata: { guestEmail: guestData.email },
                 }),
             });

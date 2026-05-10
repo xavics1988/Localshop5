@@ -105,7 +105,7 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => (
     <HashRouter>
-        <Elements stripe={stripePromise} options={{ locale: 'es' }}>
+        <Elements stripe={stripePromise} options={{ locale: 'es', wallets: { link: 'never' } }}>
             <AppContextProvider>
                 <AppContent />
             </AppContextProvider>

@@ -2607,6 +2607,10 @@ export const PaymentScreen: React.FC = () => {
                 body: JSON.stringify({
                     amount:   Math.round(finalTotal * 100),
                     userId:   user.id,
+                    // Si todos los items son de la misma tienda, pasar storeId para reparto automático
+                    ...(new Set(cartItems.map((i: any) => i.product.storeId)).size === 1
+                        ? { storeId: cartItems[0].product.storeId }
+                        : {}),
                     metadata: { customerId: user.id },
                 }),
             });
