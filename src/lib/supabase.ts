@@ -67,6 +67,8 @@ export type DbStore = {
   contact_phone: string | null;
   iban: string | null;
   owner_id: string | null;
+  stripe_connect_account_id: string | null;
+  stripe_connect_onboarded: boolean | null;
 };
 
 export type DbOrder = {
@@ -132,19 +134,21 @@ export function dbProductToProduct(p: DbProduct): Product {
 
 export function dbStoreToStore(s: DbStore): Store {
   return {
-    id:           s.id,
-    name:         s.name,
-    businessName: s.business_name ?? undefined,
-    category:     s.category,
-    imageUrl:     s.image_url,
-    address:      s.address ?? undefined,
-    description:  s.description ?? undefined,
-    rating:       s.rating ?? undefined,
-    cif:          s.cif ?? undefined,
-    contactEmail: s.contact_email ?? undefined,
-    contactPhone: s.contact_phone ?? undefined,
-    iban:         s.iban ?? undefined,
-    ownerId:      (s as any).owner_id ?? undefined,
+    id:                     s.id,
+    name:                   s.name,
+    businessName:           s.business_name ?? undefined,
+    category:               s.category,
+    imageUrl:               s.image_url,
+    address:                s.address ?? undefined,
+    description:            s.description ?? undefined,
+    rating:                 s.rating ?? undefined,
+    cif:                    s.cif ?? undefined,
+    contactEmail:           s.contact_email ?? undefined,
+    contactPhone:           s.contact_phone ?? undefined,
+    iban:                   s.iban ?? undefined,
+    ownerId:                s.owner_id ?? undefined,
+    stripeConnectAccountId: s.stripe_connect_account_id ?? undefined,
+    stripeConnectOnboarded: s.stripe_connect_onboarded ?? undefined,
   };
 }
 
@@ -192,19 +196,21 @@ export function productToDb(p: Product): Omit<DbProduct, 'is_deleted'> {
 
 export function storeToDb(s: Store, ownerId?: string): DbStore & { owner_id?: string } {
   return {
-    id:            s.id,
-    name:          s.name,
-    business_name: s.businessName ?? null,
-    category:      s.category,
-    image_url:     s.imageUrl,
-    address:       s.address ?? null,
-    description:   s.description ?? null,
-    rating:        s.rating ?? null,
-    cif:           s.cif ?? null,
-    contact_email: s.contactEmail ?? null,
-    contact_phone: s.contactPhone ?? null,
-    iban:          s.iban ?? null,
-    owner_id:      ownerId ?? null,
+    id:                        s.id,
+    name:                      s.name,
+    business_name:             s.businessName ?? null,
+    category:                  s.category,
+    image_url:                 s.imageUrl,
+    address:                   s.address ?? null,
+    description:               s.description ?? null,
+    rating:                    s.rating ?? null,
+    cif:                       s.cif ?? null,
+    contact_email:             s.contactEmail ?? null,
+    contact_phone:             s.contactPhone ?? null,
+    iban:                      s.iban ?? null,
+    owner_id:                  ownerId ?? null,
+    stripe_connect_account_id: s.stripeConnectAccountId ?? null,
+    stripe_connect_onboarded:  s.stripeConnectOnboarded ?? null,
   };
 }
 
