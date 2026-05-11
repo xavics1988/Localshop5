@@ -2894,6 +2894,50 @@ export const PaymentMethodsScreen: React.FC = () => {
         }
     };
 
+    const [disconnectLoading, setDisconnectLoading] = useState(false);
+    const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
+
+    const handleDisconnectStripe = () => setShowDisconnectConfirm(true);
+
+    const confirmDisconnect = async () => {
+        if (!currentStore?.id) return;
+        setDisconnectLoading(true);
+        setShowDisconnectConfirm(false);
+        try {
+            await supabase
+                .from('stores')
+                .update({ stripe_connect_onboarded: false, stripe_connect_account_id: null })
+                .eq('id', currentStore.id);
+            await updateStore(currentStore.id, { stripeConnectOnboarded: false, stripeConnectAccountId: undefined });
+            notify('Cuenta desconectada', 'Tu cuenta Stripe ha sido desvinculada. Puedes conectar una nueva cuando quieras.', 'info');
+        } catch {
+            notify('Error', 'No se pudo desconectar la cuenta.', 'error');
+        } finally {
+            setDisconnectLoading(false);
+        }
+    };
+
+    const [loginLinkLoading, setLoginLinkLoading] = useState(false);
+    const handleOpenStripeDashboard = async () => {
+        if (!currentStore?.id) return;
+        setLoginLinkLoading(true);
+        try {
+            const res = await fetch(`${SUPABASE_URL}/functions/v1/create-login-link`, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+                body: JSON.stringify({ storeId: currentStore.id }),
+            });
+            const { url, error } = await res.json();
+            if (error) throw new Error(error);
+            window.open(url, '_blank');
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Error al abrir Stripe';
+            notify('Error', message, 'error');
+        } finally {
+            setLoginLinkLoading(false);
+        }
+    };
+
     if (!isCollab) {
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen pb-24">
@@ -2971,7 +3015,27 @@ export const PaymentMethodsScreen: React.FC = () => {
                             </p>
                         </div>
                     </div>
-                    {!currentStore?.stripeConnectOnboarded && (
+                    {currentStore?.stripeConnectOnboarded ? (
+                        <div className="mt-4 flex gap-3">
+                            <button
+                                onClick={handleOpenStripeDashboard}
+                                disabled={loginLinkLoading}
+                                className="flex-1 h-12 rounded-xl border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 text-sm font-black uppercase tracking-wider active:scale-95 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+                            >
+                                {loginLinkLoading
+                                    ? <span className="animate-spin material-symbols-outlined text-lg">progress_activity</span>
+                                    : <><Icon name="manage_accounts" className="text-lg" /> Cambiar IBAN</>
+                                }
+                            </button>
+                            <button
+                                onClick={handleDisconnectStripe}
+                                className="h-12 px-4 rounded-xl border border-red-200 dark:border-red-800 text-red-500 active:scale-95 transition-all flex items-center justify-center"
+                                title="Desconectar cuenta Stripe"
+                            >
+                                <Icon name="link_off" className="text-lg" />
+                            </button>
+                        </div>
+                    ) : (
                         <button
                             onClick={handleStripeConnect}
                             disabled={connectLoading}
@@ -2992,7 +3056,7 @@ export const PaymentMethodsScreen: React.FC = () => {
                     <div className="space-y-1">
                         <h4 className="font-black text-sm text-primary">Depósitos Directos</h4>
                         <p className="text-xs text-text-subtle-light dark:text-text-subtle-dark leading-relaxed">
-                            Stripe transfiere automáticamente el importe de tus ventas a la cuenta bancaria que configures en el proceso de onboarding. LocalShop nunca almacena tu IBAN.
+                            Stripe transfiere automáticamente el importe de tus ventas a la cuenta bancaria que configures. Puedes cambiarla en cualquier momento desde el botón <span className="font-black">"Cambiar IBAN"</span>.
                         </p>
                     </div>
                 </div>
