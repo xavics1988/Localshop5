@@ -3075,6 +3075,41 @@ export const PaymentMethodsScreen: React.FC = () => {
                     </button>
                 )}
             </main>
+
+            {/* Modal confirmación desconexión */}
+            {showDisconnectConfirm && (
+                <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-white dark:bg-accent-dark rounded-[32px] p-6 w-full max-w-sm space-y-4 shadow-2xl animate-fade-in">
+                        <div className="flex items-center gap-3">
+                            <div className="size-10 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
+                                <Icon name="link_off" className="text-red-500 text-xl" />
+                            </div>
+                            <div>
+                                <h3 className="font-black text-sm text-text-light dark:text-white">¿Desconectar cuenta?</h3>
+                                <p className="text-xs text-text-subtle-light">No podrás vender hasta volver a conectar Stripe.</p>
+                            </div>
+                        </div>
+                        <p className="text-xs text-text-subtle-light leading-relaxed">
+                            Tus ventas anteriores no se verán afectadas. Podrás conectar una cuenta bancaria diferente en cualquier momento.
+                        </p>
+                        <div className="flex gap-3 pt-2">
+                            <button
+                                onClick={() => setShowDisconnectConfirm(false)}
+                                className="flex-1 h-12 rounded-xl border border-border-light dark:border-border-dark text-sm font-bold text-text-subtle-light active:scale-95 transition-all"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={confirmDisconnect}
+                                disabled={disconnectLoading}
+                                className="flex-1 h-12 rounded-xl bg-red-500 text-white text-sm font-black uppercase tracking-wider active:scale-95 transition-all disabled:opacity-60"
+                            >
+                                {disconnectLoading ? '...' : 'Desconectar'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
