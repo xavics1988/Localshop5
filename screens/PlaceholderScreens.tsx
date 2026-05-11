@@ -12,7 +12,7 @@ import {
     sanitizeRaw, truncate, MAX_LENGTHS,
     validateName, validateEmail, validatePhone,
     validateCardNumber, validateCardExpiry, validateCVV,
-    validateIBAN, validateBIC, validateProductField, validatePrice
+    validateProductField, validatePrice
 } from '../utils/validation';
 import { Product, Order, OrderStatus, Store, OrderItem, BankAccount, Review, PaymentCard, OrderEvent, Invoice, ReturnRequest, ReturnMessage, DevolucionTipo } from '../types';
 import { useProducts, useCart, useFavorites, useFollowedStores, useNotifications, useOrders, useReviews, useUser, useStores, LOCALSHOP_PLATFORM_ACCOUNT, LOCALSHOP_COMPANY_ACCOUNT, LOCALSHOP_FEE, LOCALSHOP_FEE_BASE, LOCALSHOP_FEE_IVA, SHIPPING_FEE, FREE_SHIPPING_THRESHOLD, getCollaboratorSubscription } from '../AppContext';
@@ -2829,27 +2829,22 @@ export const CollaboratorRegistrationScreen: React.FC = () => <Placeholder title
 export const PaymentMethodsScreen: React.FC = () => {
     const navigate = useNavigate();
     const { notify } = useNotifications();
-    const { addBankAccount, removeBankAccount, bankAccounts, setDefaultBankAccount, paymentMethods, removePaymentMethod, user } = useUser();
-    const { stores } = useStores();
+    const { paymentMethods, removePaymentMethod, user } = useUser();
+    const { stores, updateStore } = useStores();
     const isCollab = user.role === 'colaborador';
     const currentStore = isCollab ? stores.find(s => s.id === user.storeId) : null;
 
     const location = useLocation();
 
-    // Detectar retorno del onboarding de Stripe Connect y actualizar DB
+    const [connectLoading, setConnectLoading] = useState(false);
+    const [verifyLoading, setVerifyLoading] = useState(false);
+
+    // Detectar retorno del onboarding de Stripe Connect
     useEffect(() => {
         if (location.search.includes('connect=success') && currentStore?.id) {
-            supabase
-                .from('stores')
-                .update({ stripe_connect_onboarded: true })
-                .eq('id', currentStore.id)
-                .then(() => {
-                    notify('¡Cuenta conectada!', 'Tu cuenta de Stripe ha sido configurada correctamente.', 'check_circle');
-                });
+            handleVerifyConnectStatus();
         }
     }, [currentStore?.id]);
-
-    const [connectLoading, setConnectLoading] = useState(false);
 
     const handleStripeConnect = async () => {
         if (!currentStore || !user.email) return;
@@ -2874,42 +2869,29 @@ export const PaymentMethodsScreen: React.FC = () => {
         }
     };
 
-    const [bankForm, setBankForm] = useState({
-        holder: '',
-        iban: '',
-        bankName: '',
-        bic: ''
-    });
-
-    const [showAddForm, setShowAddForm] = useState(bankAccounts.length === 0);
-
-    const handleAddBank = () => {
-        const rawIban = bankForm.iban.replace(/\s/g, '').toUpperCase();
-        if (!bankForm.holder || !bankForm.iban) {
-            notify('Error', 'El titular y el IBAN son obligatorios.', 'error');
-            return;
+    const handleVerifyConnectStatus = async () => {
+        if (!currentStore?.id) return;
+        setVerifyLoading(true);
+        try {
+            const res = await fetch(`${SUPABASE_URL}/functions/v1/check-connect-status`, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+                body: JSON.stringify({ storeId: currentStore.id }),
+            });
+            const { onboarded, error } = await res.json();
+            if (error) throw new Error(error);
+            if (onboarded) {
+                await updateStore(currentStore.id, { stripeConnectOnboarded: true });
+                notify('¡Cuenta conectada!', 'Tu cuenta de Stripe está verificada. Ya puedes publicar artículos.', 'check_circle');
+            } else {
+                notify('Pendiente', 'Tu cuenta de Stripe aún no está verificada. Completa el proceso en Stripe.', 'info');
+            }
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Error al verificar estado';
+            notify('Error', message, 'error');
+        } finally {
+            setVerifyLoading(false);
         }
-        const holderErr = validateName(bankForm.holder);
-        if (holderErr) { notify('Error', `Titular: ${holderErr}`, 'error'); return; }
-
-        const ibanErr = validateIBAN(rawIban);
-        if (ibanErr) { notify('Error', ibanErr, 'error'); return; }
-
-        if (bankForm.bic) {
-            const bicErr = validateBIC(bankForm.bic);
-            if (bicErr) { notify('Error', bicErr, 'error'); return; }
-        }
-        const isFirst = bankAccounts.length === 0;
-        addBankAccount({
-            holder: sanitizeRaw(bankForm.holder),
-            iban: bankForm.iban,
-            bankName: sanitizeRaw(bankForm.bankName) || 'Banco Desconocido',
-            bic: sanitizeRaw(bankForm.bic),
-            isDefault: isFirst
-        });
-        setBankForm({ holder: '', iban: '', bankName: '', bic: '' });
-        setShowAddForm(false);
-        notify('Cuenta Guardada', isFirst ? 'Tus depósitos se enviarán a esta cuenta.' : 'Cuenta añadida. Pulsa "Usar para cobros" para activarla.', 'check_circle');
     };
 
     if (!isCollab) {
@@ -3010,126 +2992,22 @@ export const PaymentMethodsScreen: React.FC = () => {
                     <div className="space-y-1">
                         <h4 className="font-black text-sm text-primary">Depósitos Directos</h4>
                         <p className="text-xs text-text-subtle-light dark:text-text-subtle-dark leading-relaxed">
-                            Las transferencias se realizan automáticamente a tu cuenta Stripe Connect una vez verificada. También puedes añadir un IBAN como respaldo.
+                            Stripe transfiere automáticamente el importe de tus ventas a la cuenta bancaria que configures en el proceso de onboarding. LocalShop nunca almacena tu IBAN.
                         </p>
                     </div>
                 </div>
 
-                {bankAccounts.length > 0 && (
-                    <div className="space-y-3">
-                        <h3 className="text-xs font-black uppercase tracking-widest text-text-subtle-light px-1">Tus cuentas</h3>
-                        {bankAccounts.map(account => {
-                            const raw = account.iban.replace(/\s/g, '');
-                            const masked = raw.slice(0, 4) + ' •••• •••• •••• •••• ' + raw.slice(-4);
-                            return (
-                                <div key={account.id} className={`bg-white dark:bg-accent-dark p-4 rounded-[24px] border ${account.isDefault ? 'border-primary/40' : 'border-border-light dark:border-border-dark'} shadow-sm`}>
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div className="flex items-center gap-3 min-w-0">
-                                            <div className={`size-10 rounded-xl flex items-center justify-center shrink-0 ${account.isDefault ? 'bg-primary/10' : 'bg-accent-light dark:bg-background-dark'}`}>
-                                                <Icon name="account_balance" className={account.isDefault ? 'text-primary' : 'text-text-subtle-light'} />
-                                            </div>
-                                            <div className="min-w-0">
-                                                <div className="flex items-center gap-2 flex-wrap">
-                                                    <p className="text-sm font-bold text-text-light dark:text-white truncate">{account.holder}</p>
-                                                    {account.isDefault && (
-                                                        <span className="bg-primary/10 text-primary text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full">Activa</span>
-                                                    )}
-                                                </div>
-                                                <p className="text-[11px] font-mono text-text-subtle-light dark:text-text-subtle-dark mt-0.5">{masked}</p>
-                                                {account.bankName && <p className="text-[10px] font-bold text-text-subtle-light uppercase tracking-wide mt-0.5">{account.bankName}</p>}
-                                            </div>
-                                        </div>
-                                        <button
-                                            onClick={() => removeBankAccount(account.id)}
-                                            className="text-red-400 p-1.5 shrink-0 active:scale-90 transition-transform"
-                                        >
-                                            <Icon name="delete" className="text-xl" />
-                                        </button>
-                                    </div>
-                                    {!account.isDefault && (
-                                        <button
-                                            onClick={() => setDefaultBankAccount(account.id)}
-                                            className="mt-3 w-full h-9 rounded-xl border border-primary/30 text-primary text-xs font-black uppercase tracking-wider active:scale-95 transition-all"
-                                        >
-                                            Usar para cobros
-                                        </button>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
-
-                {showAddForm ? (
-                    <div className="bg-white dark:bg-accent-dark rounded-[32px] border border-primary/30 p-6 shadow-sm space-y-6">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                                <Icon name="add_card" className="text-primary text-lg" />
-                            </div>
-                            <h3 className="text-sm font-black uppercase tracking-wider text-text-light dark:text-text-dark">Nueva Cuenta</h3>
-                        </div>
-                        <div className="space-y-4">
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Titular de la cuenta</label>
-                                <input
-                                    value={bankForm.holder}
-                                    onChange={e => setBankForm(p => ({ ...p, holder: truncate(sanitizeRaw(e.target.value), MAX_LENGTHS.bankHolder) }))}
-                                    className="w-full h-12 bg-accent-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded-xl px-4 text-sm font-bold text-text-light dark:text-white outline-none focus:ring-2 focus:ring-primary/20"
-                                    placeholder="Ej: Elena García Martín"
-                                />
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">IBAN (24 caracteres)</label>
-                                <input
-                                    value={bankForm.iban}
-                                    maxLength={29}
-                                    onChange={e => {
-                                        const raw = e.target.value.replace(/[^A-Z0-9]/gi, '').toUpperCase().substring(0, 24);
-                                        const formatted = raw.match(/.{1,4}/g)?.join(' ') || '';
-                                        setBankForm(p => ({ ...p, iban: formatted }));
-                                    }}
-                                    className="w-full h-12 bg-accent-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded-xl px-4 text-sm font-bold text-text-light dark:text-white outline-none focus:ring-2 focus:ring-primary/20"
-                                    placeholder="ES00 0000 0000 0000 0000 0000"
-                                />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Nombre del banco</label>
-                                    <input
-                                        value={bankForm.bankName}
-                                        onChange={e => setBankForm(p => ({ ...p, bankName: truncate(sanitizeRaw(e.target.value), MAX_LENGTHS.bankName) }))}
-                                        className="w-full h-12 bg-accent-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded-xl px-4 text-sm font-bold text-text-light dark:text-white outline-none focus:ring-2 focus:ring-primary/20"
-                                        placeholder="BBVA, Santander..."
-                                    />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">BIC / SWIFT</label>
-                                    <input
-                                        value={bankForm.bic}
-                                        onChange={e => setBankForm(p => ({ ...p, bic: truncate(sanitizeRaw(e.target.value), MAX_LENGTHS.bic).toUpperCase() }))}
-                                        className="w-full h-12 bg-accent-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded-xl px-4 text-sm font-bold text-text-light dark:text-white outline-none focus:ring-2 focus:ring-primary/20"
-                                        placeholder="Opcional"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                        <div className="flex gap-4 pt-4">
-                            {bankAccounts.length > 0 && (
-                                <button onClick={() => { setShowAddForm(false); setBankForm({ holder: '', iban: '', bankName: '', bic: '' }); }} className="flex-1 h-12 rounded-xl bg-accent-light dark:bg-background-dark border border-border-light dark:border-border-dark text-sm font-bold text-text-subtle-light active:scale-95 transition-all">Cancelar</button>
-                            )}
-                            <button onClick={handleAddBank} className="flex-[1.5] h-12 rounded-xl bg-primary text-white text-sm font-black uppercase tracking-wider shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
-                                <span className="material-symbols-outlined text-white text-lg">check</span>
-                                Guardar cuenta
-                            </button>
-                        </div>
-                    </div>
-                ) : (
+                {/* Verificar estado si tiene cuenta pero no onboarded */}
+                {currentStore?.stripeConnectAccountId && !currentStore?.stripeConnectOnboarded && (
                     <button
-                        onClick={() => setShowAddForm(true)}
-                        className="w-full h-14 rounded-2xl border-2 border-dashed border-primary/30 text-primary font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 active:scale-95 transition-all"
+                        onClick={handleVerifyConnectStatus}
+                        disabled={verifyLoading}
+                        className="w-full h-12 rounded-2xl border border-primary/30 text-primary font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-60"
                     >
-                        <Icon name="add" className="text-xl" />
-                        Añadir cuenta bancaria
+                        {verifyLoading
+                            ? <span className="animate-spin material-symbols-outlined text-lg">progress_activity</span>
+                            : <><Icon name="refresh" className="text-lg" /> Verificar estado de Stripe</>
+                        }
                     </button>
                 )}
             </main>
@@ -3412,13 +3290,39 @@ export const PublishScreen: React.FC = () => {
     const { products, addProduct, updateProduct, getProductById } = useProducts();
     const { productId } = useParams();
     const isEditMode = !!productId;
-    const { user, bankAccounts } = useUser();
+    const { user } = useUser();
+    const { stores } = useStores();
     const { notify } = useNotifications();
     const navigate = useNavigate();
 
-    // Verificación de cuenta bancaria para colaboradores
+    // Acceso al escaparate: requiere Stripe Connect activo
     const isCollab = user.role === 'colaborador';
-    const hasBankAccount = bankAccounts.length > 0;
+    const currentStore = isCollab ? stores.find(s => s.id === user.storeId) : null;
+    const hasStripeConnected = !!currentStore?.stripeConnectOnboarded;
+
+    const [connectLoading, setConnectLoading] = useState(false);
+    const handleStripeConnect = async () => {
+        if (!currentStore || !user.email) return;
+        setConnectLoading(true);
+        try {
+            const res = await fetch(`${SUPABASE_URL}/functions/v1/create-connect-account`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+                body: JSON.stringify({
+                    storeId:   currentStore.id,
+                    email:     user.email,
+                    returnUrl: `${window.location.protocol}//${window.location.host}/#`,
+                }),
+            });
+            const { onboardingUrl, error } = await res.json();
+            if (error) throw new Error(error);
+            window.location.href = onboardingUrl;
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Error al conectar con Stripe';
+            notify('Error', message, 'error');
+            setConnectLoading(false);
+        }
+    };
 
     // Estados específicos para los nuevos campos
     const [gender, setGender] = useState<'Hombre' | 'Mujer' | 'Niños'>('Mujer');
@@ -3518,18 +3422,19 @@ export const PublishScreen: React.FC = () => {
         return values.reduce((a, b) => a + b, 0);
     }, [stockPerSize]);
 
-    // UI de Bloqueo por falta de cuenta bancaria
-    if (isCollab && !hasBankAccount) {
+    // UI de bloqueo: Stripe Connect no completado
+    if (isCollab && !hasStripeConnected) {
         const launchOffer = isInLaunchPeriod();
+        const hasAccountId = !!currentStore?.stripeConnectAccountId;
         return (
             <div className="bg-background-light dark:bg-background-dark min-h-screen pb-32">
                 <DetailHeader title="Activación de Escaparate" />
                 <main className="p-6 flex flex-col items-center justify-center min-h-[70vh] text-center animate-fade-in">
                     <div className="size-24 bg-primary/10 rounded-full flex items-center justify-center mb-8 shadow-inner">
-                        <Icon name="account_balance" className="text-6xl text-primary" filled />
+                        <Icon name={hasAccountId ? 'pending_actions' : 'account_balance_wallet'} className="text-6xl text-primary" filled />
                     </div>
                     <h2 className="text-2xl font-black text-text-light dark:text-white uppercase tracking-tight mb-4 leading-tight">
-                        Configura tus Cobros
+                        {hasAccountId ? 'Completa tu Registro' : 'Activa tus Cobros'}
                     </h2>
 
                     <div className="bg-white dark:bg-accent-dark p-6 rounded-[32px] border border-primary/20 shadow-xl space-y-4 max-w-sm w-full">
@@ -3541,7 +3446,9 @@ export const PublishScreen: React.FC = () => {
                         )}
 
                         <p className="text-sm text-text-subtle-light dark:text-text-subtle-dark leading-relaxed font-medium">
-                            Para empezar a publicar artículos es obligatorio configurar tu cuenta bancaria.
+                            {hasAccountId
+                                ? 'Ya iniciaste el proceso en Stripe. Completa el registro para empezar a vender y recibir tus ingresos automáticamente.'
+                                : 'Para publicar artículos es necesario conectar tu cuenta bancaria a través de Stripe. Es seguro y solo tarda unos minutos.'}
                         </p>
 
                         {launchOffer ? (
@@ -3570,26 +3477,32 @@ export const PublishScreen: React.FC = () => {
                                     <span className="text-xs font-bold text-text-light dark:text-gray-400">Suscripción Mensual</span>
                                     <span className="text-sm font-black text-primary">{REGULAR_PRICE.toFixed(2).replace('.', ',')}€</span>
                                 </div>
-                                <p className="text-[10px] text-text-subtle-light italic">Se cobrará mensualmente a la cuenta configurada.</p>
+                                <p className="text-[10px] text-text-subtle-light italic">Se cobrará mensualmente a la cuenta configurada por Stripe.</p>
                             </div>
                         )}
 
                         <p className="text-xs text-text-subtle-light font-bold">
-                            Los ingresos de tus ventas se depositarán automáticamente en esta cuenta.
+                            Stripe gestiona tus datos bancarios de forma segura. LocalShop nunca almacena tu IBAN.
                         </p>
                     </div>
 
-                    <div className="w-full max-w-sm mt-10">
+                    <div className="w-full max-w-sm mt-10 space-y-4">
                         <button
-                            onClick={() => navigate('/payment-methods')}
-                            className="w-full h-16 bg-primary text-white font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/20 active:scale-95 transition-all flex items-center justify-center gap-3"
+                            onClick={handleStripeConnect}
+                            disabled={connectLoading}
+                            className="w-full h-16 bg-primary text-white font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/20 active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-60"
                         >
-                            <Icon name="payments" />
-                            Configurar ahora
+                            {connectLoading
+                                ? <span className="animate-spin material-symbols-outlined text-xl">progress_activity</span>
+                                : <>
+                                    <Icon name={hasAccountId ? 'open_in_new' : 'link'} className="text-xl" />
+                                    {hasAccountId ? 'Finalizar configuración en Stripe' : 'Conectar con Stripe para vender'}
+                                </>
+                            }
                         </button>
                         <button
                             onClick={() => navigate(-1)}
-                            className="w-full h-14 mt-4 text-text-subtle-light font-bold text-sm uppercase"
+                            className="w-full h-14 text-text-subtle-light font-bold text-sm uppercase"
                         >
                             Volver
                         </button>
