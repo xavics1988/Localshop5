@@ -3426,7 +3426,11 @@ export const PublishScreen: React.FC = () => {
 
     const [connectLoading, setConnectLoading] = useState(false);
     const handleStripeConnect = async () => {
-        if (!currentStore || !user.email) return;
+        if (!currentStore || !user.email) {
+            // Tienda aún no cargada — redirigir a Configuración de Cobros donde el contexto ya está inicializado
+            navigate('/payment-methods');
+            return;
+        }
         setConnectLoading(true);
         try {
             const res = await fetch(`${SUPABASE_URL}/functions/v1/create-connect-account`, {
