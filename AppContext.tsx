@@ -49,10 +49,10 @@ export const SUBSCRIPTION_MONTHLY_FEE_IVA   = parseFloat((SUBSCRIPTION_MONTHLY_F
 export const FOUNDING_MEMBER_FEE             = 4.00;  // € /mes tarifa fundador de por vida (IVA incluido)
 export const FOUNDING_MEMBER_FEE_BASE        = parseFloat((FOUNDING_MEMBER_FEE / (1 + IVA_RATE)).toFixed(2)); // 3.31 base imponible
 export const FOUNDING_MEMBER_FEE_IVA         = parseFloat((FOUNDING_MEMBER_FEE - FOUNDING_MEMBER_FEE_BASE).toFixed(2)); // 0.69 IVA
-export const FOUNDING_MEMBER_WINDOW_MONTHS   = 6; // meses desde el lanzamiento con derecho a tarifa fundador
+// Fecha límite para ser Socio Fundador (€4/mes de por vida)
+export const FOUNDING_WINDOW_END = new Date('2026-12-31T23:59:59Z');
 
 // Fecha de lanzamiento oficial de la plataforma.
-// ⚠️  Actualiza VITE_APP_LAUNCH_DATE en .env.local con el formato YYYY-MM-DD.
 export const APP_LAUNCH_DATE = new Date(
   import.meta.env.VITE_APP_LAUNCH_DATE || '2025-04-23'
 );
@@ -62,10 +62,8 @@ export function getCollaboratorSubscription(joinedAt: string): CollaboratorSubsc
   const trialEndsAt = new Date(joinedDate);
   trialEndsAt.setMonth(trialEndsAt.getMonth() + SUBSCRIPTION_FREE_MONTHS);
 
-  // Es socio fundador si se registró dentro de los primeros 6 meses del lanzamiento
-  const foundingWindowEnd = new Date(APP_LAUNCH_DATE);
-  foundingWindowEnd.setMonth(foundingWindowEnd.getMonth() + FOUNDING_MEMBER_WINDOW_MONTHS);
-  const isFoundingMember = joinedDate <= foundingWindowEnd;
+  // Es socio fundador si se registró antes del 31 dic 2026
+  const isFoundingMember = joinedDate <= FOUNDING_WINDOW_END;
 
   const now = new Date();
   const daysRemaining = Math.ceil((trialEndsAt.getTime() - now.getTime()) / 86_400_000);

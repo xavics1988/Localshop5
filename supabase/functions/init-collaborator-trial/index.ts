@@ -20,10 +20,8 @@ const corsHeaders = {
 const PRICE_FOUNDING = Deno.env.get('STRIPE_PRICE_FOUNDING')!;
 const PRICE_STANDARD = Deno.env.get('STRIPE_PRICE_STANDARD')!;
 
-// Ventana de socio fundador: primeros 6 meses desde el lanzamiento (23 abril 2025)
-const LAUNCH_DATE = new Date('2025-04-23T00:00:00Z');
-const FOUNDING_WINDOW_END = new Date(LAUNCH_DATE);
-FOUNDING_WINDOW_END.setMonth(FOUNDING_WINDOW_END.getMonth() + 6);
+// Socio Fundador: cualquiera que se registre antes del 31 dic 2026
+const FOUNDING_WINDOW_END = new Date('2026-12-31T23:59:59Z');
 
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
