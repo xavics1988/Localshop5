@@ -3,6 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useNotifications, useUser } from '../AppContext';
 import { supabase } from '../src/lib/supabase';
+
+const SUPABASE_URL      = import.meta.env.VITE_SUPABASE_URL as string;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 import {
     sanitizeRaw, truncate, MAX_LENGTHS,
     validateName, validateEmail, validatePassword, validateReferralCode
@@ -204,9 +207,14 @@ export const SignUpScreen: React.FC = () => {
 
                 await reloadProfile(userId);
 
-                // Registrar periodo de prueba gratuito para colaboradores
+                // Crear suscripción en Stripe (estado "trialing", sin cobrar ni pedir tarjeta)
                 if (isCollab) {
                     await supabase.rpc('register_collaborator_subscription', { p_user_id: userId });
+                    fetch(`${SUPABASE_URL}/functions/v1/init-collaborator-trial`, {
+                        method:  'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+                        body:    JSON.stringify({ userId }),
+                    }).catch(e => console.warn('[init-collaborator-trial]', e));
                 }
             }
         } catch (err: any) {

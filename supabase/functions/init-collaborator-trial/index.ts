@@ -17,31 +17,35 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const PRICE_FOUNDING = Deno.env.get('STRIPE_PRICE_FOUNDING')!;
+const PRICE_STANDARD = Deno.env.get('STRIPE_PRICE_STANDARD')!;
+
+// Ventana de socio fundador: primeros 6 meses desde el lanzamiento (23 abril 2025)
+const LAUNCH_DATE = new Date('2025-04-23T00:00:00Z');
+const FOUNDING_WINDOW_END = new Date(LAUNCH_DATE);
+FOUNDING_WINDOW_END.setMonth(FOUNDING_WINDOW_END.getMonth() + 6);
+
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const { userId, priceId } = await req.json() as {
-      userId: string;
-      priceId: string;
-    };
+    const { userId } = await req.json() as { userId: string };
+    if (!userId) throw new Error('userId es obligatorio');
 
-    if (!userId || !priceId) throw new Error('userId y priceId son obligatorios');
-
-    const { data: profile } = await supabaseAdmin
+    const { data: profile, error: profileErr } = await supabaseAdmin
       .from('profiles')
-      .select('stripe_customer_id, name, email')
+      .select('email, name, created_at, stripe_customer_id')
       .eq('id', userId)
       .single();
 
-    if (!profile) throw new Error('Usuario no encontrado');
+    if (profileErr || !profile) throw new Error('Usuario no encontrado');
 
+    // Crear o recuperar Stripe Customer
     let stripeCustomerId = profile.stripe_customer_id as string | null;
-
     if (!stripeCustomerId) {
       const customer = await stripe.customers.create({
-        email: profile.email,
-        name:  profile.name,
+        email:    profile.email,
+        name:     profile.name,
         metadata: { userId },
       });
       stripeCustomerId = customer.id;
@@ -51,37 +55,42 @@ serve(async (req: Request) => {
         .eq('id', userId);
     }
 
+    // Calcular trial_end (6 meses desde la fecha de registro)
+    const joinedAt = new Date(profile.created_at);
+    const trialEnd = new Date(joinedAt);
+    trialEnd.setMonth(trialEnd.getMonth() + 6);
+    const trialEndUnix = Math.floor(trialEnd.getTime() / 1000);
+
+    // Determinar precio según si es socio fundador
+    const isFoundingMember = joinedAt <= FOUNDING_WINDOW_END;
+    const priceId = isFoundingMember ? PRICE_FOUNDING : PRICE_STANDARD;
+
+    // Crear suscripción en Stripe en estado "trialing" (sin cobrar, sin pedir tarjeta)
     const subscription = await stripe.subscriptions.create({
-      customer:          stripeCustomerId,
-      items:             [{ price: priceId }],
-      payment_behavior:  'default_incomplete',
-      payment_settings:  { save_default_payment_method: 'on_subscription' },
-      expand:            ['latest_invoice.payment_intent'],
-      metadata:          { userId },
+      customer:         stripeCustomerId,
+      items:            [{ price: priceId }],
+      trial_end:        trialEndUnix,
+      payment_settings: { save_default_payment_method: 'on_subscription' },
+      metadata:         { userId },
     });
 
-    const latestInvoice  = subscription.latest_invoice as Stripe.Invoice;
-    const paymentIntent  = latestInvoice.payment_intent as Stripe.PaymentIntent;
-
+    // Guardar en DB
     await supabaseAdmin
       .from('collaborator_subscriptions')
       .upsert({
         user_id:                userId,
         stripe_subscription_id: subscription.id,
         stripe_customer_id:     stripeCustomerId,
-        status:                 'incomplete',
+        status:                 'trial',
       }, { onConflict: 'user_id' });
 
     return new Response(
-      JSON.stringify({
-        clientSecret:   paymentIntent.client_secret,
-        subscriptionId: subscription.id,
-      }),
+      JSON.stringify({ ok: true, subscriptionId: subscription.id, trialEnd: trialEnd.toISOString() }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error('[create-subscription]', message);
+    console.error('[init-collaborator-trial]', message);
     return new Response(
       JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },

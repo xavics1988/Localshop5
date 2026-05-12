@@ -1199,7 +1199,21 @@ const SubscribeWithStripe: React.FC<{ monthlyFee: number; isFoundingMember: bool
     const [open, setOpen]       = useState(false);
     const [loading, setLoading] = useState(false);
     const [done, setDone]       = useState(false);
+    const [checking, setChecking] = useState(true);
     const [isDark, setIsDark]   = useState(false);
+
+    // Comprobar estado de suscripción en DB al cargar
+    useEffect(() => {
+        supabase
+            .from('collaborator_subscriptions')
+            .select('stripe_subscription_id, status, payment_method_attached')
+            .eq('user_id', userId)
+            .maybeSingle()
+            .then(({ data }) => {
+                if (data?.status === 'active' || data?.payment_method_attached) setDone(true);
+                setChecking(false);
+            });
+    }, [userId]);
 
     useEffect(() => {
         const check = () => setIsDark(document.documentElement.classList.contains('dark'));
@@ -1209,8 +1223,6 @@ const SubscribeWithStripe: React.FC<{ monthlyFee: number; isFoundingMember: bool
         return () => observer.disconnect();
     }, []);
 
-    const priceId = isFoundingMember ? STRIPE_PRICE_FOUNDING : STRIPE_PRICE_STANDARD;
-
     const handleSubscribe = async () => {
         if (!stripe || !elements) return;
         const cardElement = elements.getElement(CardElement);
@@ -1218,39 +1230,41 @@ const SubscribeWithStripe: React.FC<{ monthlyFee: number; isFoundingMember: bool
 
         setLoading(true);
         try {
-            const res = await fetch(`${SUPABASE_URL}/functions/v1/create-subscription`, {
+            // Crear el PaymentMethod con la tarjeta introducida
+            const { paymentMethod, error: pmError } = await stripe.createPaymentMethod({
+                type: 'card',
+                card: cardElement as any,
+            });
+            if (pmError) throw new Error(pmError.message);
+
+            // Vincular la tarjeta a la suscripción existente (creada al registrarse)
+            const res = await fetch(`${SUPABASE_URL}/functions/v1/attach-payment-method`, {
                 method:  'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
-                body: JSON.stringify({ userId, priceId }),
+                body:    JSON.stringify({ userId, paymentMethodId: paymentMethod!.id }),
             });
-            const { clientSecret, error: subError } = await res.json();
-            if (subError) throw new Error(subError);
-
-            const { error } = await stripe.confirmCardPayment(clientSecret, {
-                payment_method: {
-                    card: cardElement as any,
-                    billing_details: { name: userId },
-                },
-            });
-            if (error) throw new Error(error.message);
+            const { error: attachError } = await res.json();
+            if (attachError) throw new Error(attachError);
 
             setDone(true);
-            notify('¡Suscripción activada!', `Tu suscripción de €${monthlyFee.toFixed(2)}/mes ha sido procesada.`, 'check_circle');
+            notify('¡Tarjeta guardada!', `Stripe cobrará €${monthlyFee.toFixed(2)}/mes automáticamente al terminar el periodo gratuito.`, 'check_circle');
         } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : 'Error al procesar la suscripción';
-            notify('Error de pago', message, 'error');
+            const message = err instanceof Error ? err.message : 'Error al guardar la tarjeta';
+            notify('Error', message, 'error');
         } finally {
             setLoading(false);
         }
     };
+
+    if (checking) return null;
 
     if (done) {
         return (
             <div className="flex items-center gap-3 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl border border-emerald-200 dark:border-emerald-800">
                 <Icon name="check_circle" className="text-emerald-600 dark:text-emerald-400 text-xl" filled />
                 <div>
-                    <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">Suscripción activada</p>
-                    <p className="text-[10px] text-emerald-600/80 dark:text-emerald-500">€{monthlyFee.toFixed(2)}/mes — próximo cobro en 30 días</p>
+                    <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">Suscripción activa</p>
+                    <p className="text-[10px] text-emerald-600/80 dark:text-emerald-500">€{monthlyFee.toFixed(2)}/mes — Stripe gestiona los cobros automáticamente</p>
                 </div>
             </div>
         );
@@ -1424,6 +1438,14 @@ export const ProfileScreen: React.FC = () => {
                                             style={{ width: `${Math.max(2, Math.min(100, (sub.daysRemainingInTrial / (6 * 30)) * 100))}%` }}
                                         />
                                     </div>
+                                    {isNearingEnd && (
+                                        <div className="flex items-start gap-3 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-2xl border border-orange-200 dark:border-orange-800">
+                                            <Icon name="warning" className="text-orange-500 text-lg shrink-0 mt-0.5" filled />
+                                            <p className="text-xs text-orange-700 dark:text-orange-400 leading-relaxed font-medium">
+                                                Quedan <span className="font-black">{sub.daysRemainingInTrial} días</span>. Añade tu tarjeta para que Stripe continue cobrando automáticamente al terminar el periodo gratuito.
+                                            </p>
+                                        </div>
+                                    )}
                                     <p className="text-xs text-text-subtle-light leading-relaxed">
                                         Prueba gratuita hasta el <span className="font-bold text-text-light dark:text-text-dark">{trialEndStr}</span>.
                                         A partir de esa fecha, la suscripción es de{' '}
@@ -1462,11 +1484,14 @@ export const ProfileScreen: React.FC = () => {
                                 </div>
                             )}
 
-                            <SubscribeWithStripe
-                                monthlyFee={sub.monthlyFee}
-                                isFoundingMember={sub.isFoundingMember}
-                                userId={user.id}
-                            />
+                            {/* Mostrar formulario de tarjeta: cuando el trial termina O en los últimos 30 días */}
+                            {(!isTrial || isNearingEnd) && (
+                                <SubscribeWithStripe
+                                    monthlyFee={sub.monthlyFee}
+                                    isFoundingMember={sub.isFoundingMember}
+                                    userId={user.id}
+                                />
+                            )}
                         </div>
                     );
                 })()}

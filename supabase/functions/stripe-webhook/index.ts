@@ -52,8 +52,7 @@ serve(async (req: Request) => {
             : 'trial';
           await supabaseAdmin
             .from('collaborator_subscriptions')
-            .update({ status, stripe_subscription_id: sub.id })
-            .eq('user_id', userId);
+            .upsert({ user_id: userId, status, stripe_subscription_id: sub.id }, { onConflict: 'user_id' });
         }
         break;
       }
@@ -64,8 +63,7 @@ serve(async (req: Request) => {
         if (userId) {
           await supabaseAdmin
             .from('collaborator_subscriptions')
-            .update({ status: 'expired' })
-            .eq('user_id', userId);
+            .upsert({ user_id: userId, status: 'expired' }, { onConflict: 'user_id' });
         }
         break;
       }
@@ -79,12 +77,13 @@ serve(async (req: Request) => {
             const nextBilling = new Date(sub.current_period_end * 1000).toISOString();
             await supabaseAdmin
               .from('collaborator_subscriptions')
-              .update({
+              .upsert({
+                user_id:           userId,
                 status:            'active',
+                stripe_subscription_id: sub.id,
                 last_payment_at:   new Date().toISOString(),
                 next_billing_date: nextBilling,
-              })
-              .eq('user_id', userId);
+              }, { onConflict: 'user_id' });
           }
         }
         break;
