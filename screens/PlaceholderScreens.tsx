@@ -3582,21 +3582,21 @@ export const PublishScreen: React.FC = () => {
                         {launchOffer ? (
                             <div className="py-3 border-y border-border-light dark:border-border-dark space-y-3">
                                 <div className="flex justify-between items-center">
-                                    <span className="text-xs font-bold text-text-light dark:text-gray-400">Primeros 6 meses</span>
+                                    <span className="text-xs font-bold text-text-light dark:text-gray-400">Gratis hasta el 31 dic 2026</span>
                                     <div className="flex items-center gap-2">
                                         <span className="text-[10px] line-through text-text-subtle-light">{REGULAR_PRICE.toFixed(2).replace('.', ',')}€</span>
                                         <span className="text-sm font-black text-olive bg-olive/10 px-2 py-0.5 rounded-lg">GRATIS</span>
                                     </div>
                                 </div>
                                 <div className="flex justify-between items-center">
-                                    <span className="text-xs font-bold text-text-light dark:text-gray-400">A partir del mes 7 <span className="text-mustard">(de por vida)</span></span>
+                                    <span className="text-xs font-bold text-text-light dark:text-gray-400">A partir del 1 ene 2027 <span className="text-mustard">(de por vida)</span></span>
                                     <div className="flex items-center gap-2">
                                         <span className="text-[10px] line-through text-text-subtle-light">{REGULAR_PRICE.toFixed(2).replace('.', ',')}€</span>
                                         <span className="text-sm font-black text-primary">{DISCOUNTED_PRICE.replace('.', ',')}€/mes</span>
                                     </div>
                                 </div>
                                 <p className="text-[10px] text-mustard font-bold text-center">
-                                    ¡50% de descuento permanente por registrarte en el lanzamiento!
+                                    ¡Precio de Socio Fundador garantizado de por vida por registrarte antes del 31 dic 2026!
                                 </p>
                             </div>
                         ) : (
