@@ -53,21 +53,21 @@ serve(async (req: Request) => {
         .eq('id', userId);
     }
 
-    // Calcular trial_end (6 meses desde la fecha de registro)
     const joinedAt = new Date(profile.created_at);
-    const trialEnd = new Date(joinedAt);
-    trialEnd.setMonth(trialEnd.getMonth() + 6);
-    const trialEndUnix = Math.floor(trialEnd.getTime() / 1000);
 
-    // Determinar precio según si es socio fundador
+    // Socios fundadores: registrados antes del 31 dic 2026 → trial gratis hasta esa fecha, luego €4/mes
+    // Estándar: registrados después → pagan €7/mes desde el día 1, sin trial
     const isFoundingMember = joinedAt <= FOUNDING_WINDOW_END;
     const priceId = isFoundingMember ? PRICE_FOUNDING : PRICE_STANDARD;
+    const trialEndUnix = isFoundingMember
+      ? Math.floor(FOUNDING_WINDOW_END.getTime() / 1000)
+      : undefined;
 
-    // Crear suscripción en Stripe en estado "trialing" (sin cobrar, sin pedir tarjeta)
+    // Crear suscripción en Stripe
     const subscription = await stripe.subscriptions.create({
       customer:         stripeCustomerId,
       items:            [{ price: priceId }],
-      trial_end:        trialEndUnix,
+      ...(trialEndUnix ? { trial_end: trialEndUnix } : {}),
       payment_settings: { save_default_payment_method: 'on_subscription' },
       metadata:         { userId },
     });
@@ -79,11 +79,11 @@ serve(async (req: Request) => {
         user_id:                userId,
         stripe_subscription_id: subscription.id,
         stripe_customer_id:     stripeCustomerId,
-        status:                 'trial',
+        status:                 isFoundingMember ? 'trial' : 'active',
       }, { onConflict: 'user_id' });
 
     return new Response(
-      JSON.stringify({ ok: true, subscriptionId: subscription.id, trialEnd: trialEnd.toISOString() }),
+      JSON.stringify({ ok: true, subscriptionId: subscription.id, trialEnd: isFoundingMember ? FOUNDING_WINDOW_END.toISOString() : null }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   } catch (err: unknown) {
