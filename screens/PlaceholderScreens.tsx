@@ -2872,14 +2872,15 @@ export const PaymentMethodsScreen: React.FC = () => {
     }, [currentStore?.id]);
 
     const handleStripeConnect = async () => {
-        if (!currentStore || !user.email) return;
+        const storeId = currentStore?.id ?? user.storeId;
+        if (!storeId || !user.email) return;
         setConnectLoading(true);
         try {
             const res = await fetch(`${SUPABASE_URL}/functions/v1/create-connect-account`, {
                 method:  'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
                 body: JSON.stringify({
-                    storeId:   currentStore.id,
+                    storeId,
                     email:     user.email,
                     returnUrl: `${window.location.protocol}//${window.location.host}/#`,
                 }),
@@ -3426,9 +3427,9 @@ export const PublishScreen: React.FC = () => {
 
     const [connectLoading, setConnectLoading] = useState(false);
     const handleStripeConnect = async () => {
-        if (!currentStore || !user.email) {
-            // Tienda aún no cargada — redirigir a Configuración de Cobros donde el contexto ya está inicializado
-            navigate('/payment-methods');
+        const storeId = currentStore?.id ?? user.storeId;
+        if (!storeId || !user.email) {
+            notify('Error', 'No se encontró tu tienda. Inténtalo de nuevo.', 'error');
             return;
         }
         setConnectLoading(true);
@@ -3437,7 +3438,7 @@ export const PublishScreen: React.FC = () => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
                 body: JSON.stringify({
-                    storeId:   currentStore.id,
+                    storeId,
                     email:     user.email,
                     returnUrl: `${window.location.protocol}//${window.location.host}/#`,
                 }),
