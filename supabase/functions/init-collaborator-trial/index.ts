@@ -63,27 +63,45 @@ serve(async (req: Request) => {
       ? Math.floor(FOUNDING_WINDOW_END.getTime() / 1000)
       : undefined;
 
-    // Crear suscripción en Stripe
-    const subscription = await stripe.subscriptions.create({
-      customer:         stripeCustomerId,
-      items:            [{ price: priceId }],
-      ...(trialEndUnix ? { trial_end: trialEndUnix } : {}),
-      payment_settings: { save_default_payment_method: 'on_subscription' },
-      metadata:         { userId },
-    });
+    // Comprobar si ya existe una suscripción en DB
+    const { data: existingSub } = await supabaseAdmin
+      .from('collaborator_subscriptions')
+      .select('stripe_subscription_id')
+      .eq('user_id', userId)
+      .single();
 
-    // Guardar en DB
+    let subscriptionId: string;
+
+    if (existingSub?.stripe_subscription_id) {
+      // Ya existe: actualizar trial_end en Stripe
+      const updated = await stripe.subscriptions.update(existingSub.stripe_subscription_id, {
+        ...(trialEndUnix ? { trial_end: trialEndUnix } : { trial_end: 'now' }),
+      });
+      subscriptionId = updated.id;
+    } else {
+      // No existe: crear nueva suscripción
+      const subscription = await stripe.subscriptions.create({
+        customer:         stripeCustomerId,
+        items:            [{ price: priceId }],
+        ...(trialEndUnix ? { trial_end: trialEndUnix } : {}),
+        payment_settings: { save_default_payment_method: 'on_subscription' },
+        metadata:         { userId },
+      });
+      subscriptionId = subscription.id;
+    }
+
+    // Guardar / actualizar en DB
     await supabaseAdmin
       .from('collaborator_subscriptions')
       .upsert({
         user_id:                userId,
-        stripe_subscription_id: subscription.id,
+        stripe_subscription_id: subscriptionId,
         stripe_customer_id:     stripeCustomerId,
         status:                 isFoundingMember ? 'trial' : 'active',
       }, { onConflict: 'user_id' });
 
     return new Response(
-      JSON.stringify({ ok: true, subscriptionId: subscription.id, trialEnd: isFoundingMember ? FOUNDING_WINDOW_END.toISOString() : null }),
+      JSON.stringify({ ok: true, subscriptionId, trialEnd: isFoundingMember ? FOUNDING_WINDOW_END.toISOString() : null }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   } catch (err: unknown) {
