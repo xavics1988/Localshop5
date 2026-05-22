@@ -59,11 +59,14 @@ export const APP_LAUNCH_DATE = new Date(
 
 export function getCollaboratorSubscription(joinedAt: string): CollaboratorSubscription {
   const joinedDate  = new Date(joinedAt);
-  const trialEndsAt = new Date(joinedDate);
-  trialEndsAt.setMonth(trialEndsAt.getMonth() + SUBSCRIPTION_FREE_MONTHS);
 
   // Es socio fundador si se registró antes del 31 dic 2026
   const isFoundingMember = joinedDate <= FOUNDING_WINDOW_END;
+
+  // Socios fundadores: prueba hasta el 31 dic 2026. Estándar: 6 meses desde el registro.
+  const trialEndsAt = isFoundingMember
+    ? new Date(FOUNDING_WINDOW_END)
+    : (() => { const d = new Date(joinedDate); d.setMonth(d.getMonth() + SUBSCRIPTION_FREE_MONTHS); return d; })();
 
   const now = new Date();
   const daysRemaining = Math.ceil((trialEndsAt.getTime() - now.getTime()) / 86_400_000);
@@ -728,7 +731,8 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         table: 'orders',
       }, (payload) => {
         if (payload.eventType === 'INSERT') {
-          setOrders(prev => [dbOrderToOrder(payload.new as any), ...prev]);
+          const incoming = dbOrderToOrder(payload.new as any);
+          setOrders(prev => prev.some((o: Order) => o.id === incoming.id) ? prev : [incoming, ...prev]);
           if (user.role === 'colaborador') {
             showBrowserNotification('¡Nueva venta!', 'Un cliente ha realizado un pedido.', '/orders');
             setTimeout(() => notify('¡Nueva venta!', 'Un cliente ha realizado un pedido.', 'shopping_bag', undefined, '/orders'), 5000);

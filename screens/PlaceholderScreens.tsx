@@ -902,6 +902,7 @@ export const AppSettingsScreen: React.FC = () => {
     const navigate = useNavigate();
     const [darkMode, setDarkMode] = useState(() => document.documentElement.classList.contains('dark'));
     const [pushLoading, setPushLoading] = useState(false);
+    const [deletingAccount, setDeletingAccount] = useState(false);
 
     const toggleDarkMode = (checked: boolean) => {
         setDarkMode(checked);
@@ -922,11 +923,37 @@ export const AppSettingsScreen: React.FC = () => {
         setPushLoading(false);
     };
 
-    const handleDeleteAccount = () => {
-        if (confirm('¿Estás seguro de que quieres eliminar tu cuenta? Esta acción es irreversible y perderás todos tus datos, pedidos y favoritos.')) {
-            logout();
-            notify('Cuenta eliminada', 'Sentimos verte partir. Tu cuenta ha sido borrada.', 'delete_forever');
+    const handleDeleteAccount = async () => {
+        const first = confirm(
+            '⚠️ ¿Seguro que quieres eliminar tu cuenta?\n\nSe borrarán permanentemente:\n• Tu perfil y todos tus datos\n• Tus pedidos y favoritos\n• Tu suscripción de Stripe\n• Tus datos de pago\n\nEsta acción es IRREVERSIBLE.'
+        );
+        if (!first) return;
+
+        const second = confirm(
+            '🔴 ÚLTIMA CONFIRMACIÓN\n\n¿Confirmas que quieres eliminar tu cuenta definitivamente? No hay vuelta atrás.'
+        );
+        if (!second) return;
+
+        setDeletingAccount(true);
+        try {
+            const { data: sessionData } = await supabase.auth.getSession();
+            const token = sessionData?.session?.access_token;
+            if (!token) throw new Error('Sesión no encontrada');
+
+            const { error } = await supabase.functions.invoke('delete-account', {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            if (error) throw error;
+
+            notify('Cuenta eliminada', 'Tu cuenta y todos tus datos han sido borrados permanentemente.', 'delete_forever');
+            await supabase.auth.signOut();
             navigate('/welcome');
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Error inesperado al eliminar la cuenta.';
+            alert(`No se pudo eliminar la cuenta: ${message}\nPor favor contacta con soporte.`);
+        } finally {
+            setDeletingAccount(false);
         }
     };
 
@@ -991,10 +1018,11 @@ export const AppSettingsScreen: React.FC = () => {
                     <div className="p-4">
                         <button
                             onClick={handleDeleteAccount}
-                            className="w-full py-4 bg-red-500/10 text-red-500 font-bold rounded-xl border border-red-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                            disabled={deletingAccount}
+                            className="w-full py-4 bg-red-500/10 text-red-500 font-bold rounded-xl border border-red-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                         >
-                            <Icon name="person_remove" className="text-xl" />
-                            Eliminar mi cuenta definitivamente
+                            <Icon name={deletingAccount ? 'hourglass_empty' : 'person_remove'} className="text-xl" />
+                            {deletingAccount ? 'Eliminando cuenta...' : 'Eliminar mi cuenta definitivamente'}
                         </button>
                     </div>
                 </SettingsSection>
