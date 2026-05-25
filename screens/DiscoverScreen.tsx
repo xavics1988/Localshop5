@@ -84,6 +84,9 @@ const CATEGORY_TO_SIZE_GROUP: Record<string, string> = {
 
 const DiscoverScreen: React.FC = () => {
     const { user } = useUser();
+    const tagline = user.id && user.role === 'colaborador'
+        ? '¡Vende como siempre, llega donde nunca!'
+        : '¡Descubre lo que nadie más lleva!';
     const { products } = useProducts();
     const { stores } = useStores();
     const { notify } = useNotifications();
@@ -310,8 +313,12 @@ const DiscoverScreen: React.FC = () => {
     return (
         <div className="bg-white dark:bg-background-dark min-h-screen">
             <div className="flex items-center justify-between px-4 h-16 border-b border-border-light dark:border-border-dark sticky top-0 z-[100] bg-white/95 dark:bg-background-dark/95 backdrop-blur-md">
-                <div className="flex-1 flex justify-start items-center">
+                <div className="flex-1 flex justify-start items-center gap-3">
                     <Logo className="h-10" />
+                    <div className="flex items-center gap-2.5">
+                        <div className="w-px h-6 bg-primary/40 rounded-full" />
+                        <span className="text-[11px] italic font-semibold text-primary whitespace-nowrap tracking-wide">{tagline}</span>
+                    </div>
                 </div>
                 <div className="flex-1 flex justify-end items-center gap-1">
                     <Link to="/cart" className="flex size-10 items-center justify-center text-text-light dark:text-text-dark active:scale-90 transition-transform">

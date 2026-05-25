@@ -4,7 +4,7 @@ import { Product } from '../types';
 import { stores } from '../data';
 import { ProductCard, StoreCard } from '../components/Card';
 import { Link } from 'react-router-dom';
-import { useProducts } from '../AppContext';
+import { useProducts, useUser } from '../AppContext';
 import { Logo } from '../components/Layout';
 
 const Icon = ({ name, className }: { name: string; className?: string }) => (
@@ -13,6 +13,10 @@ const Icon = ({ name, className }: { name: string; className?: string }) => (
 
 const HomeScreen: React.FC = () => {
     const { products } = useProducts();
+    const { user } = useUser();
+    const tagline = user.id && user.role === 'colaborador'
+        ? '¡Vende como siempre, llega donde nunca!'
+        : 'Descubre lo que nadie más lleva.';
     const [activeCategory, setActiveCategory] = useState('Camisetas');
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -110,8 +114,9 @@ const HomeScreen: React.FC = () => {
         <div>
             {/* Header */}
             <div className="sticky top-0 z-10 flex items-center bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-sm p-4 pb-2 justify-between">
-                <div className="flex shrink-0 items-center">
+                <div className="flex shrink-0 items-center gap-3">
                     <Logo className="h-9" />
+                    <span className="text-xs text-text-light/70 dark:text-text-dark/70 font-medium leading-tight max-w-[200px]">{tagline}</span>
                 </div>
                 <div className="flex-1 text-center">
                     <h1 className="text-text-light dark:text-text-dark text-lg font-bold sm:hidden">LocalShop</h1>
