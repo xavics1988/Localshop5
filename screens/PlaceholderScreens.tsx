@@ -2664,6 +2664,10 @@ export const PaymentScreen: React.FC = () => {
                     ...(new Set(cartItems.map((i: any) => i.product.storeId)).size === 1
                         ? { storeId: cartItems[0].product.storeId }
                         : {}),
+                    // Pasar el PM de tarjeta guardada para que el servidor lo adjunte al Customer
+                    ...(hasSavedCard && useSavedCard && savedCard.stripePaymentMethodId
+                        ? { paymentMethodId: savedCard.stripePaymentMethodId }
+                        : {}),
                     metadata: { customerId: user.id },
                 }),
             });
@@ -2710,7 +2714,7 @@ export const PaymentScreen: React.FC = () => {
 
             const paymentIntent = result.paymentIntent;
 
-            // 3. Guardar los detalles de la nueva tarjeta
+            // 3. Guardar los detalles de la nueva tarjeta y adjuntarla al Customer de Stripe
             if (savedPmAfterPayment) {
                 addPaymentMethod({
                     last4:                 savedPmAfterPayment.last4,
@@ -2719,6 +2723,15 @@ export const PaymentScreen: React.FC = () => {
                     holder:                user.name,
                     stripePaymentMethodId: savedPmAfterPayment.id,
                 });
+                // Adjuntar en Stripe para que se pueda reusar en próximos pagos
+                fetch(`${SUPABASE_URL}/functions/v1/attach-buyer-payment-method`, {
+                    method:  'POST',
+                    headers: {
+                        'Content-Type':  'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                    },
+                    body: JSON.stringify({ userId: user.id, paymentMethodId: savedPmAfterPayment.id }),
+                }).catch(() => { /* fallo silencioso — no bloquea el flujo */ });
             }
 
             // 4. Aplicar saldo de referidos y crear pedido

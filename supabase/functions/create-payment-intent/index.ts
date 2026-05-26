@@ -23,11 +23,12 @@ serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const { amount, userId, storeId, metadata } = await req.json() as {
+    const { amount, userId, storeId, metadata, paymentMethodId } = await req.json() as {
       amount: number;
       userId?: string;
       storeId?: string;
       metadata?: Record<string, string>;
+      paymentMethodId?: string;
     };
 
     if (!amount || amount <= 0) throw new Error('Importe inválido');
@@ -72,12 +73,23 @@ serve(async (req: Request) => {
       }
     }
 
+    // Si viene una tarjeta guardada, adjuntarla al cliente (por si no lo estaba)
+    if (paymentMethodId && stripeCustomerId) {
+      try {
+        await stripe.paymentMethods.attach(paymentMethodId, { customer: stripeCustomerId });
+      } catch (_e) {
+        // Ya estaba adjunta — ignorar el error
+      }
+    }
+
     // Crear PaymentIntent con o sin reparto según si el vendedor tiene Connect
     const paymentIntentParams: Stripe.PaymentIntentCreateParams = {
       amount: Math.round(amount),
       currency: 'eur',
       ...(stripeCustomerId ? { customer: stripeCustomerId } : {}),
-      automatic_payment_methods: { enabled: true },
+      ...(paymentMethodId
+        ? { payment_method: paymentMethodId, confirm: false }
+        : { automatic_payment_methods: { enabled: true } }),
       metadata: metadata ?? {},
     };
 
