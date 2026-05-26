@@ -101,8 +101,46 @@ const Identicon: React.FC<{ seed: string, size?: number, className?: string }> =
 export const ManageCatalogScreen: React.FC = () => {
     const { products, deleteProduct } = useProducts();
     const { user } = useUser();
+    const { stores } = useStores();
     const navigate = useNavigate();
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+    const isCollab = user.role === 'colaborador';
+    const currentStore = isCollab ? stores.find(s => s.id === user.storeId) : null;
+    const hasStripeConnected = !!currentStore?.stripeConnectOnboarded;
+    const subscription = isCollab && user.joinedAt ? getCollaboratorSubscription(user.joinedAt) : null;
+    const isTrialExpired = !!subscription && subscription.daysRemainingInTrial <= 0;
+
+    if (isCollab && (!hasStripeConnected || isTrialExpired)) {
+        return (
+            <div className="bg-background-light dark:bg-background-dark min-h-screen pb-20">
+                <DetailHeader title="Gestionar mi Catálogo" backTo="/profile" />
+                <main className="p-6 flex flex-col items-center justify-center min-h-[70vh] text-center animate-fade-in">
+                    <div className="size-24 bg-primary/10 rounded-full flex items-center justify-center mb-8 shadow-inner">
+                        <Icon name={isTrialExpired ? 'credit_card_off' : 'account_balance_wallet'} className="text-6xl text-primary" filled />
+                    </div>
+                    <h2 className="text-2xl font-black text-text-light dark:text-white uppercase tracking-tight mb-4 leading-tight">
+                        {isTrialExpired ? 'Suscripción Inactiva' : 'Configura tus Cobros Primero'}
+                    </h2>
+                    <p className="text-sm text-text-subtle-light dark:text-text-subtle-dark max-w-sm leading-relaxed mb-10">
+                        {isTrialExpired
+                            ? 'Tu período de prueba ha finalizado. Activa tu suscripción para seguir gestionando tu catálogo y vendiendo en LocalShop.'
+                            : 'Antes de gestionar tu catálogo necesitas conectar tu cuenta bancaria a través de Stripe para poder recibir tus cobros.'}
+                    </p>
+                    <button
+                        onClick={() => navigate('/payment-methods')}
+                        className="w-full max-w-sm h-16 bg-primary text-white font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/20 active:scale-95 transition-all flex items-center justify-center gap-3"
+                    >
+                        <Icon name="open_in_new" className="text-xl" />
+                        {isTrialExpired ? 'Activar Suscripción' : 'Configurar Cobros con Stripe'}
+                    </button>
+                    <button onClick={() => navigate('/profile')} className="mt-4 w-full max-w-sm h-14 text-text-subtle-light font-bold text-sm uppercase">
+                        Volver al Perfil
+                    </button>
+                </main>
+            </div>
+        );
+    }
 
     // Filtrar y agrupar por nombre para evitar mostrar duplicados por talla
     const myProducts = useMemo(() => {
@@ -3466,6 +3504,9 @@ export const PublishScreen: React.FC = () => {
     const currentStore = isCollab ? stores.find(s => s.id === user.storeId) : null;
     const hasStripeConnected = !!currentStore?.stripeConnectOnboarded;
 
+    const subscription = isCollab && user.joinedAt ? getCollaboratorSubscription(user.joinedAt) : null;
+    const isTrialExpired = !!subscription && subscription.daysRemainingInTrial <= 0;
+
     const [connectLoading, setConnectLoading] = useState(false);
     const handleStripeConnect = async () => {
         const storeId = currentStore?.id ?? user.storeId;
@@ -3591,6 +3632,38 @@ export const PublishScreen: React.FC = () => {
         const values = Object.values(stockPerSize).filter(v => typeof v === 'number') as number[];
         return values.reduce((a, b) => a + b, 0);
     }, [stockPerSize]);
+
+    // UI de bloqueo: suscripción expirada
+    if (isCollab && isTrialExpired) {
+        return (
+            <div className="bg-background-light dark:bg-background-dark min-h-screen pb-32">
+                <DetailHeader title={isEditMode ? "Editar Artículo" : "Publicar Artículo"} />
+                <main className="p-6 flex flex-col items-center justify-center min-h-[70vh] text-center animate-fade-in">
+                    <div className="size-24 bg-red-500/10 rounded-full flex items-center justify-center mb-8 shadow-inner">
+                        <Icon name="credit_card_off" className="text-6xl text-red-500" filled />
+                    </div>
+                    <h2 className="text-2xl font-black text-text-light dark:text-white uppercase tracking-tight mb-4 leading-tight">
+                        Suscripción Inactiva
+                    </h2>
+                    <p className="text-sm text-text-subtle-light dark:text-text-subtle-dark max-w-sm leading-relaxed mb-10">
+                        Tu período de prueba ha finalizado. Para seguir publicando artículos y vender en LocalShop, activa tu suscripción mensual.
+                    </p>
+                    <div className="w-full max-w-sm space-y-4">
+                        <button
+                            onClick={() => navigate('/payment-methods')}
+                            className="w-full h-16 bg-primary text-white font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/20 active:scale-95 transition-all flex items-center justify-center gap-3"
+                        >
+                            <Icon name="open_in_new" className="text-xl" />
+                            Activar Suscripción
+                        </button>
+                        <button onClick={() => navigate(-1)} className="w-full h-14 text-text-subtle-light font-bold text-sm uppercase">
+                            Volver
+                        </button>
+                    </div>
+                </main>
+            </div>
+        );
+    }
 
     // UI de bloqueo: Stripe Connect no completado
     if (isCollab && !hasStripeConnected) {

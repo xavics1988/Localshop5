@@ -1,9 +1,9 @@
 
-import React from 'react';
-import { HashRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { HashRouter, Routes, Route, useLocation, Navigate, useNavigate } from 'react-router-dom';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
-import { AppContextProvider } from './AppContext';
+import { AppContextProvider, useUser, useStores, getCollaboratorSubscription } from './AppContext';
 
 // Se inicializa fuera del componente para evitar re-creaciones en cada render
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ?? '');
@@ -33,8 +33,28 @@ const ScrollToTop = () => {
     return null;
 };
 
+const ONBOARDING_EXEMPT_PATHS = ['/payment-methods', '/welcome', '/login', '/signup', '/complete-profile'];
+
 const AppContent: React.FC = () => {
     const location = useLocation();
+    const navigate = useNavigate();
+    const { user, isBootstrapping } = useUser();
+    const { stores } = useStores();
+
+    useEffect(() => {
+        if (isBootstrapping || !user.id || user.role !== 'colaborador') return;
+        if (user.storeId && stores.length === 0) return; // espera que carguen las tiendas
+        if (ONBOARDING_EXEMPT_PATHS.some(p => location.pathname.startsWith(p))) return;
+
+        const currentStore = stores.find(s => s.id === user.storeId);
+        const hasStripeConnected = !!currentStore?.stripeConnectOnboarded;
+        const subscription = user.joinedAt ? getCollaboratorSubscription(user.joinedAt) : null;
+        const isTrialExpired = !!subscription && subscription.daysRemainingInTrial <= 0;
+
+        if (!hasStripeConnected || isTrialExpired) {
+            navigate('/payment-methods');
+        }
+    }, [isBootstrapping, user.id, user.role, user.storeId, user.joinedAt, stores, location.pathname, navigate]);
 
     // Rutas que no deben mostrar la barra de navegación inferior
     const noNavRoutes = [
