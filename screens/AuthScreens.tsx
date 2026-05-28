@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useNotifications, useUser } from '../AppContext';
 import { supabase } from '../src/lib/supabase';
@@ -8,7 +8,7 @@ const SUPABASE_URL      = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 import {
     sanitizeRaw, truncate, MAX_LENGTHS,
-    validateName, validateEmail, validatePassword, validateReferralCode
+    validateName, validateEmail, validatePassword, validateReferralCode, validatePhone
 } from '../utils/validation';
 
 const Icon = ({ name, className, filled }: { name: string; className?: string; filled?: boolean }) => (
@@ -28,6 +28,100 @@ export const SPANISH_PROVINCES = [
     "Santa Cruz de Tenerife", "Segovia", "Sevilla", "Soria", "Tarragona", "Teruel", "Toledo", "Valencia",
     "Valladolid", "Vizcaya", "Zamora", "Zaragoza", "Ceuta", "Melilla"
 ].sort((a, b) => a.localeCompare(b));
+
+export const COUNTRY_CODES = [
+    { dial: '+34',  iso: 'es', name: 'España' },
+    { dial: '+1',   iso: 'us', name: 'EE.UU. / Canadá' },
+    { dial: '+44',  iso: 'gb', name: 'Reino Unido' },
+    { dial: '+33',  iso: 'fr', name: 'Francia' },
+    { dial: '+49',  iso: 'de', name: 'Alemania' },
+    { dial: '+39',  iso: 'it', name: 'Italia' },
+    { dial: '+351', iso: 'pt', name: 'Portugal' },
+    { dial: '+31',  iso: 'nl', name: 'Países Bajos' },
+    { dial: '+32',  iso: 'be', name: 'Bélgica' },
+    { dial: '+41',  iso: 'ch', name: 'Suiza' },
+    { dial: '+43',  iso: 'at', name: 'Austria' },
+    { dial: '+45',  iso: 'dk', name: 'Dinamarca' },
+    { dial: '+46',  iso: 'se', name: 'Suecia' },
+    { dial: '+47',  iso: 'no', name: 'Noruega' },
+    { dial: '+358', iso: 'fi', name: 'Finlandia' },
+    { dial: '+353', iso: 'ie', name: 'Irlanda' },
+    { dial: '+48',  iso: 'pl', name: 'Polonia' },
+    { dial: '+420', iso: 'cz', name: 'Rep. Checa' },
+    { dial: '+36',  iso: 'hu', name: 'Hungría' },
+    { dial: '+40',  iso: 'ro', name: 'Rumanía' },
+    { dial: '+30',  iso: 'gr', name: 'Grecia' },
+    { dial: '+380', iso: 'ua', name: 'Ucrania' },
+    { dial: '+7',   iso: 'ru', name: 'Rusia' },
+    { dial: '+90',  iso: 'tr', name: 'Turquía' },
+    { dial: '+52',  iso: 'mx', name: 'México' },
+    { dial: '+54',  iso: 'ar', name: 'Argentina' },
+    { dial: '+57',  iso: 'co', name: 'Colombia' },
+    { dial: '+56',  iso: 'cl', name: 'Chile' },
+    { dial: '+51',  iso: 'pe', name: 'Perú' },
+    { dial: '+55',  iso: 'br', name: 'Brasil' },
+    { dial: '+58',  iso: 've', name: 'Venezuela' },
+    { dial: '+593', iso: 'ec', name: 'Ecuador' },
+    { dial: '+212', iso: 'ma', name: 'Marruecos' },
+    { dial: '+213', iso: 'dz', name: 'Argelia' },
+    { dial: '+216', iso: 'tn', name: 'Túnez' },
+    { dial: '+20',  iso: 'eg', name: 'Egipto' },
+    { dial: '+27',  iso: 'za', name: 'Sudáfrica' },
+    { dial: '+91',  iso: 'in', name: 'India' },
+    { dial: '+86',  iso: 'cn', name: 'China' },
+    { dial: '+81',  iso: 'jp', name: 'Japón' },
+    { dial: '+82',  iso: 'kr', name: 'Corea del Sur' },
+    { dial: '+61',  iso: 'au', name: 'Australia' },
+    { dial: '+64',  iso: 'nz', name: 'Nueva Zelanda' },
+    { dial: '+966', iso: 'sa', name: 'Arabia Saudí' },
+    { dial: '+971', iso: 'ae', name: 'Emiratos Árabes' },
+    { dial: '+972', iso: 'il', name: 'Israel' },
+];
+
+const PhonePrefixSelect = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => {
+    const [open, setOpen] = useState(false);
+    const ref = useRef<HTMLDivElement>(null);
+    const selected = COUNTRY_CODES.find(c => c.dial === value) ?? COUNTRY_CODES[0];
+
+    useEffect(() => {
+        if (!open) return;
+        const handler = (e: MouseEvent) => {
+            if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [open]);
+
+    return (
+        <div ref={ref} className="relative h-full flex items-center">
+            <button
+                type="button"
+                onClick={() => setOpen(o => !o)}
+                className="flex items-center gap-1.5 pl-4 pr-3 h-full border-r border-border-light dark:border-border-dark bg-gray-50 dark:bg-gray-800/50 text-sm font-bold text-text-light dark:text-white whitespace-nowrap"
+            >
+                <img src={`https://cdn.jsdelivr.net/gh/lipis/flag-icons@6.11.0/flags/4x3/${selected.iso}.svg`} alt={selected.name} className="w-5 h-auto rounded-sm" />
+                <span>{selected.dial}</span>
+                <Icon name="expand_more" className={`text-text-subtle-light text-base transition-transform duration-150 ${open ? 'rotate-180' : ''}`} />
+            </button>
+            {open && (
+                <div className="absolute top-[calc(100%+4px)] left-0 z-50 w-56 max-h-64 overflow-y-auto bg-white dark:bg-gray-900 border border-border-light dark:border-border-dark rounded-2xl shadow-2xl">
+                    {COUNTRY_CODES.map(c => (
+                        <button
+                            key={`${c.dial}-${c.name}`}
+                            type="button"
+                            onClick={() => { onChange(c.dial); setOpen(false); }}
+                            className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors hover:bg-primary/5 ${c.dial === value ? 'font-bold text-primary' : 'text-text-light dark:text-white'}`}
+                        >
+                            <img src={`https://cdn.jsdelivr.net/gh/lipis/flag-icons@6.11.0/flags/4x3/${c.iso}.svg`} alt={c.name} className="w-5 h-auto rounded-sm shrink-0" />
+                            <span className="flex-1 truncate">{c.name}</span>
+                            <span className="text-text-subtle-light text-xs shrink-0">{c.dial}</span>
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
 
 export const OnboardingScreen: React.FC = () => {
     const navigate = useNavigate();
@@ -93,7 +187,9 @@ export const SignUpScreen: React.FC = () => {
         email: '',
         password: '',
         location: '',
-        referralInput: ''
+        referralInput: '',
+        phonePrefix: '+34',
+        phoneNumber: ''
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -125,6 +221,13 @@ export const SignUpScreen: React.FC = () => {
         if (passErr) newErrors.password = passErr;
         if (!formData.location) newErrors.location = 'Selecciona una provincia';
         if (!acceptTerms) newErrors.terms = 'Debes aceptar los términos';
+        const phoneDigits = formData.phoneNumber.replace(/\D/g, '');
+        if (!phoneDigits || phoneDigits.length < 6) {
+            newErrors.phone = 'Introduce un número de teléfono válido';
+        } else {
+            const phoneErr = validatePhone(formData.phonePrefix + phoneDigits);
+            if (phoneErr) newErrors.phone = phoneErr;
+        }
         if (formData.referralInput) {
             const refErr = validateReferralCode(formData.referralInput);
             if (refErr) newErrors.referralInput = refErr;
@@ -197,7 +300,7 @@ export const SignUpScreen: React.FC = () => {
                     name:             sanitizeRaw(finalUserName),
                     location:         formData.location,
                     bio:              isCollab ? 'Bienvenido a mi nueva tienda local.' : 'Amante de la moda local.',
-                    phone:            '',
+                    phone:            formData.phonePrefix + formData.phoneNumber.replace(/\D/g, ''),
                     role:             role!,
                     store_id:         storeId ?? null,
                     referral_code:    myReferralCode,
@@ -441,6 +544,26 @@ export const SignUpScreen: React.FC = () => {
                                     <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${/[!@#$%^&*(),.?":{}|<>]/.test(formData.password) ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>Símbolo</span>
                                 </div>
                                 {errors.password && <p className="text-[10px] text-red-500 font-bold ml-1">{errors.password}</p>}
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-text-light dark:text-text-dark ml-1">Teléfono</label>
+                                <div className={`flex items-center h-14 rounded-2xl border bg-white dark:bg-background-dark transition-all focus-within:ring-2 focus-within:ring-primary/20 ${errors.phone ? 'border-red-500' : 'border-border-light dark:border-border-dark'}`}>
+                                    <PhonePrefixSelect
+                                        value={formData.phonePrefix}
+                                        onChange={v => setFormData(p => ({ ...p, phonePrefix: v }))}
+                                    />
+                                    <input
+                                        value={formData.phoneNumber}
+                                        onChange={e => setFormData(p => ({ ...p, phoneNumber: e.target.value.replace(/\D/g, '') }))}
+                                        placeholder="612 345 678"
+                                        type="tel"
+                                        inputMode="numeric"
+                                        maxLength={15}
+                                        className="flex-1 bg-transparent text-sm font-medium outline-none text-text-light dark:text-white px-4"
+                                    />
+                                </div>
+                                {errors.phone && <p className="text-[10px] text-red-500 font-bold ml-1">{errors.phone}</p>}
                             </div>
 
                             <div className="space-y-1">
@@ -823,6 +946,8 @@ export const OAuthCompleteProfileScreen: React.FC = () => {
     const [location, setLocation] = useState('');
     const [referralInput, setReferralInput] = useState('');
     const [storePublicName, setStorePublicName] = useState('');
+    const [phonePrefix, setPhonePrefix] = useState('+34');
+    const [phoneNumber, setPhoneNumber] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -861,6 +986,13 @@ export const OAuthCompleteProfileScreen: React.FC = () => {
         const nameErr = validateName(role === 'colaborador' ? storePublicName : name);
         if (nameErr) newErrors.name = nameErr;
         if (!location) newErrors.location = 'Selecciona una provincia';
+        const phoneDigits = phoneNumber.replace(/\D/g, '');
+        if (!phoneDigits || phoneDigits.length < 6) {
+            newErrors.phone = 'Introduce un número de teléfono válido';
+        } else {
+            const phoneErr = validatePhone(phonePrefix + phoneDigits);
+            if (phoneErr) newErrors.phone = phoneErr;
+        }
         if (referralInput) {
             const refErr = validateReferralCode(referralInput);
             if (refErr) newErrors.referralInput = refErr;
@@ -913,7 +1045,7 @@ export const OAuthCompleteProfileScreen: React.FC = () => {
                 name:             finalName,
                 location,
                 bio:              isCollab ? 'Bienvenido a mi nueva tienda local.' : 'Amante de la moda local.',
-                phone:            '',
+                phone:            phonePrefix + phoneNumber.replace(/\D/g, ''),
                 role:             role!,
                 store_id:         storeId ?? null,
                 referral_code:    myReferralCode,
@@ -1015,6 +1147,26 @@ export const OAuthCompleteProfileScreen: React.FC = () => {
                                 />
                             </div>
                             {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+                        </div>
+
+                        <div>
+                            <label className="text-xs font-bold text-text-subtle-light dark:text-text-subtle-dark uppercase tracking-widest mb-1 block">Teléfono</label>
+                            <div className={`flex items-center h-12 rounded-xl border bg-white dark:bg-gray-800 transition-all focus-within:ring-2 focus-within:ring-primary/20 ${errors.phone ? 'border-red-500' : 'border-border-light dark:border-border-dark'}`}>
+                                <PhonePrefixSelect
+                                    value={phonePrefix}
+                                    onChange={setPhonePrefix}
+                                />
+                                <input
+                                    value={phoneNumber}
+                                    onChange={e => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
+                                    placeholder="612 345 678"
+                                    type="tel"
+                                    inputMode="numeric"
+                                    maxLength={15}
+                                    className="flex-1 bg-transparent text-sm outline-none text-text-light dark:text-white px-3"
+                                />
+                            </div>
+                            {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
                         </div>
 
                         <div>

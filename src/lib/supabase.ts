@@ -216,8 +216,25 @@ export function storeToDb(s: Store, ownerId?: string): DbStore & { owner_id?: st
 
 // ---- Helper: subir imagen de producto a Supabase Storage ----
 
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+
 export async function uploadProductImage(file: File, storeId: string): Promise<string> {
-  const ext  = file.name.split('.').pop();
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+    throw new Error('Tipo de archivo no permitido. Solo se aceptan imágenes JPEG, PNG, WebP o GIF.');
+  }
+  if (file.size > MAX_IMAGE_SIZE_BYTES) {
+    throw new Error('El archivo es demasiado grande. El tamaño máximo es 5 MB.');
+  }
+
+  // Usar solo la extensión derivada del MIME real, no del nombre del archivo
+  const extMap: Record<string, string> = {
+    'image/jpeg': 'jpg',
+    'image/png':  'png',
+    'image/webp': 'webp',
+    'image/gif':  'gif',
+  };
+  const ext  = extMap[file.type] ?? 'jpg';
   const path = `${storeId}/${Date.now()}.${ext}`;
 
   const { error } = await supabase.storage

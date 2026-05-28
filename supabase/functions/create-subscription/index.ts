@@ -1,6 +1,7 @@
 import Stripe from 'https://esm.sh/stripe@14.21.0?target=deno';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+import { requireAuth, UserFacingError, errorResponse } from '../_shared/auth.ts';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
   apiVersion: '2024-06-20',
@@ -12,8 +13,9 @@ const supabaseAdmin = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
 );
 
+const CORS_ORIGIN = Deno.env.get('APP_CORS_ORIGIN') || '*';
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': CORS_ORIGIN,
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -21,12 +23,11 @@ serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const { userId, priceId } = await req.json() as {
-      userId: string;
-      priceId: string;
-    };
+    // userId siempre del JWT — nunca del cuerpo
+    const userId = await requireAuth(req);
 
-    if (!userId || !priceId) throw new Error('userId y priceId son obligatorios');
+    const { priceId } = await req.json() as { priceId: string };
+    if (!priceId) throw new UserFacingError('priceId es obligatorio');
 
     const { data: profile } = await supabaseAdmin
       .from('profiles')
@@ -34,7 +35,7 @@ serve(async (req: Request) => {
       .eq('id', userId)
       .single();
 
-    if (!profile) throw new Error('Usuario no encontrado');
+    if (!profile) throw new UserFacingError('Perfil no encontrado');
 
     let stripeCustomerId = profile.stripe_customer_id as string | null;
 
@@ -80,11 +81,7 @@ serve(async (req: Request) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error('[create-subscription]', message);
-    return new Response(
-      JSON.stringify({ error: message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-    );
+    console.error('[create-subscription]', err instanceof Error ? err.message : String(err));
+    return errorResponse(err, corsHeaders);
   }
 });

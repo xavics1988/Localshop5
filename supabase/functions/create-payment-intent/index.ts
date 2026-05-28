@@ -1,6 +1,7 @@
 import Stripe from 'https://esm.sh/stripe@14.21.0?target=deno';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+import { tryGetAuth, UserFacingError, errorResponse } from '../_shared/auth.ts';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
   apiVersion: '2024-06-20',
@@ -12,36 +13,41 @@ const supabaseAdmin = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
 );
 
+// En producción establece APP_CORS_ORIGIN al dominio exacto de la app web
+const CORS_ORIGIN = Deno.env.get('APP_CORS_ORIGIN') || '*';
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': CORS_ORIGIN,
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const LOCALSHOP_FEE_CENTS = 399; // 3,99 € comisión LocalShop
+const LOCALSHOP_FEE_CENTS = 399;
 
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const { amount, userId, storeId, metadata, paymentMethodId } = await req.json() as {
+    // El userId se obtiene siempre del JWT, nunca del cuerpo de la petición.
+    // tryGetAuth devuelve null para compras de invitado (sin cabecera Authorization).
+    // Si hay cabecera pero el token es inválido lanza AuthError (evita suplantación).
+    const authenticatedUserId = await tryGetAuth(req);
+
+    const { amount, storeId, metadata, paymentMethodId } = await req.json() as {
       amount: number;
-      userId?: string;
       storeId?: string;
       metadata?: Record<string, string>;
       paymentMethodId?: string;
     };
 
-    if (!amount || amount <= 0) throw new Error('Importe inválido');
+    if (!amount || amount <= 0) throw new UserFacingError('Importe inválido');
 
     let stripeCustomerId: string | undefined;
     let stripeConnectAccountId: string | undefined;
 
-    // Buscar/crear cliente Stripe para usuarios registrados
-    if (userId) {
+    if (authenticatedUserId) {
       const { data: profile } = await supabaseAdmin
         .from('profiles')
         .select('stripe_customer_id, name, email')
-        .eq('id', userId)
+        .eq('id', authenticatedUserId)
         .single();
 
       if (profile?.stripe_customer_id) {
@@ -50,17 +56,16 @@ serve(async (req: Request) => {
         const customer = await stripe.customers.create({
           email: profile.email,
           name: profile.name,
-          metadata: { userId },
+          metadata: { userId: authenticatedUserId },
         });
         stripeCustomerId = customer.id;
         await supabaseAdmin
           .from('profiles')
           .update({ stripe_customer_id: stripeCustomerId })
-          .eq('id', userId);
+          .eq('id', authenticatedUserId);
       }
     }
 
-    // Obtener cuenta Connect del vendedor si hay storeId
     if (storeId) {
       const { data: store } = await supabaseAdmin
         .from('stores')
@@ -73,16 +78,14 @@ serve(async (req: Request) => {
       }
     }
 
-    // Si viene una tarjeta guardada, adjuntarla al cliente (por si no lo estaba)
     if (paymentMethodId && stripeCustomerId) {
       try {
         await stripe.paymentMethods.attach(paymentMethodId, { customer: stripeCustomerId });
       } catch (_e) {
-        // Ya estaba adjunta — ignorar el error
+        // Ya estaba adjunta
       }
     }
 
-    // Crear PaymentIntent con o sin reparto según si el vendedor tiene Connect
     const paymentIntentParams: Stripe.PaymentIntentCreateParams = {
       amount: Math.round(amount),
       currency: 'eur',
@@ -94,7 +97,6 @@ serve(async (req: Request) => {
     };
 
     if (stripeConnectAccountId) {
-      // Con Connect: el pago va al vendedor, LocalShop se queda la comisión
       paymentIntentParams.application_fee_amount = LOCALSHOP_FEE_CENTS;
       paymentIntentParams.transfer_data = { destination: stripeConnectAccountId };
     }
@@ -106,11 +108,7 @@ serve(async (req: Request) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error('[create-payment-intent]', message);
-    return new Response(
-      JSON.stringify({ error: message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-    );
+    console.error('[create-payment-intent]', err instanceof Error ? err.message : String(err));
+    return errorResponse(err, corsHeaders);
   }
 });

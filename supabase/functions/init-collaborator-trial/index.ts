@@ -1,6 +1,7 @@
 import Stripe from 'https://esm.sh/stripe@14.21.0?target=deno';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+import { requireAuth, UserFacingError, errorResponse } from '../_shared/auth.ts';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
   apiVersion: '2024-06-20',
@@ -12,23 +13,23 @@ const supabaseAdmin = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
 );
 
+const CORS_ORIGIN = Deno.env.get('APP_CORS_ORIGIN') || '*';
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': CORS_ORIGIN,
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
 const PRICE_FOUNDING = Deno.env.get('STRIPE_PRICE_FOUNDING')!;
 const PRICE_STANDARD = Deno.env.get('STRIPE_PRICE_STANDARD')!;
 
-// Socio Fundador: cualquiera que se registre antes del 31 dic 2026
 const FOUNDING_WINDOW_END = new Date('2026-12-31T23:59:59Z');
 
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const { userId } = await req.json() as { userId: string };
-    if (!userId) throw new Error('userId es obligatorio');
+    // userId siempre del JWT — nunca del cuerpo
+    const userId = await requireAuth(req);
 
     const { data: profile, error: profileErr } = await supabaseAdmin
       .from('profiles')
@@ -36,9 +37,8 @@ serve(async (req: Request) => {
       .eq('id', userId)
       .single();
 
-    if (profileErr || !profile) throw new Error('Usuario no encontrado');
+    if (profileErr || !profile) throw new UserFacingError('Perfil no encontrado');
 
-    // Crear o recuperar Stripe Customer
     let stripeCustomerId = profile.stripe_customer_id as string | null;
     if (!stripeCustomerId) {
       const customer = await stripe.customers.create({
@@ -54,16 +54,12 @@ serve(async (req: Request) => {
     }
 
     const joinedAt = new Date(profile.created_at);
-
-    // Socios fundadores: registrados antes del 31 dic 2026 → trial gratis hasta esa fecha, luego €4/mes
-    // Estándar: registrados después → pagan €7/mes desde el día 1, sin trial
     const isFoundingMember = joinedAt <= FOUNDING_WINDOW_END;
     const priceId = isFoundingMember ? PRICE_FOUNDING : PRICE_STANDARD;
     const trialEndUnix = isFoundingMember
       ? Math.floor(FOUNDING_WINDOW_END.getTime() / 1000)
       : undefined;
 
-    // Comprobar si ya existe una suscripción en DB
     const { data: existingSub } = await supabaseAdmin
       .from('collaborator_subscriptions')
       .select('stripe_subscription_id')
@@ -73,13 +69,11 @@ serve(async (req: Request) => {
     let subscriptionId: string;
 
     if (existingSub?.stripe_subscription_id) {
-      // Ya existe: actualizar trial_end en Stripe
       const updated = await stripe.subscriptions.update(existingSub.stripe_subscription_id, {
         ...(trialEndUnix ? { trial_end: trialEndUnix } : { trial_end: 'now' }),
       });
       subscriptionId = updated.id;
     } else {
-      // No existe: crear nueva suscripción
       const subscription = await stripe.subscriptions.create({
         customer:         stripeCustomerId,
         items:            [{ price: priceId }],
@@ -90,7 +84,6 @@ serve(async (req: Request) => {
       subscriptionId = subscription.id;
     }
 
-    // Guardar / actualizar en DB
     await supabaseAdmin
       .from('collaborator_subscriptions')
       .upsert({
@@ -105,11 +98,7 @@ serve(async (req: Request) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error('[init-collaborator-trial]', message);
-    return new Response(
-      JSON.stringify({ error: message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-    );
+    console.error('[init-collaborator-trial]', err instanceof Error ? err.message : String(err));
+    return errorResponse(err, corsHeaders);
   }
 });
