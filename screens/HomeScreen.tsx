@@ -4,7 +4,7 @@ import { Product } from '../types';
 import { stores } from '../data';
 import { ProductCard, StoreCard } from '../components/Card';
 import { Link } from 'react-router-dom';
-import { useProducts, useUser } from '../AppContext';
+import { useProducts, useUser, useStores } from '../AppContext';
 import { Logo } from '../components/Layout';
 
 const Icon = ({ name, className }: { name: string; className?: string }) => (
@@ -14,6 +14,9 @@ const Icon = ({ name, className }: { name: string; className?: string }) => (
 const HomeScreen: React.FC = () => {
     const { products } = useProducts();
     const { user } = useUser();
+    const { getStoreById } = useStores();
+    const currentStore = user.role === 'colaborador' && user.id ? getStoreById(user.id) : undefined;
+    const missingAddress = user.role === 'colaborador' && !currentStore?.addressStreet;
     const tagline = user.id && user.role === 'colaborador'
         ? '¡Vende como siempre, llega donde nunca!'
         : 'Descubre lo que nadie más lleva.';
@@ -130,6 +133,18 @@ const HomeScreen: React.FC = () => {
                     </Link>
                 </div>
             </div>
+
+            {/* Banner dirección de recogida pendiente */}
+            {missingAddress && (
+                <Link to="/profile/edit" className="mx-4 mt-3 mb-1 flex items-start gap-3 bg-primary/10 border border-primary/30 rounded-2xl p-4 active:scale-95 transition-transform">
+                    <Icon name="local_shipping" className="text-primary text-xl mt-0.5 shrink-0" />
+                    <div className="flex-1">
+                        <p className="text-xs font-black text-primary uppercase tracking-wide">Completa tu dirección de recogida</p>
+                        <p className="text-[10px] text-primary/80 mt-1 leading-relaxed">Necesitas añadir tu dirección para poder generar etiquetas de envío con Sendcloud.</p>
+                    </div>
+                    <Icon name="chevron_right" className="text-primary text-xl mt-0.5 shrink-0" />
+                </Link>
+            )}
 
             {/* Featured Stores Carousel */}
             <h2 className="text-text-light dark:text-text-dark text-lg font-bold px-4 pb-2 pt-4">Tiendas locales destacadas</h2>

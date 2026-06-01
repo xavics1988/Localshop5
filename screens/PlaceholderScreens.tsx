@@ -3340,6 +3340,80 @@ export const PaymentMethodsScreen: React.FC = () => {
                         }
                     </button>
                 )}
+
+                {/* Descuentos por suscripción anticipada */}
+                <div className="mt-4 space-y-4">
+                    <div className="flex items-center gap-3">
+                        <div className="flex-1 h-px bg-border-light dark:bg-border-dark" />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">Oferta de Lanzamiento</span>
+                        <div className="flex-1 h-px bg-border-light dark:bg-border-dark" />
+                    </div>
+
+                    <div className="bg-gradient-to-br from-primary/10 to-olive/10 border border-primary/20 rounded-[24px] p-5 space-y-4">
+                        <div className="flex items-start gap-3">
+                            <div className="size-10 rounded-xl bg-primary flex items-center justify-center shrink-0">
+                                <Icon name="workspace_premium" className="text-white text-xl" filled />
+                            </div>
+                            <div>
+                                <p className="font-black text-sm text-text-light dark:text-white">Sé Socio Fundador</p>
+                                <p className="text-xs text-text-subtle-light leading-relaxed mt-0.5">
+                                    Regístrate antes del <span className="font-black text-text-light dark:text-white">1 de enero de 2027</span> y bloquea tu precio de por vida.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            {/* Plan Socio Fundador */}
+                            <div className="bg-white dark:bg-accent-dark rounded-2xl p-4 border-2 border-primary/30 relative overflow-hidden">
+                                <div className="absolute top-0 right-0 bg-primary text-white text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-xl">
+                                    Tú estás aquí
+                                </div>
+                                <div className="flex items-center justify-between mt-1">
+                                    <div className="flex items-center gap-3">
+                                        <div className="size-9 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+                                            <Icon name="workspace_premium" className="text-amber-600 dark:text-amber-400 text-base" filled />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-black text-text-light dark:text-white">Socio Fundador</p>
+                                            <p className="text-[10px] text-text-subtle-light">Hasta el 1 ene. 2027</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-2xl font-black text-primary">0 €<span className="text-xs font-bold text-text-subtle-light">/mes</span></p>
+                                        <p className="text-[10px] text-text-subtle-light">¡Gratis durante el período!</p>
+                                    </div>
+                                </div>
+                                <div className="mt-3 pt-3 border-t border-border-light dark:border-border-dark flex items-center justify-between">
+                                    <p className="text-[10px] text-text-subtle-light">Después del 1 ene. 2027</p>
+                                    <p className="text-sm font-black text-text-light dark:text-white">4 €<span className="text-[10px] font-bold text-text-subtle-light">/mes de por vida</span></p>
+                                </div>
+                            </div>
+
+                            {/* Plan Estándar */}
+                            <div className="bg-white dark:bg-accent-dark rounded-2xl p-4 flex items-center justify-between border border-border-light dark:border-border-dark opacity-50">
+                                <div className="flex items-center gap-3">
+                                    <div className="size-9 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                                        <Icon name="storefront" className="text-text-subtle-light text-base" />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-black text-text-light dark:text-white">Plan Estándar</p>
+                                        <p className="text-[10px] text-text-subtle-light">A partir del 1 ene. 2027</p>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-xl font-black text-text-light dark:text-white">7,99 €<span className="text-xs font-bold text-text-subtle-light">/mes</span></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-primary/5 rounded-xl px-4 py-3 flex items-start gap-2">
+                            <Icon name="info" className="text-primary text-base shrink-0 mt-0.5" />
+                            <p className="text-[10px] text-text-subtle-light leading-relaxed">
+                                La tarifa de Socio Fundador (4 €/mes) queda fijada de por vida mientras mantengas tu suscripción activa. Sin permanencia, cancela cuando quieras.
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </main>
 
             {/* Modal confirmación desconexión */}
@@ -3582,6 +3656,17 @@ export const EditCustomerProfileScreen: React.FC = () => {
                             <p className="text-[10px] text-text-subtle-light dark:text-text-subtle-dark leading-relaxed">
                                 Esta dirección se usa como remitente al generar etiquetas de envío automáticamente.
                             </p>
+                            {!formData.addressStreet && (
+                                <div className="flex items-start gap-3 bg-primary/10 border border-primary/30 rounded-2xl p-4">
+                                    <Icon name="warning" className="text-primary text-xl mt-0.5 shrink-0" />
+                                    <div>
+                                        <p className="text-xs font-black text-primary uppercase tracking-wide">Completa tu dirección de recogida</p>
+                                        <p className="text-[10px] text-primary/80 mt-1 leading-relaxed">
+                                            Para poder generar etiquetas de envío necesitas rellenar los campos de dirección a continuación.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
                             <FormInput
                                 label="Calle"
                                 placeholder="Calle Mayor"

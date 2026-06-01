@@ -44,7 +44,7 @@ const AppContent: React.FC = () => {
     useEffect(() => {
         if (isBootstrapping || !user.id || user.role !== 'colaborador') return;
         if (user.storeId && stores.length === 0) return; // espera que carguen las tiendas
-        if (ONBOARDING_EXEMPT_PATHS.some(p => location.pathname.startsWith(p))) return;
+        if (!location.pathname.startsWith('/publish') && !location.pathname.startsWith('/manage-catalog')) return;
 
         const currentStore = stores.find(s => s.id === user.storeId);
         const hasStripeConnected = !!currentStore?.stripeConnectOnboarded;
