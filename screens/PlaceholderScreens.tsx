@@ -3701,7 +3701,7 @@ export const EditCustomerProfileScreen: React.FC = () => {
                                 onChange={(v: string) => setFormData(p => ({ ...p, addressCity: truncate(sanitizeRaw(v), 80) }))}
                             />
                             <div className="space-y-1.5 relative">
-                                <label className="text-xs font-black uppercase tracking-widest text-text-light dark:text-text-dark opacity-70">Provincia</label>
+                                <label className="text-xs font-black uppercase tracking-widest text-text-light dark:text-text-dark opacity-70">Provincia de Recogida (Sendcloud)</label>
                                 <div className="relative">
                                     <Icon name="location_on" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-light/50 dark:text-text-dark/50" />
                                     <select
@@ -3721,7 +3721,7 @@ export const EditCustomerProfileScreen: React.FC = () => {
                     )}
 
                     <div className="space-y-1.5 relative">
-                        <label className="text-xs font-black uppercase tracking-widest text-text-light dark:text-text-dark opacity-70">Dirección Local (Provincia)</label>
+                        <label className="text-xs font-black uppercase tracking-widest text-text-light dark:text-text-dark opacity-70">Ubicación Pública de la Tienda</label>
                         <div className="relative">
                             <Icon name="location_on" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-light/50 dark:text-text-dark/50" />
                             <select
