@@ -32,13 +32,62 @@ serve(async (req: Request) => {
   try {
     switch (event.type) {
       case 'payment_intent.succeeded': {
-        const pi     = event.data.object as Stripe.PaymentIntent;
+        const pi      = event.data.object as Stripe.PaymentIntent;
         const orderId = pi.metadata?.orderId;
-        if (orderId) {
-          await supabaseAdmin
-            .from('orders')
-            .update({ stripe_payment_intent_id: pi.id })
-            .eq('id', orderId);
+        if (!orderId) break;
+
+        await supabaseAdmin
+          .from('orders')
+          .update({ stripe_payment_intent_id: pi.id })
+          .eq('id', orderId);
+
+        // Auto-transfers para pedidos multi-tienda
+        const { data: subOrders } = await supabaseAdmin
+          .from('sub_orders')
+          .select('id, store_id, collaborator_id, subtotal')
+          .eq('parent_order_id', orderId)
+          .is('stripe_transfer_id', null); // idempotencia
+
+        if (subOrders && subOrders.length > 0) {
+          const chargeId = typeof pi.latest_charge === 'string'
+            ? pi.latest_charge
+            : (pi.latest_charge as Stripe.Charge | null)?.id;
+
+          for (const sub of subOrders) {
+            const { data: store } = await supabaseAdmin
+              .from('stores')
+              .select('stripe_connect_account_id, stripe_connect_onboarded')
+              .eq('id', sub.store_id)
+              .single();
+
+            if (!store?.stripe_connect_onboarded || !store?.stripe_connect_account_id) {
+              console.log(`[stripe-webhook] sub_order ${sub.id}: tienda sin Connect, pendiente de payout quincenal`);
+              continue;
+            }
+
+            try {
+              const transfer = await stripe.transfers.create({
+                amount:      Math.round(sub.subtotal * 100),
+                currency:    'eur',
+                destination: store.stripe_connect_account_id,
+                ...(chargeId ? { source_transaction: chargeId } : {}),
+                metadata: {
+                  subOrderId: sub.id,
+                  orderId,
+                  storeId:   sub.store_id,
+                  sellerId:  sub.collaborator_id ?? '',
+                },
+              });
+
+              await supabaseAdmin
+                .from('sub_orders')
+                .update({ stripe_transfer_id: transfer.id })
+                .eq('id', sub.id);
+            } catch (transferErr) {
+              console.error(`[stripe-webhook] Transfer fallido sub_order ${sub.id}:`, transferErr);
+              // Continuar con los demás sub_orders aunque uno falle
+            }
+          }
         }
         break;
       }

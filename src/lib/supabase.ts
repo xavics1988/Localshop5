@@ -60,6 +60,12 @@ export type DbStore = {
   category: string;
   image_url: string;
   address: string | null;
+  address_street: string | null;
+  address_number: string | null;
+  address_postal_code: string | null;
+  address_city: string | null;
+  address_province: string | null;
+  address_country: string | null;
   description: string | null;
   rating: number | null;
   cif: string | null;
@@ -79,8 +85,26 @@ export type DbOrder = {
   status: string;
   items: any[];
   total: number;
+  shipping_fee: number | null;
+  customer_delivery_fee: number | null;
   destination_iban: string | null;
+  stripe_payment_intent_id: string | null;
   history: any[];
+  // Dirección de entrega
+  shipping_name: string | null;
+  shipping_street: string | null;
+  shipping_number: string | null;
+  shipping_postal_code: string | null;
+  shipping_city: string | null;
+  shipping_province: string | null;
+  shipping_country: string | null;
+  shipping_phone: string | null;
+  // Sendcloud tracking
+  sendcloud_parcel_id: number | null;
+  shipping_label_url: string | null;
+  tracking_number: string | null;
+  carrier: string | null;
+  shipping_label_cost: number | null;
 };
 
 export type DbCartItem = {
@@ -140,6 +164,12 @@ export function dbStoreToStore(s: DbStore): Store {
     category:               s.category,
     imageUrl:               s.image_url,
     address:                s.address ?? undefined,
+    addressStreet:          s.address_street ?? undefined,
+    addressNumber:          s.address_number ?? undefined,
+    addressPostalCode:      s.address_postal_code ?? undefined,
+    addressCity:            s.address_city ?? undefined,
+    addressProvince:        s.address_province ?? undefined,
+    addressCountry:         s.address_country ?? undefined,
     description:            s.description ?? undefined,
     rating:                 s.rating ?? undefined,
     cif:                    s.cif ?? undefined,
@@ -154,15 +184,33 @@ export function dbStoreToStore(s: DbStore): Store {
 
 export function dbOrderToOrder(o: DbOrder): Order {
   return {
-    id:              o.id,
-    customerId:      o.customer_id,
-    customerName:    o.customer_name,
-    date:            o.date,
-    status:          o.status as Order['status'],
-    items:           o.items || [],
-    total:           Number(o.total),
-    destinationIban: o.destination_iban ?? undefined,
-    history:         o.history || [],
+    id:                    o.id,
+    customerId:            o.customer_id,
+    customerName:          o.customer_name,
+    date:                  o.date,
+    status:                o.status as Order['status'],
+    items:                 o.items || [],
+    total:                 Number(o.total),
+    shippingFee:           o.shipping_fee != null ? Number(o.shipping_fee) : undefined,
+    customerDeliveryFee:   o.customer_delivery_fee != null ? Number(o.customer_delivery_fee) : 0,
+    destinationIban:       o.destination_iban ?? undefined,
+    stripePaymentIntentId: o.stripe_payment_intent_id ?? undefined,
+    history:               o.history || [],
+    shippingAddress: (o.shipping_street || o.shipping_name) ? {
+      name:       o.shipping_name       ?? undefined,
+      street:     o.shipping_street     ?? undefined,
+      number:     o.shipping_number     ?? undefined,
+      postalCode: o.shipping_postal_code ?? undefined,
+      city:       o.shipping_city       ?? undefined,
+      province:   o.shipping_province   ?? undefined,
+      country:    o.shipping_country    ?? undefined,
+      phone:      o.shipping_phone      ?? undefined,
+    } : undefined,
+    sendcloudParcelId: o.sendcloud_parcel_id ?? undefined,
+    shippingLabelUrl:  o.shipping_label_url  ?? undefined,
+    trackingNumber:    o.tracking_number     ?? undefined,
+    carrier:           o.carrier             ?? undefined,
+    shippingLabelCost: o.shipping_label_cost != null ? Number(o.shipping_label_cost) : undefined,
   };
 }
 
@@ -202,6 +250,12 @@ export function storeToDb(s: Store, ownerId?: string): DbStore & { owner_id?: st
     category:                  s.category,
     image_url:                 s.imageUrl,
     address:                   s.address ?? null,
+    address_street:            s.addressStreet ?? null,
+    address_number:            s.addressNumber ?? null,
+    address_postal_code:       s.addressPostalCode ?? null,
+    address_city:              s.addressCity ?? null,
+    address_province:          s.addressProvince ?? null,
+    address_country:           s.addressCountry ?? null,
     description:               s.description ?? null,
     rating:                    s.rating ?? null,
     cif:                       s.cif ?? null,

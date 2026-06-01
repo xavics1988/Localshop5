@@ -34,7 +34,13 @@ export interface Store {
   businessName?: string; // Nombre Legal/Empresa (Privado)
   category: string;
   imageUrl: string;
-  address?: string;
+  address?: string;        // string libre (legacy)
+  addressStreet?: string;
+  addressNumber?: string;
+  addressPostalCode?: string;
+  addressCity?: string;
+  addressProvince?: string;
+  addressCountry?: string;
   description?: string;
   products?: Product[];
   reviews?: Review[];
@@ -93,6 +99,17 @@ export interface OrderEvent {
   label: string;
 }
 
+export interface ShippingAddress {
+  name?:       string;
+  street?:     string;
+  number?:     string;
+  postalCode?: string;
+  city?:       string;
+  province?:   string;
+  country?:    string;
+  phone?:      string;
+}
+
 export interface Order {
   id: string;
   customerId: string;
@@ -101,10 +118,52 @@ export interface Order {
   status: OrderStatus;
   items: OrderItem[];
   total: number;
-  shippingFee?: number;             // €3.99 — comisión LocalShop por gestión de envío
-  destinationIban?: string;         // IBAN donde se recibió el pago (LocalShop)
-  stripePaymentIntentId?: string;   // ID del PaymentIntent de Stripe
+  shippingFee?: number;             // €3.99 — comisión LocalShop (IVA incluido)
+  customerDeliveryFee?: number;     // €4.50 o €0 — envío pagado por el cliente al pedir
+  destinationIban?: string;
+  stripePaymentIntentId?: string;
   history?: OrderEvent[];
+  // Dirección de entrega
+  shippingAddress?: ShippingAddress;
+  // Tracking Sendcloud
+  sendcloudParcelId?: number;
+  shippingLabelUrl?: string;
+  trackingNumber?: string;
+  carrier?: string;
+  shippingLabelCost?: number;
+}
+
+export type SubOrderStatus = 'Nuevo' | 'En Proceso' | 'Completado' | 'Devolución Solicitada' | 'Devuelto' | 'Cancelado';
+
+export interface SubOrder {
+  id: string;
+  parentOrderId: string;
+  storeId?: string;
+  collaboratorId?: string;
+  items: OrderItem[];
+  subtotal: number;
+  stripeTransferId?: string;
+  status: SubOrderStatus;
+  history: OrderEvent[];
+  createdAt: string;
+}
+
+export type MediationStatus = 'pendiente' | 'resuelto';
+export type MediationResolution = 'favor_cliente' | 'favor_colaborador';
+
+export interface Mediation {
+  id: string;
+  returnId: string;
+  orderId: string;
+  customerId: string;
+  collaboratorId: string;
+  status: MediationStatus;
+  customerReason?: string;
+  adminNotes?: string;
+  resolution?: MediationResolution;
+  adminRefundAmount?: number;
+  createdAt: string;
+  resolvedAt?: string;
 }
 
 export interface BankAccount {
@@ -180,6 +239,7 @@ export type ReturnStatus = 'pendiente' | 'acordado' | 'rechazado' | 'completado'
 export interface ReturnRequest {
   id: string;
   orderId: string;
+  subOrderId?: string;
   customerId: string;
   collaboratorId: string;
   type: DevolucionTipo;
@@ -188,8 +248,15 @@ export interface ReturnRequest {
   returnShippingCost: number;
   refundAmount?: number;
   collaboratorCharge?: number;
+  stripeRefundId?: string;
   resolvedAt?: string;
   createdAt: string;
+  // Etiqueta retorno Sendcloud
+  sendcloudReturnId?: number;
+  returnLabelUrl?: string;
+  returnTrackingNumber?: string;
+  returnCarrier?: string;
+  returnLabelCost?: number;
 }
 
 export interface ReturnMessage {
@@ -201,12 +268,21 @@ export interface ReturnMessage {
   createdAt: string;
 }
 
+export interface MultiStoreSubOrderInput {
+  storeId: string;
+  collaboratorId: string;
+  items: OrderItem[];
+  subtotal: number;
+  shippingFee: number;
+}
+
 export interface OrderContextType {
     orders: Order[];
     invoices: Invoice[];
     payouts: Payout[];
     returnRequests: ReturnRequest[];
     addOrder: (order: Omit<Order, 'id' | 'date' | 'status' | 'customerId'>) => Promise<void>;
+    addMultiStoreOrder: (order: Omit<Order, 'id' | 'date' | 'status' | 'customerId'>, subOrders: MultiStoreSubOrderInput[]) => Promise<void>;
     initiateVendorPayout: (payoutId: string) => Promise<void>;
     requestReturn: (orderId: string) => void;
     requestReturnWithType: (orderId: string, type: DevolucionTipo, reason: string, collaboratorId: string) => Promise<void>;

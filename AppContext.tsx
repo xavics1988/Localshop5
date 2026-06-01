@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Product, OrderItem, Order, OrderStatus, Review, Store, BankAccount, PaymentCard, PlatformAccount, OrderContextType, OrderEvent, UserProfile, CollaboratorSubscription, Invoice, Payout, ReturnRequest, ReturnMessage, DevolucionTipo } from './types';
+import { Product, OrderItem, Order, OrderStatus, Review, Store, BankAccount, PaymentCard, PlatformAccount, OrderContextType, OrderEvent, UserProfile, CollaboratorSubscription, Invoice, Payout, ReturnRequest, ReturnMessage, DevolucionTipo, MultiStoreSubOrderInput } from './types';
 import { CLOTHING_CATEGORIES } from './data';
 import {
   supabase,
@@ -790,15 +790,24 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const isFirstPurchase = orders.filter(o => o.customerId === user.id).length === 0;
 
     const { error } = await supabase.rpc('place_order', {
-      p_order_id:          newOrder.id,
-      p_customer_id:       user.id,
-      p_customer_name:     user.name,
-      p_items:             newOrder.items,
-      p_total:             newOrder.total,
-      p_destination_iban:  LOCALSHOP_PLATFORM_ACCOUNT.iban,
-      p_referred_by:       user.referredBy ?? null,
-      p_is_first_purchase: isFirstPurchase,
-      p_shipping_fee:      LOCALSHOP_FEE
+      p_order_id:               newOrder.id,
+      p_customer_id:            user.id,
+      p_customer_name:          user.name,
+      p_items:                  newOrder.items,
+      p_total:                  newOrder.total,
+      p_destination_iban:       LOCALSHOP_PLATFORM_ACCOUNT.iban,
+      p_referred_by:            user.referredBy ?? null,
+      p_is_first_purchase:      isFirstPurchase,
+      p_shipping_fee:           LOCALSHOP_FEE,
+      p_customer_delivery_fee:  newOrder.customerDeliveryFee ?? 0,
+      p_shipping_name:          newOrder.shippingAddress?.name    ?? null,
+      p_shipping_street:        newOrder.shippingAddress?.street  ?? null,
+      p_shipping_number:        newOrder.shippingAddress?.number  ?? null,
+      p_shipping_postal_code:   newOrder.shippingAddress?.postalCode ?? null,
+      p_shipping_city:          newOrder.shippingAddress?.city    ?? null,
+      p_shipping_province:      newOrder.shippingAddress?.province ?? null,
+      p_shipping_country:       newOrder.shippingAddress?.country ?? 'ES',
+      p_shipping_phone:         newOrder.shippingAddress?.phone   ?? null,
     });
 
     if (error) {
@@ -828,6 +837,81 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (isFirstPurchase && user.referredBy) {
       notify('¡Recompensa!', 'Tu referidor ha ganado 2€ por tu primera compra', 'redeem');
     }
+  }, [createEvent, user, orders, notify]);
+
+  // Pedido multi-tienda: un pago, múltiples sub_orders (uno por tienda)
+  const addMultiStoreOrder = useCallback(async (
+    orderData: Omit<Order, 'id' | 'date' | 'status' | 'customerId'>,
+    subOrders: MultiStoreSubOrderInput[],
+  ) => {
+    const newOrder: Order = {
+      ...orderData,
+      id:            `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
+      customerId:    user.id,
+      date:          new Date().toISOString(),
+      status:        'Nuevo',
+      destinationIban: LOCALSHOP_PLATFORM_ACCOUNT.iban,
+      history:       [createEvent('Nuevo', 'Pedido Multi-Tienda Realizado')],
+    };
+
+    setOrders(prev => [newOrder, ...prev]);
+    setCartItems([]);
+
+    const isFirstPurchase = orders.filter(o => o.customerId === user.id).length === 0;
+
+    const subOrdersPayload = subOrders.map(s => ({
+      store_id:        s.storeId,
+      collaborator_id: s.collaboratorId,
+      items:           s.items,
+      subtotal:        s.subtotal,
+      shipping_fee:    s.shippingFee,
+    }));
+
+    const { error } = await supabase.rpc('place_multi_store_order', {
+      p_order_id:              newOrder.id,
+      p_customer_id:           user.id,
+      p_customer_name:         user.name,
+      p_items:                 newOrder.items,
+      p_total:                 newOrder.total,
+      p_destination_iban:      LOCALSHOP_PLATFORM_ACCOUNT.iban,
+      p_sub_orders:            subOrdersPayload,
+      p_localshop_fee:         LOCALSHOP_FEE,
+      p_customer_delivery_fee: newOrder.customerDeliveryFee ?? 0,
+      p_referred_by:           user.referredBy ?? null,
+      p_is_first_purchase:     isFirstPurchase,
+    });
+
+    if (error) {
+      setOrders(prev => prev.filter(o => o.id !== newOrder.id));
+      notify('Error', 'No se pudo procesar el pedido multi-tienda. Inténtalo de nuevo.', 'error');
+      return;
+    }
+
+    if (newOrder.stripePaymentIntentId) {
+      await supabase.from('orders')
+        .update({ stripe_payment_intent_id: newOrder.stripePaymentIntentId })
+        .eq('id', newOrder.id);
+
+      // Disparar transfers a vendedores con Connect onboarded (fire-and-forget)
+      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-multistore-transfers`, {
+        method:  'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ orderId: newOrder.id, paymentIntentId: newOrder.stripePaymentIntentId }),
+      }).catch(e => console.error('[addMultiStoreOrder] transfers trigger failed:', e));
+    }
+
+    const productIds = orderData.items.map(i => i.product.id);
+    supabase.from('products').select('id,stock,stock_per_size').in('id', productIds)
+      .then(({ data }) => {
+        if (!data) return;
+        setProducts(prev => prev.map(p => {
+          const updated = data.find((d: any) => d.id === p.id);
+          return updated ? { ...p, stock: updated.stock, stockPerSize: updated.stock_per_size } : p;
+        }));
+      });
   }, [createEvent, user, orders, notify]);
 
   const initiateVendorPayout = useCallback(async (payoutId: string) => {
@@ -925,7 +1009,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     // Cerrar la disputa: marcar return_request como 'completado' y borrar mensajes del chat
     const { data: rr } = await supabase
       .from('return_requests')
-      .select('id')
+      .select('id, type, stripe_refund_id')
       .eq('order_id', orderId)
       .in('status', ['acordado', 'pendiente'])
       .maybeSingle();
@@ -933,6 +1017,18 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       await supabase.from('return_messages').delete().eq('return_id', rr.id);
       await supabase.from('return_requests').update({ status: 'completado' }).eq('id', rr.id);
       setReturnRequests((prev: ReturnRequest[]) => prev.map((r: ReturnRequest) => r.id === rr.id ? { ...r, status: 'completado' as const } : r));
+
+      // Desistimiento: el colaborador confirma recepción del artículo → emitir reembolso Stripe ahora
+      if (rr.type === 'desistimiento' && !rr.stripe_refund_id) {
+        const { error: refundErr } = await supabase.functions.invoke('process-return-refund', {
+          body: { returnId: rr.id },
+        });
+        if (refundErr) {
+          notify('Aviso', 'Devolución procesada, pero el reembolso Stripe necesita revisión manual.', 'warning');
+        } else {
+          notify('Reembolso emitido', 'El cliente recibirá el importe en su tarjeta.', 'payments');
+        }
+      }
     }
   }, [orders, notify]);
 
@@ -942,6 +1038,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const dbReturnToReturnRequest = (r: any): ReturnRequest => ({
     id:                 r.id,
     orderId:            r.order_id,
+    subOrderId:         r.sub_order_id ?? undefined,
     customerId:         r.customer_id,
     collaboratorId:     r.collaborator_id,
     type:               r.type,
@@ -950,6 +1047,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     returnShippingCost: r.return_shipping_cost,
     refundAmount:       r.refund_amount,
     collaboratorCharge: r.collaborator_charge,
+    stripeRefundId:     r.stripe_refund_id ?? undefined,
     resolvedAt:         r.resolved_at,
     createdAt:          r.created_at,
   });
@@ -991,8 +1089,15 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return;
     }
 
-    const shippingCost = 4.50;
     const isDesistimiento = type === 'desistimiento';
+
+    // Desistimiento: reembolso = precio del producto únicamente.
+    // El cliente paga el envío de retorno directamente en la empresa de transporte (fuera de la app).
+    // El reembolso se emite cuando el colaborador confirma que recibió el artículo.
+    const desistimientoRefund = Math.max(
+      order.total - LOCALSHOP_FEE - (order.customerDeliveryFee ?? 0),
+      0,
+    );
 
     const { data: rr, error } = await supabase.from('return_requests').insert({
       order_id:             orderId,
@@ -1000,9 +1105,9 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       collaborator_id:      collaboratorId,
       type,
       reason,
-      return_shipping_cost: shippingCost,
+      return_shipping_cost: 0,
       status:               isDesistimiento ? 'acordado' : 'pendiente',
-      refund_amount:        isDesistimiento ? order.total - shippingCost : null,
+      refund_amount:        isDesistimiento ? desistimientoRefund : null,
       collaborator_charge:  isDesistimiento ? 0 : null,
       resolved_at:          isDesistimiento ? new Date().toISOString() : null,
     }).select().single();
@@ -1017,7 +1122,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const newHistory = [...(order.history || []), event];
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'Devolución Solicitada', history: newHistory } : o));
       await supabase.from('orders').update({ status: 'Devolución Solicitada', history: newHistory }).eq('id', orderId);
-      notify('Devolución iniciada', `Importe a reembolsar: €${(order.total - shippingCost).toFixed(2)} (se descuentan €${shippingCost.toFixed(2)} de envío de vuelta).`, 'assignment_return');
+      notify('Devolución iniciada', `Recibirás €${desistimientoRefund.toFixed(2)} cuando el colaborador confirme la recepción del artículo. Lleva el paquete a tu empresa de transporte para enviarlo de vuelta.`, 'assignment_return');
     } else {
       notify('Chat abierto', 'Hemos abierto un chat con el colaborador para resolver la incidencia.', 'chat');
     }
@@ -1055,17 +1160,45 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, []);
 
   const resolveReturnDispute = useCallback(async (returnId: string, decision: 'acordado' | 'rechazado') => {
+    // Obtener el orderId antes de resolver (necesario para el reembolso Stripe)
+    const rr = returnRequests.find(r => r.id === returnId);
+
     const { error } = await supabase.rpc('resolve_return', { p_return_id: returnId, p_decision: decision });
     if (error) {
       notify('Error', 'No se pudo resolver la disputa.', 'error');
       return;
     }
+
     if (decision === 'acordado') {
-      notify('Acuerdo alcanzado', 'La devolución ha sido aceptada. El cliente devolverá el artículo.', 'handshake');
+      notify('Acuerdo alcanzado', 'La devolución ha sido aceptada. Emitiendo reembolso al cliente...', 'handshake');
+      // error_tara acordado → reembolso Stripe inmediato (culpa del colaborador)
+      if (rr?.type === 'error_tara' && rr.id && !rr.stripeRefundId) {
+        const { error: refundErr } = await supabase.functions.invoke('process-return-refund', {
+          body: { returnId: rr.id },
+        });
+        if (refundErr) {
+          notify('Aviso', 'El acuerdo se ha guardado pero el reembolso Stripe necesita revisión manual.', 'warning');
+        } else {
+          notify('Reembolso emitido', 'El cliente recibirá el importe en su tarjeta.', 'payments');
+          // Generar etiqueta de devolución prepagada y enviarla por email al cliente
+          supabase.functions.invoke('generate-return-label', { body: { returnId: rr.id } })
+            .then(({ error: labelErr }) => {
+              if (labelErr) {
+                notify('Aviso', 'El reembolso está OK pero la etiqueta de devolución necesita generarse manualmente.', 'warning');
+              } else {
+                notify('Etiqueta enviada', 'El cliente ha recibido la etiqueta de devolución por email.', 'local_shipping');
+              }
+            })
+            .catch(e => console.error('[generate-return-label]', e));
+        }
+      }
     } else {
-      notify('Disputa cerrada', 'Has rechazado la reclamación de error.', 'cancel');
+      notify('Disputa cerrada', 'Has rechazado la reclamación. LocalShop intervendrá como mediador.', 'cancel');
+      // Notificar al admin para iniciar mediación
+      supabase.functions.invoke('notify-mediation', { body: { returnId } })
+        .catch(e => console.error('[notify-mediation]', e));
     }
-  }, [notify]);
+  }, [notify, returnRequests]);
 
   // Cargar facturas del usuario actual
   useEffect(() => {
@@ -1214,7 +1347,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     })));
   }, [user.id]);
 
-  const orderValue         = useMemo(() => ({ orders, invoices, payouts, returnRequests, addOrder, initiateVendorPayout, requestReturn, requestReturnWithType, processReturn, updateOrderStatus, refetchInvoices, sendReturnMessage, fetchReturnMessages, resolveReturnDispute, getReturnForOrder }), [orders, invoices, payouts, returnRequests, addOrder, initiateVendorPayout, requestReturn, requestReturnWithType, processReturn, updateOrderStatus, refetchInvoices, sendReturnMessage, fetchReturnMessages, resolveReturnDispute, getReturnForOrder]);
+  const orderValue         = useMemo(() => ({ orders, invoices, payouts, returnRequests, addOrder, addMultiStoreOrder, initiateVendorPayout, requestReturn, requestReturnWithType, processReturn, updateOrderStatus, refetchInvoices, sendReturnMessage, fetchReturnMessages, resolveReturnDispute, getReturnForOrder }), [orders, invoices, payouts, returnRequests, addOrder, addMultiStoreOrder, initiateVendorPayout, requestReturn, requestReturnWithType, processReturn, updateOrderStatus, refetchInvoices, sendReturnMessage, fetchReturnMessages, resolveReturnDispute, getReturnForOrder]);
   const reviewValue        = useMemo(() => ({ addReview, getStoreReviews, getUserReviews }), [addReview, getStoreReviews, getUserReviews]);
   const notificationValue  = useMemo(() => ({
     settings:                 notifSettings,

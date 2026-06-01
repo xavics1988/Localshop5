@@ -1940,7 +1940,7 @@ const ReturnRequestModal: React.FC<{
                                 <p className="text-[10px] text-text-subtle-light leading-relaxed pl-6">Cambio de opinión, talla equivocada al pedir, ya no lo necesito.</p>
                                 <div className="pl-6 mt-1 flex items-center gap-1.5 text-amber-600">
                                     <span className="material-symbols-outlined text-xs">info</span>
-                                    <span className="text-[10px] font-bold">Los gastos de envío de vuelta (€{shippingCost.toFixed(2)}) corren a tu cargo. Reembolso estimado: <strong>€{(order.total - shippingCost).toFixed(2)}</strong></span>
+                                    <span className="text-[10px] font-bold">Debes llevar el artículo a tu empresa de transporte y pagar el envío. Recibirás <strong>€{Math.max(order.total - (order.shippingFee ?? 3.99) - (order.customerDeliveryFee ?? 0), 0).toFixed(2)}</strong> cuando el colaborador confirme la recepción.</span>
                                 </div>
                             </button>
 
@@ -2174,10 +2174,30 @@ const ReturnChatModal: React.FC<{
 
             {/* Resumen si acordado */}
             {returnRequest.status === 'acordado' && (
-                <div className="px-4 py-3 bg-green-50 dark:bg-green-900/10 border-t border-green-200 dark:border-green-800/20">
-                    <p className="text-[10px] font-bold text-green-700 dark:text-green-400 text-center">
-                        ✓ Acuerdo alcanzado — Reembolso: €{returnRequest.refundAmount?.toFixed(2)} {returnRequest.collaboratorCharge ? `· Cargo colaborador: €${returnRequest.collaboratorCharge.toFixed(2)}` : ''}
-                    </p>
+                <div className="border-t border-green-200 dark:border-green-800/20">
+                    <div className="px-4 py-3 bg-green-50 dark:bg-green-900/10">
+                        <p className="text-[10px] font-bold text-green-700 dark:text-green-400 text-center">
+                            ✓ Acuerdo alcanzado — Reembolso: €{returnRequest.refundAmount?.toFixed(2)} {returnRequest.collaboratorCharge ? `· Cargo colaborador: €${returnRequest.collaboratorCharge.toFixed(2)}` : ''}
+                        </p>
+                    </div>
+                    {!isCollab && returnRequest.returnLabelUrl && (
+                        <div className="px-4 pb-3 bg-blue-50 dark:bg-blue-900/10 flex items-center gap-3 py-3">
+                            <span className="material-symbols-outlined text-blue-600 text-xl">local_shipping</span>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-[10px] font-black text-blue-700 dark:text-blue-400 uppercase tracking-widest">Etiqueta de devolución</p>
+                                <p className="text-[9px] text-blue-600/70 dark:text-blue-400/70 leading-tight mt-0.5">Imprímela y pégala en el paquete. El envío está prepagado.</p>
+                            </div>
+                            <a
+                                href={returnRequest.returnLabelUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="shrink-0 h-9 px-3 bg-blue-600 text-white text-[9px] font-black uppercase tracking-widest rounded-xl flex items-center gap-1.5 active:scale-95 transition-transform"
+                            >
+                                <span className="material-symbols-outlined text-sm">download</span>
+                                PDF
+                            </a>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -2321,9 +2341,23 @@ export const OrdersScreen: React.FC = () => {
         notify('Devolución Aceptada', 'El stock ha sido actualizado automáticamente.', 'inventory_2');
     };
 
-    const handleAcceptOrder = (orderId: string) => {
-        updateOrderStatus(orderId, 'En Proceso');
+    const handleAcceptOrder = async (orderId: string) => {
+        await updateOrderStatus(orderId, 'En Proceso');
         notify('Pedido Aceptado', 'El cliente ha sido notificado y el pedido está en proceso.', 'local_shipping', undefined, '/orders');
+        // Generar etiqueta de envío via Sendcloud
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            await fetch(`${SUPABASE_URL}/functions/v1/generate-shipping-label`, {
+                method:  'POST',
+                headers: {
+                    'Content-Type':  'application/json',
+                    'Authorization': `Bearer ${session?.access_token}`,
+                },
+                body: JSON.stringify({ orderId }),
+            });
+        } catch (e) {
+            console.error('[handleAcceptOrder] generate-shipping-label failed:', e);
+        }
     };
 
     const handleCancelOrder = (orderId: string) => {
@@ -2415,7 +2449,7 @@ export const OrdersScreen: React.FC = () => {
                                     <div className="bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800/20 rounded-2xl p-3 space-y-1">
                                         <p className="text-[10px] font-black text-green-700 dark:text-green-400 uppercase tracking-widest">Devolución acordada</p>
                                         {returnReq.type === 'desistimiento' ? (
-                                            <p className="text-[10px] text-green-600 dark:text-green-300">Reembolso estimado: <strong>€{returnReq.refundAmount?.toFixed(2)}</strong> (se descuentan €4.50 de envío de vuelta)</p>
+                                            <p className="text-[10px] text-green-600 dark:text-green-300">Reembolso estimado: <strong>€{returnReq.refundAmount?.toFixed(2)}</strong> · Lleva el artículo a tu empresa de transporte para devolverlo</p>
                                         ) : (
                                             <p className="text-[10px] text-green-600 dark:text-green-300">Reembolso al cliente: <strong>€{returnReq.refundAmount?.toFixed(2)} (100%)</strong>{isCollab ? ` · Cargo a tu payout: €${returnReq.collaboratorCharge?.toFixed(2)}` : ''}</p>
                                         )}
@@ -2550,6 +2584,33 @@ export const OrdersScreen: React.FC = () => {
                                     </div>
                                 )}
 
+                                {/* Etiqueta de envío — colaborador */}
+                                {isCollab && order.status === 'En Proceso' && order.shippingLabelUrl && (
+                                    <div className="mt-2 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800/20 rounded-2xl p-3 space-y-2">
+                                        <p className="text-[10px] font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">Etiqueta lista</p>
+                                        {order.trackingNumber && (
+                                            <p className="text-[10px] text-emerald-600 dark:text-emerald-300">Tracking: <strong>{order.trackingNumber}</strong> · {order.carrier}</p>
+                                        )}
+                                        <a
+                                            href={order.shippingLabelUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center gap-2 h-9 px-4 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform w-fit"
+                                        >
+                                            <Icon name="print" className="text-sm" />
+                                            Descargar etiqueta PDF
+                                        </a>
+                                    </div>
+                                )}
+
+                                {/* Tracking — cliente */}
+                                {!isCollab && order.trackingNumber && order.status === 'En Proceso' && (
+                                    <div className="mt-2 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/20 rounded-2xl p-3 space-y-1">
+                                        <p className="text-[10px] font-black text-blue-700 dark:text-blue-400 uppercase tracking-widest">Tu pedido está en camino</p>
+                                        <p className="text-[10px] text-blue-600 dark:text-blue-300">Tracking: <strong>{order.trackingNumber}</strong> · {order.carrier}</p>
+                                    </div>
+                                )}
+
                                 {isCollab && order.status === 'Devolución Solicitada' && (
                                     <button
                                         onClick={() => handleConfirmReception(order.id)}
@@ -2639,7 +2700,8 @@ export const PaymentScreen: React.FC = () => {
     const stripe     = useStripe();
     const elements   = useElements();
     const { cartItems, clearCart } = useCart();
-    const { addOrder } = useOrders();
+    const { addOrder, addMultiStoreOrder } = useOrders();
+    const { stores } = useStores();
     const { user, paymentMethods, addPaymentMethod, useReferralBalance } = useUser();
     const { notify } = useNotifications();
     const [success, setSuccess]   = useState(false);
@@ -2647,6 +2709,10 @@ export const PaymentScreen: React.FC = () => {
     const [useReferral, setUseReferral] = useState(false);
     const [useSavedCard, setUseSavedCard] = useState(true);
     const [isDark, setIsDark]     = useState(false);
+    const [shippingAddress, setShippingAddress] = useState({
+        name: user.name ?? '', street: '', number: '', postalCode: '', city: '', province: '', phone: user.phone ?? '',
+    });
+    const setAddr = (field: string, val: string) => setShippingAddress(prev => ({ ...prev, [field]: val }));
 
     useEffect(() => {
         const check = () => setIsDark(document.documentElement.classList.contains('dark'));
@@ -2657,8 +2723,19 @@ export const PaymentScreen: React.FC = () => {
     }, []);
 
     const subtotal     = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-    const freeShipping = subtotal >= FREE_SHIPPING_THRESHOLD;
-    const shippingCost = freeShipping ? 0 : SHIPPING_FEE;
+    const isMultiStore = new Set(cartItems.map(i => i.product.storeId)).size > 1;
+
+    // Para multi-tienda el envío se calcula por tienda independientemente
+    const shippingCost = isMultiStore
+        ? Object.values(cartItems.reduce((acc: Record<string, number>, item) => {
+              const sid = item.product.storeId;
+              acc[sid] = (acc[sid] ?? 0) + item.product.price * item.quantity;
+              return acc;
+          }, {}))
+          .reduce((total: number, s: number) => total + (s >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE), 0)
+        : subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
+
+    const freeShipping = shippingCost === 0;
 
     // Tarjeta guardada con PM de Stripe (real) o cualquier tarjeta guardada
     const savedCard    = paymentMethods.find(pm => pm.stripePaymentMethodId) ?? paymentMethods[0] ?? null;
@@ -2775,13 +2852,45 @@ export const PaymentScreen: React.FC = () => {
             // 4. Aplicar saldo de referidos y crear pedido
             if (referralDiscount > 0) useReferralBalance(referralDiscount);
 
-            await addOrder({
-                customerName:           user.name,
-                items:                  [...cartItems],
-                total:                  finalTotal,
-                shippingFee:            LOCALSHOP_FEE + shippingCost,
-                stripePaymentIntentId:  paymentIntent?.id,
-            });
+            if (isMultiStore) {
+                // Agrupar items por tienda para crear sub_orders
+                type StoreGroup = { items: OrderItem[]; subtotal: number };
+                const byStore: Record<string, StoreGroup> = {};
+                for (const item of cartItems) {
+                    const sid = item.product.storeId;
+                    if (!byStore[sid]) byStore[sid] = { items: [], subtotal: 0 };
+                    byStore[sid].items.push(item);
+                    byStore[sid].subtotal += item.product.price * item.quantity;
+                }
+
+                const subOrders = Object.entries(byStore).map(([sid, data]) => ({
+                    storeId:        sid,
+                    collaboratorId: stores.find(s => s.id === sid)?.ownerId ?? '',
+                    items:          data.items,
+                    subtotal:       data.subtotal,
+                    shippingFee:    data.subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE,
+                }));
+
+                await addMultiStoreOrder({
+                    customerName:          user.name,
+                    items:                 [...cartItems],
+                    total:                 finalTotal,
+                    shippingFee:           LOCALSHOP_FEE,
+                    customerDeliveryFee:   shippingCost,
+                    stripePaymentIntentId: paymentIntent?.id,
+                    shippingAddress,
+                }, subOrders);
+            } else {
+                await addOrder({
+                    customerName:          user.name,
+                    items:                 [...cartItems],
+                    total:                 finalTotal,
+                    shippingFee:           LOCALSHOP_FEE,
+                    customerDeliveryFee:   shippingCost,
+                    stripePaymentIntentId: paymentIntent?.id,
+                    shippingAddress,
+                });
+            }
 
             setSuccess(true);
             notify('¡Pago realizado!', '¡Tu pedido ha sido procesado correctamente!', 'lock');
@@ -2863,6 +2972,58 @@ export const PaymentScreen: React.FC = () => {
                         <span className="text-lg font-black text-text-light dark:text-text-dark">Total a pagar</span>
                         <span className="text-xl font-black text-primary">€{finalTotal.toFixed(2)}</span>
                     </div>
+                </div>
+
+                {/* Dirección de entrega */}
+                <div className="bg-white dark:bg-accent-dark p-6 rounded-[32px] border border-border-light dark:border-border-dark shadow-sm space-y-3">
+                    <h3 className="text-sm font-black uppercase tracking-widest text-text-subtle-light mb-2">Dirección de Entrega</h3>
+                    <input
+                        value={shippingAddress.name}
+                        onChange={e => setAddr('name', e.target.value)}
+                        placeholder="Nombre completo del destinatario"
+                        className="w-full h-11 px-4 rounded-xl border border-border-light dark:border-border-dark bg-accent-light dark:bg-background-dark text-sm font-medium text-text-light dark:text-text-dark outline-none focus:border-primary"
+                    />
+                    <div className="flex gap-2">
+                        <input
+                            value={shippingAddress.street}
+                            onChange={e => setAddr('street', e.target.value)}
+                            placeholder="Calle"
+                            className="flex-1 h-11 px-4 rounded-xl border border-border-light dark:border-border-dark bg-accent-light dark:bg-background-dark text-sm font-medium text-text-light dark:text-text-dark outline-none focus:border-primary"
+                        />
+                        <input
+                            value={shippingAddress.number}
+                            onChange={e => setAddr('number', e.target.value)}
+                            placeholder="Nº"
+                            className="w-20 h-11 px-3 rounded-xl border border-border-light dark:border-border-dark bg-accent-light dark:bg-background-dark text-sm font-medium text-text-light dark:text-text-dark outline-none focus:border-primary"
+                        />
+                    </div>
+                    <div className="flex gap-2">
+                        <input
+                            value={shippingAddress.postalCode}
+                            onChange={e => setAddr('postalCode', e.target.value)}
+                            placeholder="C.P."
+                            maxLength={5}
+                            className="w-24 h-11 px-3 rounded-xl border border-border-light dark:border-border-dark bg-accent-light dark:bg-background-dark text-sm font-medium text-text-light dark:text-text-dark outline-none focus:border-primary"
+                        />
+                        <input
+                            value={shippingAddress.city}
+                            onChange={e => setAddr('city', e.target.value)}
+                            placeholder="Ciudad"
+                            className="flex-1 h-11 px-4 rounded-xl border border-border-light dark:border-border-dark bg-accent-light dark:bg-background-dark text-sm font-medium text-text-light dark:text-text-dark outline-none focus:border-primary"
+                        />
+                    </div>
+                    <input
+                        value={shippingAddress.province}
+                        onChange={e => setAddr('province', e.target.value)}
+                        placeholder="Provincia"
+                        className="w-full h-11 px-4 rounded-xl border border-border-light dark:border-border-dark bg-accent-light dark:bg-background-dark text-sm font-medium text-text-light dark:text-text-dark outline-none focus:border-primary"
+                    />
+                    <input
+                        value={shippingAddress.phone}
+                        onChange={e => setAddr('phone', e.target.value)}
+                        placeholder="Teléfono de contacto"
+                        className="w-full h-11 px-4 rounded-xl border border-border-light dark:border-border-dark bg-accent-light dark:bg-background-dark text-sm font-medium text-text-light dark:text-text-dark outline-none focus:border-primary"
+                    />
                 </div>
 
                 {/* Método de Pago */}
@@ -3236,7 +3397,12 @@ export const EditCustomerProfileScreen: React.FC = () => {
         category: currentStore?.category || 'Multimarca',
         cif: currentStore?.cif || '',
         email: user.email || '',
-        phone: user.phone || ''
+        phone: user.phone || '',
+        addressStreet:     isCollab ? (currentStore?.addressStreet     || '') : '',
+        addressNumber:     isCollab ? (currentStore?.addressNumber     || '') : '',
+        addressPostalCode: isCollab ? (currentStore?.addressPostalCode || '') : '',
+        addressCity:       isCollab ? (currentStore?.addressCity       || '') : '',
+        addressProvince:   isCollab ? (currentStore?.addressProvince   || '') : '',
     });
 
     const [avatar, setAvatar] = useState<string | null>(isCollab ? null : (user.avatar || null));
@@ -3276,11 +3442,17 @@ export const EditCustomerProfileScreen: React.FC = () => {
 
         if (isCollab && user.storeId) {
             updateStore(user.storeId, {
-                businessName: sanitizeRaw(formData.businessName),
-                address: sanitizeRaw(formData.displayLocation),
-                category: formData.category,
-                description: sanitizeRaw(formData.displayBio),
-                cif: sanitizeRaw(formData.cif)
+                businessName:    sanitizeRaw(formData.businessName),
+                address:         sanitizeRaw(formData.displayLocation),
+                category:        formData.category,
+                description:     sanitizeRaw(formData.displayBio),
+                cif:             sanitizeRaw(formData.cif),
+                addressStreet:     sanitizeRaw(formData.addressStreet),
+                addressNumber:     sanitizeRaw(formData.addressNumber),
+                addressPostalCode: sanitizeRaw(formData.addressPostalCode),
+                addressCity:       sanitizeRaw(formData.addressCity),
+                addressProvince:   formData.addressProvince,
+                addressCountry:    'ES',
             });
             updateUser({
                 email: sanitizeRaw(formData.email),
@@ -3401,6 +3573,65 @@ export const EditCustomerProfileScreen: React.FC = () => {
                             </div>
                         </>
                     )}
+                    {isCollab && (
+                        <div className="space-y-3 pt-2 border-t border-border-light dark:border-border-dark">
+                            <div className="flex items-center gap-2">
+                                <Icon name="local_shipping" className="text-primary text-lg" />
+                                <p className="text-xs font-black uppercase tracking-widest text-primary">Dirección de Recogida (Sendcloud)</p>
+                            </div>
+                            <p className="text-[10px] text-text-subtle-light dark:text-text-subtle-dark leading-relaxed">
+                                Esta dirección se usa como remitente al generar etiquetas de envío automáticamente.
+                            </p>
+                            <FormInput
+                                label="Calle"
+                                placeholder="Calle Mayor"
+                                value={formData.addressStreet}
+                                onChange={(v: string) => setFormData(p => ({ ...p, addressStreet: truncate(sanitizeRaw(v), 100) }))}
+                            />
+                            <div className="grid grid-cols-3 gap-3">
+                                <div className="col-span-1">
+                                    <FormInput
+                                        label="Número"
+                                        placeholder="12"
+                                        value={formData.addressNumber}
+                                        onChange={(v: string) => setFormData(p => ({ ...p, addressNumber: truncate(sanitizeRaw(v), 20) }))}
+                                    />
+                                </div>
+                                <div className="col-span-2">
+                                    <FormInput
+                                        label="Código Postal"
+                                        placeholder="28001"
+                                        value={formData.addressPostalCode}
+                                        onChange={(v: string) => setFormData(p => ({ ...p, addressPostalCode: truncate(sanitizeRaw(v), 10) }))}
+                                    />
+                                </div>
+                            </div>
+                            <FormInput
+                                label="Ciudad / Municipio"
+                                placeholder="Madrid"
+                                value={formData.addressCity}
+                                onChange={(v: string) => setFormData(p => ({ ...p, addressCity: truncate(sanitizeRaw(v), 80) }))}
+                            />
+                            <div className="space-y-1.5 relative">
+                                <label className="text-xs font-black uppercase tracking-widest text-text-light dark:text-text-dark opacity-70">Provincia</label>
+                                <div className="relative">
+                                    <Icon name="location_on" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-light/50 dark:text-text-dark/50" />
+                                    <select
+                                        value={formData.addressProvince}
+                                        onChange={e => setFormData(p => ({ ...p, addressProvince: e.target.value }))}
+                                        className="w-full h-12 bg-white dark:bg-accent-dark border border-border-light dark:border-border-dark rounded-xl pl-10 pr-10 text-sm font-bold text-text-light dark:text-white appearance-none cursor-pointer outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                                    >
+                                        <option value="" disabled>Selecciona la provincia</option>
+                                        {SPANISH_PROVINCES.map(prov => (
+                                            <option key={prov} value={prov}>{prov}</option>
+                                        ))}
+                                    </select>
+                                    <Icon name="expand_more" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-text-light/50 dark:text-text-dark/50" />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="space-y-1.5 relative">
                         <label className="text-xs font-black uppercase tracking-widest text-text-light dark:text-text-dark opacity-70">Dirección Local (Provincia)</label>
                         <div className="relative">

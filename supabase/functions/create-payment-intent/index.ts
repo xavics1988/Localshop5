@@ -1,7 +1,29 @@
 import Stripe from 'https://esm.sh/stripe@14.21.0?target=deno';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
-import { tryGetAuth, UserFacingError, errorResponse } from '../_shared/auth.ts';
+// ── inline _shared/auth.ts ──────────────────────────────────────────────────
+class AuthError extends Error {
+  readonly status = 401;
+  constructor() { super('No autorizado'); this.name = 'AuthError'; }
+}
+class UserFacingError extends Error {
+  readonly status: number;
+  constructor(message: string, status = 400) { super(message); this.name = 'UserFacingError'; this.status = status; }
+}
+async function tryGetAuth(req: Request): Promise<string | null> {
+  const h = req.headers.get('Authorization');
+  if (!h) return null;
+  if (!h.startsWith('Bearer ')) throw new AuthError();
+  const { data: { user }, error } = await supabaseAdmin.auth.getUser(h.slice(7));
+  if (error || !user) throw new AuthError();
+  return user.id;
+}
+function errorResponse(err: unknown, corsHeaders: Record<string, string>): Response {
+  if (err instanceof AuthError)       return new Response(JSON.stringify({ error: 'No autorizado' }),              { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  if (err instanceof UserFacingError) return new Response(JSON.stringify({ error: err.message }),                  { status: err.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  return new Response(JSON.stringify({ error: 'Error interno del servidor' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+}
+// ────────────────────────────────────────────────────────────────────────────
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
   apiVersion: '2024-06-20',
@@ -97,6 +119,8 @@ serve(async (req: Request) => {
     };
 
     if (stripeConnectAccountId) {
+      // on_behalf_of: el fee de Stripe sale del vendedor, no de LocalShop
+      paymentIntentParams.on_behalf_of = stripeConnectAccountId;
       paymentIntentParams.application_fee_amount = LOCALSHOP_FEE_CENTS;
       paymentIntentParams.transfer_data = { destination: stripeConnectAccountId };
     }
