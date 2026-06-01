@@ -2765,12 +2765,15 @@ export const PaymentScreen: React.FC = () => {
 
         setLoading(true);
         try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.access_token) throw new Error('Sesión expirada. Por favor, inicia sesión de nuevo.');
+
             // 1. Crear PaymentIntent en el servidor
             const intentRes = await fetch(`${SUPABASE_URL}/functions/v1/create-payment-intent`, {
                 method:  'POST',
                 headers: {
                     'Content-Type':  'application/json',
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                    'Authorization': `Bearer ${session.access_token}`,
                 },
                 body: JSON.stringify({
                     amount:   Math.round(finalTotal * 100),
@@ -2843,7 +2846,7 @@ export const PaymentScreen: React.FC = () => {
                     method:  'POST',
                     headers: {
                         'Content-Type':  'application/json',
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Authorization': `Bearer ${session.access_token}`,
                     },
                     body: JSON.stringify({ userId: user.id, paymentMethodId: savedPmAfterPayment.id }),
                 }).catch(() => { /* fallo silencioso — no bloquea el flujo */ });
