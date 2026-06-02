@@ -115,6 +115,9 @@ serve(async (req: Request) => {
       ...(paymentMethodId
         ? { payment_method: paymentMethodId, confirm: false }
         : { automatic_payment_methods: { enabled: true } }),
+      // Cuando hay cliente, pedir a Stripe que adjunte el PM al cliente tras el pago
+      // para que pueda reutilizarse en futuras compras sin errores de "used without customer attachment"
+      ...(stripeCustomerId && !paymentMethodId ? { setup_future_usage: 'off_session' } : {}),
       metadata: metadata ?? {},
     };
 

@@ -2835,6 +2835,7 @@ export const PaymentScreen: React.FC = () => {
                 });
                 if (pmError) throw new Error(pmError.message);
 
+                // Guardar detalles de la tarjeta para mostrarlos al usuario
                 if (pm?.card) {
                     savedPmAfterPayment = {
                         id:     pm.id,
@@ -2847,6 +2848,12 @@ export const PaymentScreen: React.FC = () => {
                 result = await stripe.confirmCardPayment(clientSecret, {
                     payment_method: pm!.id,
                 });
+
+                // Usar el PM que Stripe adjuntó al cliente (setup_future_usage: off_session)
+                // en lugar del PM temporal, para evitar el error "used without customer attachment"
+                if (result.paymentIntent?.payment_method && typeof result.paymentIntent.payment_method === 'string' && savedPmAfterPayment) {
+                    savedPmAfterPayment = { ...savedPmAfterPayment, id: result.paymentIntent.payment_method };
+                }
             }
 
             if (result.error) throw new Error(result.error.message);
@@ -2966,12 +2973,14 @@ export const PaymentScreen: React.FC = () => {
                             <span className="text-sm font-bold text-text-light dark:text-text-dark">Gastos de envío</span>
                             {freeShipping
                                 ? <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-black uppercase">Gestionado por el colaborador · Gratis</span>
-                                : <span className="text-[10px] text-text-subtle-light">Tarifa para pedidos menores de €{FREE_SHIPPING_THRESHOLD}</span>
+                                : isMultiStore
+                                    ? <span className="text-[10px] text-text-subtle-light">€{SHIPPING_FEE.toFixed(2)} por tienda con pedido inferior a €{FREE_SHIPPING_THRESHOLD}</span>
+                                    : <span className="text-[10px] text-text-subtle-light">Tarifa para pedidos menores de €{FREE_SHIPPING_THRESHOLD}</span>
                             }
                         </div>
                         {freeShipping
                             ? <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">Gratis</span>
-                            : <span className="text-sm font-bold text-text-light dark:text-text-dark">€{SHIPPING_FEE.toFixed(2)}</span>
+                            : <span className="text-sm font-bold text-text-light dark:text-text-dark">€{shippingCost.toFixed(2)}</span>
                         }
                     </div>
 
