@@ -2712,7 +2712,7 @@ export const PaymentScreen: React.FC = () => {
     const { cartItems, clearCart } = useCart();
     const { addOrder, addMultiStoreOrder } = useOrders();
     const { stores } = useStores();
-    const { user, paymentMethods, addPaymentMethod, useReferralBalance, savedAddresses, addSavedAddress, removeSavedAddress } = useUser();
+    const { user, paymentMethods, addPaymentMethod, removePaymentMethod, useReferralBalance, savedAddresses, addSavedAddress, removeSavedAddress } = useUser();
     const { notify } = useNotifications();
     const [success, setSuccess]   = useState(false);
     const [loading, setLoading]   = useState(false);
@@ -2822,6 +2822,15 @@ export const PaymentScreen: React.FC = () => {
                 result = await stripe.confirmCardPayment(clientSecret, {
                     payment_method: savedCard.stripePaymentMethodId,
                 });
+                // Si la tarjeta guardada está inválida (usada sin adjuntar a cliente), eliminarla
+                // y pedir al usuario que introduzca una nueva
+                if (result.error?.message?.includes('previously used')) {
+                    await removePaymentMethod(savedCard.id);
+                    setUseSavedCard(false);
+                    notify('Tarjeta no válida', 'La tarjeta guardada ha expirado. Por favor, introduce tus datos de nuevo.', 'error');
+                    setLoading(false);
+                    return;
+                }
             } else {
                 // Crear PM primero para obtener detalles de la tarjeta, luego confirmar
                 const cardElement = elements?.getElement(CardElement);
