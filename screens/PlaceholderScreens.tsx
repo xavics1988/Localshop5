@@ -1168,14 +1168,23 @@ export const CartScreen: React.FC = () => {
                             </div>
                         </div>
 
-                        {!freeShipping && (
-                            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-2xl p-4 flex gap-3 items-start">
-                                <Icon name="local_shipping" className="text-amber-600 dark:text-amber-400 text-xl shrink-0 mt-0.5" />
-                                <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed font-medium">
-                                    Añade <span className="font-black">€{(FREE_SHIPPING_THRESHOLD - subtotal).toFixed(2)}</span> más de una misma tienda y el colaborador asumirá los gastos de envío.
-                                </p>
-                            </div>
-                        )}
+                        {!freeShipping && (() => {
+                            const storeSubtotals = cartItems.reduce((acc: Record<string, { name: string; total: number }>, item) => {
+                                const sid = item.product.storeId;
+                                if (!acc[sid]) acc[sid] = { name: item.product.storeName ?? sid, total: 0 };
+                                acc[sid].total += item.product.price * item.quantity;
+                                return acc;
+                            }, {});
+                            const storesBelow = Object.values(storeSubtotals).filter(s => s.total < FREE_SHIPPING_THRESHOLD);
+                            return storesBelow.map((s, i) => (
+                                <div key={i} className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-2xl p-4 flex gap-3 items-start">
+                                    <Icon name="local_shipping" className="text-amber-600 dark:text-amber-400 text-xl shrink-0 mt-0.5" />
+                                    <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed font-medium">
+                                        <span className="font-black">{s.name}:</span> añade <span className="font-black">€{(FREE_SHIPPING_THRESHOLD - s.total).toFixed(2)}</span> más y el colaborador asumirá los gastos de envío.
+                                    </p>
+                                </div>
+                            ));
+                        })()}
 
                         {isAuthenticated ? (
                             <button onClick={() => navigate('/payment')} className="w-full h-16 bg-primary text-white font-bold rounded-2xl shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-3 text-lg">
@@ -1314,9 +1323,10 @@ const SubscribeWithStripe: React.FC<{ monthlyFee: number; isFoundingMember: bool
             if (pmError) throw new Error(pmError.message);
 
             // Vincular la tarjeta a la suscripción existente (creada al registrarse)
+            const { data: { session: authSession } } = await supabase.auth.getSession();
             const res = await fetch(`${SUPABASE_URL}/functions/v1/attach-payment-method`, {
                 method:  'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authSession?.access_token ?? SUPABASE_ANON_KEY}` },
                 body:    JSON.stringify({ userId, paymentMethodId: paymentMethod!.id }),
             });
             const { error: attachError } = await res.json();
@@ -3024,53 +3034,62 @@ export const PaymentScreen: React.FC = () => {
                 {/* Dirección de entrega */}
                 <div className="bg-white dark:bg-accent-dark p-6 rounded-[32px] border border-border-light dark:border-border-dark shadow-sm space-y-3">
                     <h3 className="text-sm font-black uppercase tracking-widest text-text-subtle-light mb-2">Dirección de Entrega</h3>
-                    <input
-                        value={shippingAddress.name}
-                        onChange={e => setAddr('name', e.target.value)}
-                        placeholder="Nombre completo del destinatario"
-                        className="w-full h-11 px-4 rounded-xl border border-border-light dark:border-border-dark bg-accent-light dark:bg-background-dark text-sm font-medium text-text-light dark:text-text-dark outline-none focus:border-primary"
-                    />
-                    <div className="flex gap-2">
-                        <input
-                            value={shippingAddress.street}
-                            onChange={e => setAddr('street', e.target.value)}
-                            placeholder="Calle"
-                            className="flex-1 h-11 px-4 rounded-xl border border-border-light dark:border-border-dark bg-accent-light dark:bg-background-dark text-sm font-medium text-text-light dark:text-text-dark outline-none focus:border-primary"
-                        />
-                        <input
-                            value={shippingAddress.number}
-                            onChange={e => setAddr('number', e.target.value)}
-                            placeholder="Nº"
-                            className="w-20 h-11 px-3 rounded-xl border border-border-light dark:border-border-dark bg-accent-light dark:bg-background-dark text-sm font-medium text-text-light dark:text-text-dark outline-none focus:border-primary"
-                        />
-                    </div>
-                    <div className="flex gap-2">
-                        <input
-                            value={shippingAddress.postalCode}
-                            onChange={e => setAddr('postalCode', e.target.value)}
-                            placeholder="C.P."
-                            maxLength={5}
-                            className="w-24 h-11 px-3 rounded-xl border border-border-light dark:border-border-dark bg-accent-light dark:bg-background-dark text-sm font-medium text-text-light dark:text-text-dark outline-none focus:border-primary"
-                        />
-                        <input
-                            value={shippingAddress.city}
-                            onChange={e => setAddr('city', e.target.value)}
-                            placeholder="Ciudad"
-                            className="flex-1 h-11 px-4 rounded-xl border border-border-light dark:border-border-dark bg-accent-light dark:bg-background-dark text-sm font-medium text-text-light dark:text-text-dark outline-none focus:border-primary"
-                        />
-                    </div>
-                    <input
-                        value={shippingAddress.province}
-                        onChange={e => setAddr('province', e.target.value)}
-                        placeholder="Provincia"
-                        className="w-full h-11 px-4 rounded-xl border border-border-light dark:border-border-dark bg-accent-light dark:bg-background-dark text-sm font-medium text-text-light dark:text-text-dark outline-none focus:border-primary"
-                    />
-                    <input
-                        value={shippingAddress.phone}
-                        onChange={e => setAddr('phone', e.target.value)}
-                        placeholder="Teléfono de contacto"
-                        className="w-full h-11 px-4 rounded-xl border border-border-light dark:border-border-dark bg-accent-light dark:bg-background-dark text-sm font-medium text-text-light dark:text-text-dark outline-none focus:border-primary"
-                    />
+
+                    {savedAddresses.length > 0 && (
+                        <div className="space-y-2 pb-1">
+                            {savedAddresses.map(addr => (
+                                <div
+                                    key={addr.id}
+                                    onClick={() => { setSelectedAddressId(addr.id); setShippingAddress({ name: addr.name, street: addr.street, number: addr.number, postalCode: addr.postalCode, city: addr.city, province: addr.province, phone: addr.phone }); }}
+                                    className={`flex items-start gap-3 p-4 rounded-2xl border cursor-pointer transition-all ${selectedAddressId === addr.id ? 'bg-primary/5 border-primary/40' : 'bg-accent-light dark:bg-background-dark border-border-light dark:border-border-dark'}`}
+                                >
+                                    <Icon name="location_on" className={`text-xl mt-0.5 shrink-0 ${selectedAddressId === addr.id ? 'text-primary' : 'text-text-subtle-light'}`} />
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">{addr.label}</p>
+                                        <p className="text-sm font-bold text-text-light dark:text-text-dark">{addr.name}</p>
+                                        <p className="text-xs text-text-subtle-light">{addr.street} {addr.number}, {addr.postalCode} {addr.city}</p>
+                                        <p className="text-xs text-text-subtle-light">{addr.province} · {addr.phone}</p>
+                                    </div>
+                                    <div className="flex flex-col items-end gap-2 shrink-0">
+                                        {selectedAddressId === addr.id && <Icon name="check_circle" className="text-primary" filled />}
+                                        <button type="button" onClick={e => { e.stopPropagation(); removeSavedAddress(addr.id); }} className="p-1 rounded-lg text-text-subtle-light hover:text-red-500 active:scale-90 transition-all">
+                                            <Icon name="delete" className="text-base" />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                            <button
+                                type="button"
+                                onClick={() => { setSelectedAddressId('new'); setShippingAddress({ name: user.name ?? '', street: '', number: '', postalCode: '', city: '', province: '', phone: user.phone ?? '' }); }}
+                                className={`w-full flex items-center gap-3 p-4 rounded-2xl border transition-all ${selectedAddressId === 'new' ? 'bg-primary/5 border-primary/40' : 'bg-accent-light dark:bg-background-dark border-border-light dark:border-border-dark'}`}
+                            >
+                                <Icon name="add_location_alt" className={`text-xl ${selectedAddressId === 'new' ? 'text-primary' : 'text-text-subtle-light'}`} />
+                                <span className="text-sm font-bold text-text-light dark:text-text-dark">Usar otra dirección</span>
+                            </button>
+                        </div>
+                    )}
+
+                    {selectedAddressId === 'new' && (
+                        <div className="space-y-3 pt-1">
+                            {savedAddresses.length > 0 && (
+                                <input value={addressLabel} onChange={e => setAddressLabel(e.target.value)} placeholder="Nombre: Casa, Trabajo…" className="w-full h-11 px-4 rounded-xl border border-primary/40 bg-primary/5 text-sm font-bold text-text-light dark:text-text-dark outline-none focus:border-primary" />
+                            )}
+                            <input value={shippingAddress.name} onChange={e => setAddr('name', e.target.value)} placeholder="Nombre completo del destinatario" className="w-full h-11 px-4 rounded-xl border border-border-light dark:border-border-dark bg-accent-light dark:bg-background-dark text-sm font-medium text-text-light dark:text-text-dark outline-none focus:border-primary" />
+                            <div className="flex gap-2">
+                                <input value={shippingAddress.street} onChange={e => setAddr('street', e.target.value)} placeholder="Calle" className="flex-1 h-11 px-4 rounded-xl border border-border-light dark:border-border-dark bg-accent-light dark:bg-background-dark text-sm font-medium text-text-light dark:text-text-dark outline-none focus:border-primary" />
+                                <input value={shippingAddress.number} onChange={e => setAddr('number', e.target.value)} placeholder="Nº" className="w-20 h-11 px-3 rounded-xl border border-border-light dark:border-border-dark bg-accent-light dark:bg-background-dark text-sm font-medium text-text-light dark:text-text-dark outline-none focus:border-primary" />
+                            </div>
+                            <div className="flex gap-2">
+                                <input value={shippingAddress.postalCode} onChange={e => setAddr('postalCode', e.target.value)} placeholder="C.P." maxLength={5} className="w-24 h-11 px-3 rounded-xl border border-border-light dark:border-border-dark bg-accent-light dark:bg-background-dark text-sm font-medium text-text-light dark:text-text-dark outline-none focus:border-primary" />
+                                <input value={shippingAddress.city} onChange={e => setAddr('city', e.target.value)} placeholder="Ciudad" className="flex-1 h-11 px-4 rounded-xl border border-border-light dark:border-border-dark bg-accent-light dark:bg-background-dark text-sm font-medium text-text-light dark:text-text-dark outline-none focus:border-primary" />
+                            </div>
+                            <input value={shippingAddress.province} onChange={e => setAddr('province', e.target.value)} placeholder="Provincia" className="w-full h-11 px-4 rounded-xl border border-border-light dark:border-border-dark bg-accent-light dark:bg-background-dark text-sm font-medium text-text-light dark:text-text-dark outline-none focus:border-primary" />
+                            <input value={shippingAddress.phone} onChange={e => setAddr('phone', e.target.value)} placeholder="Teléfono de contacto" className="w-full h-11 px-4 rounded-xl border border-border-light dark:border-border-dark bg-accent-light dark:bg-background-dark text-sm font-medium text-text-light dark:text-text-dark outline-none focus:border-primary" />
+                            {savedAddresses.length === 0 && (
+                                <p className="text-[10px] text-text-subtle-light leading-relaxed">Esta dirección se guardará automáticamente para futuras compras.</p>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* Método de Pago */}
@@ -3163,9 +3182,10 @@ export const PaymentMethodsScreen: React.FC = () => {
         if (!storeId || !user.email) return;
         setConnectLoading(true);
         try {
+            const { data: { session: authSession } } = await supabase.auth.getSession();
             const res = await fetch(`${SUPABASE_URL}/functions/v1/create-connect-account`, {
                 method:  'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authSession?.access_token ?? SUPABASE_ANON_KEY}` },
                 body: JSON.stringify({
                     storeId,
                     email:     user.email,
@@ -3186,9 +3206,10 @@ export const PaymentMethodsScreen: React.FC = () => {
         if (!currentStore?.id) return;
         setVerifyLoading(true);
         try {
+            const { data: { session: authSession } } = await supabase.auth.getSession();
             const res = await fetch(`${SUPABASE_URL}/functions/v1/check-connect-status`, {
                 method:  'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authSession?.access_token ?? SUPABASE_ANON_KEY}` },
                 body: JSON.stringify({ storeId: currentStore.id }),
             });
             const { onboarded, error } = await res.json();
@@ -3235,9 +3256,10 @@ export const PaymentMethodsScreen: React.FC = () => {
         if (!currentStore?.id) return;
         setLoginLinkLoading(true);
         try {
+            const { data: { session: authSession } } = await supabase.auth.getSession();
             const res = await fetch(`${SUPABASE_URL}/functions/v1/create-login-link`, {
                 method:  'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authSession?.access_token ?? SUPABASE_ANON_KEY}` },
                 body: JSON.stringify({ storeId: currentStore.id }),
             });
             const { url, error } = await res.json();
@@ -3879,9 +3901,10 @@ export const PublishScreen: React.FC = () => {
         }
         setConnectLoading(true);
         try {
+            const { data: { session: authSession } } = await supabase.auth.getSession();
             const res = await fetch(`${SUPABASE_URL}/functions/v1/create-connect-account`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authSession?.access_token ?? SUPABASE_ANON_KEY}` },
                 body: JSON.stringify({
                     storeId,
                     email:     user.email,

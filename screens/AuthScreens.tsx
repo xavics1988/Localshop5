@@ -315,7 +315,7 @@ export const SignUpScreen: React.FC = () => {
                     await supabase.rpc('register_collaborator_subscription', { p_user_id: userId });
                     fetch(`${SUPABASE_URL}/functions/v1/init-collaborator-trial`, {
                         method:  'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${data.session?.access_token ?? SUPABASE_ANON_KEY}` },
                         body:    JSON.stringify({ userId }),
                     }).catch(e => console.warn('[init-collaborator-trial]', e));
                 }

@@ -935,14 +935,16 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         .eq('id', newOrder.id);
 
       // Disparar transfers a vendedores con Connect onboarded (fire-and-forget)
-      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-multistore-transfers`, {
-        method:  'POST',
-        headers: {
-          'Content-Type':  'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({ orderId: newOrder.id, paymentIntentId: newOrder.stripePaymentIntentId }),
-      }).catch(e => console.error('[addMultiStoreOrder] transfers trigger failed:', e));
+      supabase.auth.getSession().then(({ data: { session: authSession } }) => {
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-multistore-transfers`, {
+          method:  'POST',
+          headers: {
+            'Content-Type':  'application/json',
+            'Authorization': `Bearer ${authSession?.access_token ?? import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({ orderId: newOrder.id, paymentIntentId: newOrder.stripePaymentIntentId }),
+        }).catch(e => console.error('[addMultiStoreOrder] transfers trigger failed:', e));
+      });
     }
 
     const productIds = orderData.items.map(i => i.product.id);
@@ -958,11 +960,12 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const initiateVendorPayout = useCallback(async (payoutId: string) => {
     try {
+      const { data: { session: authSession } } = await supabase.auth.getSession();
       const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-payout`, {
         method:  'POST',
         headers: {
           'Content-Type':  'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Authorization': `Bearer ${authSession?.access_token ?? import.meta.env.VITE_SUPABASE_ANON_KEY}`,
         },
         body: JSON.stringify({ payoutId }),
       });
