@@ -1323,14 +1323,11 @@ const SubscribeWithStripe: React.FC<{ monthlyFee: number; isFoundingMember: bool
             if (pmError) throw new Error(pmError.message);
 
             // Vincular la tarjeta a la suscripción existente (creada al registrarse)
-            const { data: { session: authSession } } = await supabase.auth.getSession();
-            const res = await fetch(`${SUPABASE_URL}/functions/v1/attach-payment-method`, {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authSession?.access_token ?? SUPABASE_ANON_KEY}` },
-                body:    JSON.stringify({ userId, paymentMethodId: paymentMethod!.id }),
+            const { data: attachData, error: attachError } = await supabase.functions.invoke('attach-payment-method', {
+                body: { userId, paymentMethodId: paymentMethod!.id },
             });
-            const { error: attachError } = await res.json();
-            if (attachError) throw new Error(attachError);
+            if (attachError) throw new Error(attachError.message);
+            if (attachData?.error) throw new Error(attachData.error);
 
             setDone(true);
             notify('¡Tarjeta guardada!', `Stripe cobrará €${monthlyFee.toFixed(2)}/mes automáticamente al terminar el periodo gratuito.`, 'check_circle');
@@ -3182,19 +3179,16 @@ export const PaymentMethodsScreen: React.FC = () => {
         if (!storeId || !user.email) return;
         setConnectLoading(true);
         try {
-            const { data: { session: authSession } } = await supabase.auth.getSession();
-            const res = await fetch(`${SUPABASE_URL}/functions/v1/create-connect-account`, {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authSession?.access_token ?? SUPABASE_ANON_KEY}` },
-                body: JSON.stringify({
+            const { data, error } = await supabase.functions.invoke('create-connect-account', {
+                body: {
                     storeId,
                     email:     user.email,
                     returnUrl: `${window.location.protocol}//${window.location.host}/#`,
-                }),
+                },
             });
-            const { onboardingUrl, error } = await res.json();
-            if (error) throw new Error(error);
-            window.location.href = onboardingUrl;
+            if (error) throw new Error(error.message);
+            if (data?.error) throw new Error(data.error);
+            window.location.href = data.onboardingUrl;
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : 'Error al conectar con Stripe';
             notify('Error', message, 'error');
@@ -3206,15 +3200,12 @@ export const PaymentMethodsScreen: React.FC = () => {
         if (!currentStore?.id) return;
         setVerifyLoading(true);
         try {
-            const { data: { session: authSession } } = await supabase.auth.getSession();
-            const res = await fetch(`${SUPABASE_URL}/functions/v1/check-connect-status`, {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authSession?.access_token ?? SUPABASE_ANON_KEY}` },
-                body: JSON.stringify({ storeId: currentStore.id }),
+            const { data: statusData, error: statusError } = await supabase.functions.invoke('check-connect-status', {
+                body: { storeId: currentStore.id },
             });
-            const { onboarded, error } = await res.json();
-            if (error) throw new Error(error);
-            if (onboarded) {
+            if (statusError) throw new Error(statusError.message);
+            if (statusData?.error) throw new Error(statusData.error);
+            if (statusData?.onboarded) {
                 await updateStore(currentStore.id, { stripeConnectOnboarded: true });
                 notify('¡Cuenta conectada!', 'Tu cuenta de Stripe está verificada. Ya puedes publicar artículos.', 'check_circle');
             } else {
@@ -3256,15 +3247,12 @@ export const PaymentMethodsScreen: React.FC = () => {
         if (!currentStore?.id) return;
         setLoginLinkLoading(true);
         try {
-            const { data: { session: authSession } } = await supabase.auth.getSession();
-            const res = await fetch(`${SUPABASE_URL}/functions/v1/create-login-link`, {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authSession?.access_token ?? SUPABASE_ANON_KEY}` },
-                body: JSON.stringify({ storeId: currentStore.id }),
+            const { data: linkData, error: linkError } = await supabase.functions.invoke('create-login-link', {
+                body: { storeId: currentStore.id },
             });
-            const { url, error } = await res.json();
-            if (error) throw new Error(error);
-            window.open(url, '_blank');
+            if (linkError) throw new Error(linkError.message);
+            if (linkData?.error) throw new Error(linkData.error);
+            window.open(linkData.url, '_blank');
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : 'Error al abrir Stripe';
             notify('Error', message, 'error');
@@ -3901,19 +3889,16 @@ export const PublishScreen: React.FC = () => {
         }
         setConnectLoading(true);
         try {
-            const { data: { session: authSession } } = await supabase.auth.getSession();
-            const res = await fetch(`${SUPABASE_URL}/functions/v1/create-connect-account`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authSession?.access_token ?? SUPABASE_ANON_KEY}` },
-                body: JSON.stringify({
+            const { data: connectData, error: connectError } = await supabase.functions.invoke('create-connect-account', {
+                body: {
                     storeId,
                     email:     user.email,
                     returnUrl: `${window.location.protocol}//${window.location.host}/#`,
-                }),
+                },
             });
-            const { onboardingUrl, error } = await res.json();
-            if (error) throw new Error(error);
-            window.location.href = onboardingUrl;
+            if (connectError) throw new Error(connectError.message);
+            if (connectData?.error) throw new Error(connectData.error);
+            window.location.href = connectData.onboardingUrl;
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : 'Error al conectar con Stripe';
             notify('Error', message, 'error');

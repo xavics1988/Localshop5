@@ -313,11 +313,8 @@ export const SignUpScreen: React.FC = () => {
                 // Crear suscripción en Stripe (estado "trialing", sin cobrar ni pedir tarjeta)
                 if (isCollab) {
                     await supabase.rpc('register_collaborator_subscription', { p_user_id: userId });
-                    fetch(`${SUPABASE_URL}/functions/v1/init-collaborator-trial`, {
-                        method:  'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${data.session?.access_token ?? SUPABASE_ANON_KEY}` },
-                        body:    JSON.stringify({ userId }),
-                    }).catch(e => console.warn('[init-collaborator-trial]', e));
+                    supabase.functions.invoke('init-collaborator-trial', { body: { userId } })
+                        .catch(e => console.warn('[init-collaborator-trial]', e));
                 }
             }
         } catch (err: any) {

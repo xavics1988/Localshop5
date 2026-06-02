@@ -935,16 +935,9 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         .eq('id', newOrder.id);
 
       // Disparar transfers a vendedores con Connect onboarded (fire-and-forget)
-      supabase.auth.getSession().then(({ data: { session: authSession } }) => {
-        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-multistore-transfers`, {
-          method:  'POST',
-          headers: {
-            'Content-Type':  'application/json',
-            'Authorization': `Bearer ${authSession?.access_token ?? import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          },
-          body: JSON.stringify({ orderId: newOrder.id, paymentIntentId: newOrder.stripePaymentIntentId }),
-        }).catch(e => console.error('[addMultiStoreOrder] transfers trigger failed:', e));
-      });
+      supabase.functions.invoke('create-multistore-transfers', {
+        body: { orderId: newOrder.id, paymentIntentId: newOrder.stripePaymentIntentId },
+      }).catch(e => console.error('[addMultiStoreOrder] transfers trigger failed:', e));
     }
 
     const productIds = orderData.items.map(i => i.product.id);
@@ -960,17 +953,12 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const initiateVendorPayout = useCallback(async (payoutId: string) => {
     try {
-      const { data: { session: authSession } } = await supabase.auth.getSession();
-      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-payout`, {
-        method:  'POST',
-        headers: {
-          'Content-Type':  'application/json',
-          'Authorization': `Bearer ${authSession?.access_token ?? import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({ payoutId }),
+      const { data: payoutData, error: payoutError } = await supabase.functions.invoke('create-payout', {
+        body: { payoutId },
       });
-      const { transferId, error } = await res.json();
-      if (error) throw new Error(error);
+      if (payoutError) throw new Error(payoutError.message);
+      if (payoutData?.error) throw new Error(payoutData.error);
+      const { transferId } = payoutData;
       setPayouts(prev => prev.map(p => p.id === payoutId ? { ...p, status: 'processing', stripeTransferId: transferId } : p));
       notify('Pago iniciado', 'La transferencia a la cuenta del colaborador está en proceso.', 'payments');
     } catch (err: unknown) {
