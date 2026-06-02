@@ -132,6 +132,12 @@ serve(async (req: Request) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   } catch (err: unknown) {
+    // Surface Stripe API errors as UserFacingError so the client sees the real message
+    if (err && typeof err === 'object' && 'type' in err) {
+      const stripeErr = err as { type: string; message?: string; code?: string };
+      console.error('[create-payment-intent] Stripe error', stripeErr.type, stripeErr.code, stripeErr.message);
+      return errorResponse(new UserFacingError(stripeErr.message ?? 'Error de Stripe', 402), corsHeaders);
+    }
     console.error('[create-payment-intent]', err instanceof Error ? err.message : String(err));
     return errorResponse(err, corsHeaders);
   }

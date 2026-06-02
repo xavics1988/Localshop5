@@ -1084,8 +1084,16 @@ export const CartScreen: React.FC = () => {
     const { user } = useUser();
     const navigate = useNavigate();
     const subtotal = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-    const freeShipping = subtotal >= FREE_SHIPPING_THRESHOLD;
-    const shippingCost = freeShipping ? 0 : SHIPPING_FEE;
+    const isMultiStore = new Set(cartItems.map(i => i.product.storeId)).size > 1;
+    const shippingCost = isMultiStore
+        ? (Object.values(cartItems.reduce((acc: Record<string, number>, item) => {
+              const sid = item.product.storeId;
+              acc[sid] = (acc[sid] ?? 0) + item.product.price * item.quantity;
+              return acc;
+          }, {})) as number[])
+          .reduce((total, s) => total + (s >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE), 0)
+        : subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
+    const freeShipping = shippingCost === 0;
     const grandTotal = subtotal + LOCALSHOP_FEE + shippingCost;
     const isAuthenticated = !!user.id;
 
@@ -1144,12 +1152,14 @@ export const CartScreen: React.FC = () => {
                                     <span className="text-sm font-bold text-text-light dark:text-text-dark">Gastos de envío</span>
                                     {freeShipping
                                         ? <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-black uppercase">El colaborador gestiona el envío · Gratis para ti</span>
-                                        : <span className="text-[10px] text-text-subtle-light">Tarifa plana para pedidos menores de €{FREE_SHIPPING_THRESHOLD}</span>
+                                        : isMultiStore
+                                            ? <span className="text-[10px] text-text-subtle-light">€{SHIPPING_FEE.toFixed(2)} por tienda con pedido inferior a €{FREE_SHIPPING_THRESHOLD}</span>
+                                            : <span className="text-[10px] text-text-subtle-light">Tarifa plana para pedidos menores de €{FREE_SHIPPING_THRESHOLD}</span>
                                     }
                                 </div>
                                 {freeShipping
                                     ? <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">Gratis</span>
-                                    : <span className="text-sm font-bold text-text-light dark:text-text-dark">€{SHIPPING_FEE.toFixed(2)}</span>
+                                    : <span className="text-sm font-bold text-text-light dark:text-text-dark">€{shippingCost.toFixed(2)}</span>
                                 }
                             </div>
                             <div className="flex justify-between items-center pt-1">
@@ -2702,17 +2712,28 @@ export const PaymentScreen: React.FC = () => {
     const { cartItems, clearCart } = useCart();
     const { addOrder, addMultiStoreOrder } = useOrders();
     const { stores } = useStores();
-    const { user, paymentMethods, addPaymentMethod, useReferralBalance } = useUser();
+    const { user, paymentMethods, addPaymentMethod, useReferralBalance, savedAddresses, addSavedAddress, removeSavedAddress } = useUser();
     const { notify } = useNotifications();
     const [success, setSuccess]   = useState(false);
     const [loading, setLoading]   = useState(false);
     const [useReferral, setUseReferral] = useState(false);
     const [useSavedCard, setUseSavedCard] = useState(true);
     const [isDark, setIsDark]     = useState(false);
+    const [selectedAddressId, setSelectedAddressId] = useState<string | 'new' | null>(null);
+    const [showAddressLabel, setShowAddressLabel] = useState(false);
+    const [addressLabel, setAddressLabel] = useState('Casa');
     const [shippingAddress, setShippingAddress] = useState({
         name: user.name ?? '', street: '', number: '', postalCode: '', city: '', province: '', phone: user.phone ?? '',
     });
     const setAddr = (field: string, val: string) => setShippingAddress(prev => ({ ...prev, [field]: val }));
+
+    useEffect(() => {
+        if (savedAddresses.length === 0) { setSelectedAddressId('new'); return; }
+        const def = savedAddresses.find(a => a.isDefault) ?? savedAddresses[0];
+        setSelectedAddressId(def.id);
+        setShippingAddress({ name: def.name, street: def.street, number: def.number, postalCode: def.postalCode, city: def.city, province: def.province, phone: def.phone });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [savedAddresses.length]);
 
     useEffect(() => {
         const check = () => setIsDark(document.documentElement.classList.contains('dark'));
@@ -2727,12 +2748,12 @@ export const PaymentScreen: React.FC = () => {
 
     // Para multi-tienda el envío se calcula por tienda independientemente
     const shippingCost = isMultiStore
-        ? Object.values(cartItems.reduce((acc: Record<string, number>, item) => {
+        ? (Object.values(cartItems.reduce((acc: Record<string, number>, item) => {
               const sid = item.product.storeId;
               acc[sid] = (acc[sid] ?? 0) + item.product.price * item.quantity;
               return acc;
-          }, {}))
-          .reduce((total: number, s: number) => total + (s >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE), 0)
+          }, {})) as number[])
+          .reduce((total, s) => total + (s >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE), 0)
         : subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
 
     const freeShipping = shippingCost === 0;
@@ -2893,6 +2914,11 @@ export const PaymentScreen: React.FC = () => {
                     stripePaymentIntentId: paymentIntent?.id,
                     shippingAddress,
                 });
+            }
+
+            // Guardar dirección si es nueva (no seleccionada de las guardadas)
+            if (selectedAddressId === 'new' && shippingAddress.street && shippingAddress.city) {
+                addSavedAddress({ ...shippingAddress, label: addressLabel, isDefault: savedAddresses.length === 0 });
             }
 
             setSuccess(true);

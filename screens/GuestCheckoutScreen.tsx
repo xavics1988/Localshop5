@@ -10,7 +10,8 @@ import {
     validateName, validateEmail, validatePhone,
 } from '../utils/validation';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+const SUPABASE_URL      = import.meta.env.VITE_SUPABASE_URL      as string;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
 const Icon = ({ name, filled, className }: { name: string; filled?: boolean; className?: string }) => (
     <span
@@ -161,7 +162,8 @@ const GuestCheckoutScreen: React.FC = () => {
             const intentRes = await fetch(`${SUPABASE_URL}/functions/v1/create-payment-intent`, {
                 method:  'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type':  'application/json',
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
                 },
                 body: JSON.stringify({
                     amount:   totalInCents,

@@ -185,6 +185,19 @@ export interface PaymentCard {
   stripePaymentMethodId?: string;
 }
 
+export interface SavedAddress {
+  id: string;
+  label: string;
+  name: string;
+  street: string;
+  number: string;
+  postalCode: string;
+  city: string;
+  province: string;
+  phone: string;
+  isDefault: boolean;
+}
+
 export interface PlatformAccount {
   holder: string;
   iban: string;

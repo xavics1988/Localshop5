@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Product, OrderItem, Order, OrderStatus, Review, Store, BankAccount, PaymentCard, PlatformAccount, OrderContextType, OrderEvent, UserProfile, CollaboratorSubscription, Invoice, Payout, ReturnRequest, ReturnMessage, DevolucionTipo, MultiStoreSubOrderInput } from './types';
+import { Product, OrderItem, Order, OrderStatus, Review, Store, BankAccount, PaymentCard, SavedAddress, PlatformAccount, OrderContextType, OrderEvent, UserProfile, CollaboratorSubscription, Invoice, Payout, ReturnRequest, ReturnMessage, DevolucionTipo, MultiStoreSubOrderInput } from './types';
 import { CLOTHING_CATEGORIES } from './data';
 import {
   supabase,
@@ -99,6 +99,9 @@ interface UserContextType {
   paymentMethods: PaymentCard[];
   addPaymentMethod: (card: Omit<PaymentCard, 'id'>) => void;
   removePaymentMethod: (id: string) => void;
+  savedAddresses: SavedAddress[];
+  addSavedAddress: (addr: Omit<SavedAddress, 'id'>) => Promise<SavedAddress | null>;
+  removeSavedAddress: (id: string) => void;
   bankAccounts: BankAccount[];
   addBankAccount: (account: Omit<BankAccount, 'id' | 'userId'>) => void;
   removeBankAccount: (id: string) => void;
@@ -422,6 +425,45 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const removePaymentMethod = useCallback(async (id: string) => {
     setPaymentMethods(prev => prev.filter(c => c.id !== id));
     await supabase.from('payment_cards').delete().eq('id', id);
+  }, []);
+
+  // ── Saved Addresses ───────────────────────────────────────────────────────
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+
+  useEffect(() => {
+    if (!user.id) { setSavedAddresses([]); return; }
+    supabase.from('saved_addresses').select('*').eq('user_id', user.id).order('created_at', { ascending: true })
+      .then(({ data }) => {
+        if (data) setSavedAddresses(data.map((a: any) => ({
+          id: a.id, label: a.label, name: a.name, street: a.street,
+          number: a.number, postalCode: a.postal_code, city: a.city,
+          province: a.province, phone: a.phone, isDefault: a.is_default,
+        })));
+      });
+  }, [user.id]);
+
+  const addSavedAddress = useCallback(async (addr: Omit<SavedAddress, 'id'>): Promise<SavedAddress | null> => {
+    if (!user.id) return null;
+    const { data, error } = await supabase.from('saved_addresses')
+      .insert({
+        user_id: user.id, label: addr.label, name: addr.name, street: addr.street,
+        number: addr.number, postal_code: addr.postalCode, city: addr.city,
+        province: addr.province, phone: addr.phone, is_default: addr.isDefault,
+      })
+      .select().single();
+    if (error || !data) return null;
+    const saved: SavedAddress = {
+      id: data.id, label: data.label, name: data.name, street: data.street,
+      number: data.number, postalCode: data.postal_code, city: data.city,
+      province: data.province, phone: data.phone, isDefault: data.is_default,
+    };
+    setSavedAddresses(prev => [...prev, saved]);
+    return saved;
+  }, [user.id]);
+
+  const removeSavedAddress = useCallback(async (id: string) => {
+    setSavedAddresses(prev => prev.filter(a => a.id !== id));
+    await supabase.from('saved_addresses').delete().eq('id', id);
   }, []);
 
   // ── Bank Accounts ─────────────────────────────────────────────────────────
@@ -1325,7 +1367,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const getUserReviews  = useCallback((userName: string)  => reviews.filter(r => r.userName === userName), [reviews]);
 
   // ── Memoized context values ───────────────────────────────────────────────
-  const userValue          = useMemo(() => ({ user, updateUser, logout, reloadProfile, paymentMethods, addPaymentMethod, removePaymentMethod, bankAccounts, addBankAccount, removeBankAccount, setDefaultBankAccount, useReferralBalance, isBootstrapping, hasAuthSession: authUserId !== null && authUserId !== undefined }), [user, updateUser, logout, reloadProfile, paymentMethods, addPaymentMethod, removePaymentMethod, bankAccounts, addBankAccount, removeBankAccount, setDefaultBankAccount, useReferralBalance, isBootstrapping, authUserId]);
+  const userValue          = useMemo(() => ({ user, updateUser, logout, reloadProfile, paymentMethods, addPaymentMethod, removePaymentMethod, savedAddresses, addSavedAddress, removeSavedAddress, bankAccounts, addBankAccount, removeBankAccount, setDefaultBankAccount, useReferralBalance, isBootstrapping, hasAuthSession: authUserId !== null && authUserId !== undefined }), [user, updateUser, logout, reloadProfile, paymentMethods, addPaymentMethod, removePaymentMethod, savedAddresses, addSavedAddress, removeSavedAddress, bankAccounts, addBankAccount, removeBankAccount, setDefaultBankAccount, useReferralBalance, isBootstrapping, authUserId]);
   const storeValue         = useMemo(() => ({ stores, addStore, updateStore, getStoreById: (id: string) => stores.find(s => s.id === id) }), [stores, addStore, updateStore]);
   const productValue       = useMemo(() => ({ products, addProduct, updateProduct, deleteProduct, getProductById: (id: string) => products.find(p => p.id === id), clearLocalProducts }), [products, addProduct, updateProduct, deleteProduct, clearLocalProducts]);
   const cartValue          = useMemo(() => ({ cartItems, addToCart, clearCart, removeFromCart, updateQuantity }), [cartItems, addToCart, clearCart, removeFromCart, updateQuantity]);
