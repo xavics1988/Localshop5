@@ -1167,8 +1167,8 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const path = `${returnId}/${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage.from('return-evidence').upload(path, imageFile);
       if (upErr) { notify('Error', 'No se pudo subir la imagen.', 'error'); return; }
-      const { data: urlData } = supabase.storage.from('return-evidence').getPublicUrl(path);
-      imageUrl = urlData?.publicUrl;
+      const { data: signedData } = await supabase.storage.from('return-evidence').createSignedUrl(path, 60 * 60 * 24 * 3650);
+      imageUrl = signedData?.signedUrl;
     }
     await supabase.from('return_messages').insert({
       return_id:  returnId,
