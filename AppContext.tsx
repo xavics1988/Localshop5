@@ -1049,7 +1049,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       .from('return_requests')
       .select('id, type, stripe_refund_id')
       .eq('order_id', orderId)
-      .in('status', ['acordado', 'pendiente'])
+      .in('status', ['acordado', 'pendiente', 'completado'])
       .maybeSingle();
     if (rr?.id) {
       const { data: storageFiles } = await supabase.storage.from('return-evidence').list(rr.id);
@@ -1057,19 +1057,22 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         await supabase.storage.from('return-evidence').remove(storageFiles.map(f => `${rr.id}/${f.name}`));
       }
       await supabase.from('return_messages').delete().eq('return_id', rr.id);
-      await supabase.from('return_requests').update({ status: 'completado' }).eq('id', rr.id);
-      setReturnRequests((prev: ReturnRequest[]) => prev.map((r: ReturnRequest) => r.id === rr.id ? { ...r, status: 'completado' as const } : r));
 
-      // Desistimiento: el colaborador confirma recepción del artículo → emitir reembolso Stripe ahora
-      if (rr.type === 'desistimiento' && !rr.stripe_refund_id) {
+      if (!rr.stripe_refund_id) {
         const { error: refundErr } = await supabase.functions.invoke('process-return-refund', {
           body: { returnId: rr.id },
         });
         if (refundErr) {
+          await supabase.from('return_requests').update({ status: 'completado' }).eq('id', rr.id);
+          setReturnRequests((prev: ReturnRequest[]) => prev.map((r: ReturnRequest) => r.id === rr.id ? { ...r, status: 'completado' as const } : r));
           notify('Aviso', 'Devolución procesada, pero el reembolso Stripe necesita revisión manual.', 'warning');
         } else {
+          setReturnRequests((prev: ReturnRequest[]) => prev.map((r: ReturnRequest) => r.id === rr.id ? { ...r, status: 'completado' as const } : r));
           notify('Reembolso emitido', 'El cliente recibirá el importe en su tarjeta.', 'payments');
         }
+      } else {
+        await supabase.from('return_requests').update({ status: 'completado' }).eq('id', rr.id);
+        setReturnRequests((prev: ReturnRequest[]) => prev.map((r: ReturnRequest) => r.id === rr.id ? { ...r, status: 'completado' as const } : r));
       }
     }
   }, [orders, notify]);

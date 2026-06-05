@@ -59,7 +59,7 @@ serve(async (req: Request) => {
     if (returnReq.customer_id !== userId && returnReq.collaborator_id !== userId) {
       throw new UserFacingError('No autorizado', 403);
     }
-    if (returnReq.status !== 'acordado')     throw new UserFacingError('La devolución no está en estado acordado');
+    if (returnReq.status !== 'acordado' && returnReq.status !== 'completado') throw new UserFacingError('La devolución no está en estado válido para reembolso');
     if (returnReq.stripe_refund_id)          throw new UserFacingError('Esta devolución ya fue procesada');
     if (!returnReq.refund_amount || returnReq.refund_amount <= 0) {
       throw new UserFacingError('Importe de reembolso inválido');
