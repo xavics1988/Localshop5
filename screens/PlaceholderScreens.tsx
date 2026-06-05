@@ -2332,11 +2332,10 @@ export const OrdersScreen: React.FC = () => {
     const handleReturnSubmit = async (type: DevolucionTipo, reason: string, collaboratorId: string, evidenceFiles: File[]) => {
         if (!returnModalOrder) return;
         await requestReturnWithType(returnModalOrder.id, type, reason, collaboratorId);
-        // Si hay fotos de prueba, enviarlas como mensajes iniciales en el chat
-        if (type === 'error_tara' && evidenceFiles.length > 0) {
+        // Enviar el motivo y las fotos como mensajes iniciales en el chat
+        if (type === 'error_tara') {
             // Pequeña espera para que el return_request esté en BD antes de insertar mensajes
             await new Promise(res => setTimeout(res, 800));
-            // El return_request ya estará en returnRequests via realtime, pero hacemos fetch directo
             const { data } = await (await import('../src/lib/supabase')).supabase
                 .from('return_requests')
                 .select('id')
@@ -2345,6 +2344,7 @@ export const OrdersScreen: React.FC = () => {
                 .limit(1)
                 .single();
             if (data?.id) {
+                await sendReturnMessage(data.id, reason.trim());
                 for (const file of evidenceFiles) {
                     await sendReturnMessage(data.id, undefined, file);
                 }
