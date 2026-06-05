@@ -78,7 +78,7 @@ export interface CollaboratorSubscription {
     status: SubscriptionStatus;
     trialEndsAt: Date;
     daysRemainingInTrial: number; // negativo si ya expiró
-    monthlyFee: number;           // 4.00 (fundador) o 7.00 (estándar) — IVA incluido
+    monthlyFee: number;           // 3.99 (Socio Fundador) o 7.99 (estándar) — IVA incluido
     monthlyFeeBase: number;       // base imponible (sin IVA)
     monthlyFeeIva: number;        // IVA 21% sobre la cuota
     isFoundingMember: boolean;    // registrado en los 6 primeros meses del lanzamiento

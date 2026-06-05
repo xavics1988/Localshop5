@@ -42,14 +42,13 @@ export const LOCALSHOP_FEE_BASE        = parseFloat((LOCALSHOP_FEE / (1 + IVA_RA
 export const LOCALSHOP_FEE_IVA         = parseFloat((LOCALSHOP_FEE - LOCALSHOP_FEE_BASE).toFixed(2)); // 0.69 IVA repercutido
 export const SHIPPING_FEE              = 4.50;  // € gastos de envío cobrados al cliente si subtotal < FREE_SHIPPING_THRESHOLD
 export const FREE_SHIPPING_THRESHOLD   = 70;    // € — por encima el colaborador gestiona el envío (gratis para el cliente)
-export const SUBSCRIPTION_FREE_MONTHS       = 6;     // meses gratis para colaboradores
-export const SUBSCRIPTION_MONTHLY_FEE       = 7.00;  // € /mes tarifa estándar (IVA incluido)
-export const SUBSCRIPTION_MONTHLY_FEE_BASE  = parseFloat((SUBSCRIPTION_MONTHLY_FEE / (1 + IVA_RATE)).toFixed(2)); // 5.79 base imponible
-export const SUBSCRIPTION_MONTHLY_FEE_IVA   = parseFloat((SUBSCRIPTION_MONTHLY_FEE - SUBSCRIPTION_MONTHLY_FEE_BASE).toFixed(2)); // 1.21 IVA
-export const FOUNDING_MEMBER_FEE             = 4.00;  // € /mes tarifa fundador de por vida (IVA incluido)
-export const FOUNDING_MEMBER_FEE_BASE        = parseFloat((FOUNDING_MEMBER_FEE / (1 + IVA_RATE)).toFixed(2)); // 3.31 base imponible
+export const SUBSCRIPTION_MONTHLY_FEE       = 7.99;  // € /mes tarifa estándar (IVA incluido)
+export const SUBSCRIPTION_MONTHLY_FEE_BASE  = parseFloat((SUBSCRIPTION_MONTHLY_FEE / (1 + IVA_RATE)).toFixed(2)); // 6.60 base imponible
+export const SUBSCRIPTION_MONTHLY_FEE_IVA   = parseFloat((SUBSCRIPTION_MONTHLY_FEE - SUBSCRIPTION_MONTHLY_FEE_BASE).toFixed(2)); // 1.39 IVA
+export const FOUNDING_MEMBER_FEE             = 3.99;  // € /mes tarifa Socio Fundador de por vida (IVA incluido)
+export const FOUNDING_MEMBER_FEE_BASE        = parseFloat((FOUNDING_MEMBER_FEE / (1 + IVA_RATE)).toFixed(2)); // 3.30 base imponible
 export const FOUNDING_MEMBER_FEE_IVA         = parseFloat((FOUNDING_MEMBER_FEE - FOUNDING_MEMBER_FEE_BASE).toFixed(2)); // 0.69 IVA
-// Fecha límite para ser Socio Fundador (€4/mes de por vida)
+// Fecha límite para ser Socio Fundador (0€ hasta 1/1/27, luego 3,99€/mes de por vida)
 export const FOUNDING_WINDOW_END = new Date('2026-12-31T23:59:59Z');
 
 // Fecha de lanzamiento oficial de la plataforma.
@@ -63,10 +62,10 @@ export function getCollaboratorSubscription(joinedAt: string): CollaboratorSubsc
   // Es socio fundador si se registró antes del 31 dic 2026
   const isFoundingMember = joinedDate <= FOUNDING_WINDOW_END;
 
-  // Socios fundadores: prueba hasta el 31 dic 2026. Estándar: 6 meses desde el registro.
+  // Socios fundadores: gratis hasta el 31 dic 2026. Estándar: pagan desde el registro.
   const trialEndsAt = isFoundingMember
     ? new Date(FOUNDING_WINDOW_END)
-    : (() => { const d = new Date(joinedDate); d.setMonth(d.getMonth() + SUBSCRIPTION_FREE_MONTHS); return d; })();
+    : new Date(joinedDate);
 
   const now = new Date();
   const daysRemaining = Math.ceil((trialEndsAt.getTime() - now.getTime()) / 86_400_000);
