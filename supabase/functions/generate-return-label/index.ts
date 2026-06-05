@@ -15,7 +15,7 @@ const corsHeaders = {
 };
 
 const DEFAULT_WEIGHT_KG = 0.5;
-const REQUEST_LABEL     = Deno.env.get('SENDCLOUD_REQUEST_LABEL') === 'true';
+const REQUEST_LABEL     = Deno.env.get('SENDCLOUD_REQUEST_LABEL') !== 'false';
 const RESEND_API_KEY    = Deno.env.get('RESEND_API_KEY');
 
 serve(async (req: Request) => {
@@ -93,8 +93,11 @@ serve(async (req: Request) => {
       })
       .eq('id', returnId);
 
-    // Enviar etiqueta al cliente por email
-    if (RESEND_API_KEY && profile?.email && labelUrl) {
+    // Enviar email al cliente (con PDF si está disponible, con tracking si no)
+    if (RESEND_API_KEY && profile?.email) {
+      const labelSection = labelUrl
+        ? `<p><a href="${labelUrl}" style="background:#c29b88;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">Descargar etiqueta PDF</a></p>`
+        : `<p>La etiqueta PDF estará disponible en la app en unos minutos. También puedes descargarla desde <strong>Mis Pedidos → Ver etiqueta</strong>.</p>`;
       await fetch('https://api.resend.com/emails', {
         method:  'POST',
         headers: {
@@ -106,17 +109,17 @@ serve(async (req: Request) => {
           to:      [profile.email],
           subject: 'Tu etiqueta de devolución — LocalShop',
           html: `
-            <h2>Etiqueta de devolución lista</h2>
-            <p>Hemos generado tu etiqueta de devolución prepagada.</p>
+            <h2>Devolución aceptada — etiqueta prepagada</h2>
+            <p>El colaborador ha aceptado la devolución. Hemos generado tu etiqueta de devolución prepagada.</p>
             <p><strong>Instrucciones:</strong></p>
             <ol>
-              <li>Imprime la etiqueta haciendo clic en el enlace de abajo.</li>
-              <li>Pégala en el paquete bien visible.</li>
+              <li>Imprime la etiqueta y pégala en el paquete bien visible.</li>
               <li>Lleva el paquete a cualquier oficina de Correos.</li>
               <li><strong>No pagas nada</strong> — el envío está prepagado.</li>
+              <li>Cuando el colaborador confirme la recepción, recibirás tu reembolso.</li>
             </ol>
-            <p><a href="${labelUrl}" style="background:#c29b88;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">Descargar etiqueta PDF</a></p>
-            <p>Tracking: <strong>${parcel.tracking_number}</strong></p>
+            ${labelSection}
+            <p>Número de seguimiento: <strong>${parcel.tracking_number}</strong></p>
             <br/>
             <p>El equipo de LocalShop</p>
           `,
