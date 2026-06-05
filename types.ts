@@ -305,5 +305,6 @@ export interface OrderContextType {
     sendReturnMessage: (returnId: string, body?: string, imageFile?: File) => Promise<void>;
     fetchReturnMessages: (returnId: string) => Promise<ReturnMessage[]>;
     resolveReturnDispute: (returnId: string, decision: 'acordado' | 'rechazado') => Promise<void>;
+    confirmReturnReceived: (returnId: string) => Promise<void>;
     getReturnForOrder: (orderId: string) => ReturnRequest | undefined;
 }

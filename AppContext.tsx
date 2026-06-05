@@ -1202,6 +1202,11 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
 
     if (decision === 'acordado') {
+      if (rr?.type === 'desistimiento') {
+        notify('Devolución aceptada', 'El cliente debe enviarte el artículo. Cuando lo recibas, confirma la recepción para emitir el reembolso.', 'local_shipping');
+        setReturnRequests(prev => prev.map(r => r.id === returnId ? { ...r, status: 'esperando_recepcion' as any } : r));
+        return;
+      }
       notify('Acuerdo alcanzado', 'La devolución ha sido aceptada. Emitiendo reembolso al cliente...', 'handshake');
       // error_tara acordado → reembolso Stripe inmediato (culpa del colaborador)
       if (rr?.type === 'error_tara' && rr.id && !rr.stripeRefundId) {
@@ -1229,6 +1234,25 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       // Notificar al admin para iniciar mediación
       supabase.functions.invoke('notify-mediation', { body: { returnId } })
         .catch(e => console.error('[notify-mediation]', e));
+    }
+  }, [notify, returnRequests]);
+
+  const confirmReturnReceived = useCallback(async (returnId: string) => {
+    const rr = returnRequests.find(r => r.id === returnId);
+    const { error } = await supabase.rpc('confirm_return_received', { p_return_id: returnId });
+    if (error) {
+      notify('Error', 'No se pudo confirmar la recepción.', 'error');
+      return;
+    }
+    setReturnRequests(prev => prev.map(r => r.id === returnId ? { ...r, status: 'acordado' as any } : r));
+    notify('Recepción confirmada', 'Emitiendo reembolso al cliente...', 'handshake');
+    if (rr?.id && !rr.stripeRefundId) {
+      const { error: refundErr } = await supabase.functions.invoke('process-return-refund', { body: { returnId } });
+      if (refundErr) {
+        notify('Aviso', 'Recepción confirmada pero el reembolso Stripe necesita revisión manual.', 'warning');
+      } else {
+        notify('Reembolso emitido', 'El cliente recibirá el importe en su tarjeta.', 'payments');
+      }
     }
   }, [notify, returnRequests]);
 
@@ -1379,7 +1403,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     })));
   }, [user.id]);
 
-  const orderValue         = useMemo(() => ({ orders, invoices, payouts, returnRequests, addOrder, addMultiStoreOrder, initiateVendorPayout, requestReturn, requestReturnWithType, processReturn, updateOrderStatus, refetchInvoices, sendReturnMessage, fetchReturnMessages, resolveReturnDispute, getReturnForOrder }), [orders, invoices, payouts, returnRequests, addOrder, addMultiStoreOrder, initiateVendorPayout, requestReturn, requestReturnWithType, processReturn, updateOrderStatus, refetchInvoices, sendReturnMessage, fetchReturnMessages, resolveReturnDispute, getReturnForOrder]);
+  const orderValue         = useMemo(() => ({ orders, invoices, payouts, returnRequests, addOrder, addMultiStoreOrder, initiateVendorPayout, requestReturn, requestReturnWithType, processReturn, updateOrderStatus, refetchInvoices, sendReturnMessage, fetchReturnMessages, resolveReturnDispute, confirmReturnReceived, getReturnForOrder }), [orders, invoices, payouts, returnRequests, addOrder, addMultiStoreOrder, initiateVendorPayout, requestReturn, requestReturnWithType, processReturn, updateOrderStatus, refetchInvoices, sendReturnMessage, fetchReturnMessages, resolveReturnDispute, confirmReturnReceived, getReturnForOrder]);
   const reviewValue        = useMemo(() => ({ addReview, getStoreReviews, getUserReviews }), [addReview, getStoreReviews, getUserReviews]);
   const notificationValue  = useMemo(() => ({
     settings:                 notifSettings,

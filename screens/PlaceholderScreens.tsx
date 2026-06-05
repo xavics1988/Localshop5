@@ -2253,7 +2253,7 @@ const ReturnChatModal: React.FC<{
 };
 
 export const OrdersScreen: React.FC = () => {
-    const { orders, invoices, payouts, requestReturn, requestReturnWithType, processReturn, updateOrderStatus, refetchInvoices, getReturnForOrder, sendReturnMessage, fetchReturnMessages, resolveReturnDispute } = useOrders();
+    const { orders, invoices, payouts, requestReturn, requestReturnWithType, processReturn, updateOrderStatus, refetchInvoices, getReturnForOrder, sendReturnMessage, fetchReturnMessages, resolveReturnDispute, confirmReturnReceived } = useOrders();
     const { user } = useUser();
     const { stores } = useStores();
     const { notify } = useNotifications();
@@ -2462,14 +2462,39 @@ export const OrdersScreen: React.FC = () => {
                                 )}
 
                                 {/* Banners de devolución tipada */}
-                                {returnReq && returnReq.status === 'acordado' && !isReturned && (
+                                {returnReq && (returnReq.status as string) === 'esperando_recepcion' && (
+                                    <div className="border border-amber-200 dark:border-amber-800/20 rounded-2xl overflow-hidden">
+                                        <div className="bg-amber-50 dark:bg-amber-900/10 px-3 py-2">
+                                            <p className="text-[10px] font-black text-amber-700 dark:text-amber-400 uppercase tracking-widest">
+                                                {isCollab ? 'Esperando artículo del cliente' : 'Envía el artículo al colaborador'}
+                                            </p>
+                                            {isCollab ? (
+                                                <p className="text-[10px] text-amber-600 dark:text-amber-300 mt-0.5">
+                                                    Cuando recibas el artículo, confirma la recepción para emitir el reembolso de <strong>€{returnReq.refundAmount?.toFixed(2)}</strong> al cliente.
+                                                </p>
+                                            ) : (
+                                                <p className="text-[10px] text-amber-600 dark:text-amber-300 mt-0.5">
+                                                    El colaborador ha aceptado la devolución. Envía el artículo por tu cuenta a la tienda. Cuando confirmen la recepción, recibirás <strong>€{returnReq.refundAmount?.toFixed(2)}</strong> en tu tarjeta.
+                                                </p>
+                                            )}
+                                        </div>
+                                        {isCollab && (
+                                            <div className="px-3 py-2 bg-amber-100/50 dark:bg-amber-900/20">
+                                                <button
+                                                    onClick={() => confirmReturnReceived(returnReq.id)}
+                                                    className="w-full h-9 bg-amber-500 text-white font-black uppercase tracking-widest text-[10px] rounded-xl active:scale-95 transition-all"
+                                                >
+                                                    He recibido el artículo — emitir reembolso
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {returnReq && returnReq.status === 'acordado' && !isReturned && (returnReq.type as string) !== 'desistimiento' && (
                                     <div className="bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800/20 rounded-2xl p-3 space-y-1">
                                         <p className="text-[10px] font-black text-green-700 dark:text-green-400 uppercase tracking-widest">Devolución acordada</p>
-                                        {returnReq.type === 'desistimiento' ? (
-                                            <p className="text-[10px] text-green-600 dark:text-green-300">Reembolso estimado: <strong>€{returnReq.refundAmount?.toFixed(2)}</strong> · Lleva el artículo a tu empresa de transporte para devolverlo</p>
-                                        ) : (
-                                            <p className="text-[10px] text-green-600 dark:text-green-300">Reembolso al cliente: <strong>€{returnReq.refundAmount?.toFixed(2)} (100%)</strong>{isCollab ? ` · Cargo a tu payout: €${returnReq.collaboratorCharge?.toFixed(2)}` : ''}</p>
-                                        )}
+                                        <p className="text-[10px] text-green-600 dark:text-green-300">Reembolso al cliente: <strong>€{returnReq.refundAmount?.toFixed(2)} (100%)</strong>{isCollab ? ` · Cargo a tu payout: €${returnReq.collaboratorCharge?.toFixed(2)}` : ''}</p>
                                     </div>
                                 )}
 
