@@ -2466,16 +2466,49 @@ export const OrdersScreen: React.FC = () => {
                                     <div className="border border-amber-200 dark:border-amber-800/20 rounded-2xl overflow-hidden">
                                         <div className="bg-amber-50 dark:bg-amber-900/10 px-3 py-2">
                                             <p className="text-[10px] font-black text-amber-700 dark:text-amber-400 uppercase tracking-widest">
-                                                {isCollab ? 'Esperando artículo del cliente' : 'Envía el artículo al colaborador'}
+                                                {isCollab
+                                                    ? (returnReq.type === 'error_tara' ? 'Etiqueta enviada — esperando artículo' : 'Esperando artículo del cliente')
+                                                    : (returnReq.type === 'error_tara' ? 'Usa la etiqueta prepagada para devolver el artículo' : 'Envía el artículo al colaborador')
+                                                }
                                             </p>
                                             {isCollab ? (
                                                 <p className="text-[10px] text-amber-600 dark:text-amber-300 mt-0.5">
-                                                    Cuando recibas el artículo, confirma la recepción para emitir el reembolso de <strong>€{returnReq.refundAmount?.toFixed(2)}</strong> al cliente.
+                                                    {returnReq.type === 'error_tara'
+                                                        ? <>El cliente ha recibido una etiqueta prepagada por email. Cuando recibas el artículo, confirma la recepción para emitir el reembolso de <strong>€{returnReq.refundAmount?.toFixed(2)}</strong>.</>
+                                                        : <>Cuando recibas el artículo, confirma la recepción para emitir el reembolso de <strong>€{returnReq.refundAmount?.toFixed(2)}</strong> al cliente.</>
+                                                    }
                                                 </p>
                                             ) : (
-                                                <p className="text-[10px] text-amber-600 dark:text-amber-300 mt-0.5">
-                                                    El colaborador ha aceptado la devolución. Envía el artículo por tu cuenta a la tienda. Cuando confirmen la recepción, recibirás <strong>€{returnReq.refundAmount?.toFixed(2)}</strong> en tu tarjeta.
-                                                </p>
+                                                <>
+                                                    <p className="text-[10px] text-amber-600 dark:text-amber-300 mt-0.5">
+                                                        {returnReq.type === 'error_tara'
+                                                            ? <>El colaborador ha aceptado el error. Imprime la etiqueta prepagada, pégala en el paquete y llévalo a cualquier oficina de Correos. Cuando confirmen la recepción, recibirás <strong>€{returnReq.refundAmount?.toFixed(2)}</strong> en tu tarjeta.</>
+                                                            : <>El colaborador ha aceptado la devolución. Envía el artículo por tu cuenta a la tienda. Cuando confirmen la recepción, recibirás <strong>€{returnReq.refundAmount?.toFixed(2)}</strong> en tu tarjeta.</>
+                                                        }
+                                                    </p>
+                                                    {returnReq.type === 'error_tara' && returnReq.returnLabelUrl && (
+                                                        <div className="mt-2 space-y-1">
+                                                            <a
+                                                                href={returnReq.returnLabelUrl}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="flex items-center gap-1.5 w-fit bg-amber-500 text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl active:scale-95 transition-all"
+                                                            >
+                                                                <span className="material-symbols-outlined text-sm">print</span>
+                                                                Descargar etiqueta PDF
+                                                            </a>
+                                                            {returnReq.returnTrackingNumber && (
+                                                                <p className="text-[9px] text-amber-500 dark:text-amber-400">
+                                                                    Tracking: <strong>{returnReq.returnTrackingNumber}</strong>
+                                                                    {returnReq.returnCarrier ? ` · ${returnReq.returnCarrier}` : ''}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                    {returnReq.type === 'error_tara' && !returnReq.returnLabelUrl && (
+                                                        <p className="text-[9px] text-amber-400 mt-1">Etiqueta pendiente de generación — revisa tu email en unos minutos.</p>
+                                                    )}
+                                                </>
                                             )}
                                         </div>
                                         {isCollab && (
@@ -2653,7 +2686,7 @@ export const OrdersScreen: React.FC = () => {
                                     </div>
                                 )}
 
-                                {isCollab && order.status === 'Devolución Solicitada' && (
+                                {isCollab && order.status === 'Devolución Solicitada' && returnReq?.type !== 'error_tara' && (
                                     <button
                                         onClick={() => handleConfirmReception(order.id)}
                                         className="w-full min-h-[64px] py-3 px-6 mt-3 bg-gradient-to-r from-green-600 to-emerald-500 text-white font-black uppercase rounded-2xl shadow-xl shadow-green-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-4 border-b-4 border-green-800/30"

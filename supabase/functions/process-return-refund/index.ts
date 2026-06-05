@@ -51,12 +51,14 @@ serve(async (req: Request) => {
     // Obtener la solicitud de devolución con su sub_order si existe
     const { data: returnReq } = await supabaseAdmin
       .from('return_requests')
-      .select('id, order_id, sub_order_id, customer_id, type, refund_amount, status, stripe_refund_id')
+      .select('id, order_id, sub_order_id, customer_id, collaborator_id, type, refund_amount, status, stripe_refund_id')
       .eq('id', returnId)
       .single();
 
-    if (!returnReq)                          throw new UserFacingError('Solicitud de devolución no encontrada', 404);
-    if (returnReq.customer_id !== userId)    throw new UserFacingError('No autorizado', 403);
+    if (!returnReq) throw new UserFacingError('Solicitud de devolución no encontrada', 404);
+    if (returnReq.customer_id !== userId && returnReq.collaborator_id !== userId) {
+      throw new UserFacingError('No autorizado', 403);
+    }
     if (returnReq.status !== 'acordado')     throw new UserFacingError('La devolución no está en estado acordado');
     if (returnReq.stripe_refund_id)          throw new UserFacingError('Esta devolución ya fue procesada');
     if (!returnReq.refund_amount || returnReq.refund_amount <= 0) {
@@ -120,6 +122,13 @@ serve(async (req: Request) => {
       .from('return_requests')
       .update({ stripe_refund_id: refund.id, status: 'completado' })
       .eq('id', returnId);
+
+    // 4. Limpiar fotos de prueba del storage
+    const { data: storageFiles } = await supabaseAdmin.storage.from('return-evidence').list(returnId);
+    if (storageFiles && storageFiles.length > 0) {
+      await supabaseAdmin.storage.from('return-evidence').remove(storageFiles.map((f: { name: string }) => `${returnId}/${f.name}`));
+    }
+    await supabaseAdmin.from('return_messages').delete().eq('return_id', returnId);
 
     await supabaseAdmin
       .from('orders')

@@ -1046,6 +1046,10 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       .in('status', ['acordado', 'pendiente'])
       .maybeSingle();
     if (rr?.id) {
+      const { data: storageFiles } = await supabase.storage.from('return-evidence').list(rr.id);
+      if (storageFiles && storageFiles.length > 0) {
+        await supabase.storage.from('return-evidence').remove(storageFiles.map(f => `${rr.id}/${f.name}`));
+      }
       await supabase.from('return_messages').delete().eq('return_id', rr.id);
       await supabase.from('return_requests').update({ status: 'completado' }).eq('id', rr.id);
       setReturnRequests((prev: ReturnRequest[]) => prev.map((r: ReturnRequest) => r.id === rr.id ? { ...r, status: 'completado' as const } : r));
@@ -1079,9 +1083,12 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     returnShippingCost: r.return_shipping_cost,
     refundAmount:       r.refund_amount,
     collaboratorCharge: r.collaborator_charge,
-    stripeRefundId:     r.stripe_refund_id ?? undefined,
-    resolvedAt:         r.resolved_at,
-    createdAt:          r.created_at,
+    stripeRefundId:        r.stripe_refund_id ?? undefined,
+    resolvedAt:            r.resolved_at,
+    createdAt:             r.created_at,
+    returnLabelUrl:        r.return_label_url ?? undefined,
+    returnTrackingNumber:  r.return_tracking_number ?? undefined,
+    returnCarrier:         r.return_carrier ?? undefined,
   });
 
   useEffect(() => {
@@ -1203,31 +1210,23 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     if (decision === 'acordado') {
       if (rr?.type === 'desistimiento') {
-        notify('Devolución aceptada', 'El cliente debe enviarte el artículo. Cuando lo recibas, confirma la recepción para emitir el reembolso.', 'local_shipping');
+        notify('Devolución aceptada', 'El cliente debe enviarte el artículo por su cuenta. Cuando lo recibas, confirma la recepción para emitir el reembolso.', 'local_shipping');
         setReturnRequests(prev => prev.map(r => r.id === returnId ? { ...r, status: 'esperando_recepcion' as any } : r));
         return;
       }
-      notify('Acuerdo alcanzado', 'La devolución ha sido aceptada. Emitiendo reembolso al cliente...', 'handshake');
-      // error_tara acordado → reembolso Stripe inmediato (culpa del colaborador)
-      if (rr?.type === 'error_tara' && rr.id && !rr.stripeRefundId) {
-        const { error: refundErr } = await supabase.functions.invoke('process-return-refund', {
-          body: { returnId: rr.id },
-        });
-        if (refundErr) {
-          notify('Aviso', 'El acuerdo se ha guardado pero el reembolso Stripe necesita revisión manual.', 'warning');
-        } else {
-          notify('Reembolso emitido', 'El cliente recibirá el importe en su tarjeta.', 'payments');
-          // Generar etiqueta de devolución prepagada y enviarla por email al cliente
-          supabase.functions.invoke('generate-return-label', { body: { returnId: rr.id } })
-            .then(({ error: labelErr }) => {
-              if (labelErr) {
-                notify('Aviso', 'El reembolso está OK pero la etiqueta de devolución necesita generarse manualmente.', 'warning');
-              } else {
-                notify('Etiqueta enviada', 'El cliente ha recibido la etiqueta de devolución por email.', 'local_shipping');
-              }
-            })
-            .catch(e => console.error('[generate-return-label]', e));
-        }
+      if (rr?.type === 'error_tara' && rr.id) {
+        // Etiqueta prepagada enviada al cliente ahora; reembolso cuando el colaborador confirme recepción
+        notify('Acuerdo alcanzado', 'Enviando etiqueta prepagada al cliente por email...', 'handshake');
+        supabase.functions.invoke('generate-return-label', { body: { returnId: rr.id } })
+          .then(({ error: labelErr }) => {
+            if (labelErr) {
+              notify('Aviso', 'Devolución aceptada, pero la etiqueta necesita generarse manualmente.', 'warning');
+            } else {
+              notify('Etiqueta enviada', 'El cliente recibirá la etiqueta por email. Confirma la recepción cuando llegue el artículo para emitir el reembolso.', 'local_shipping');
+            }
+          })
+          .catch(e => console.error('[generate-return-label]', e));
+        setReturnRequests(prev => prev.map(r => r.id === returnId ? { ...r, status: 'esperando_recepcion' as any } : r));
       }
     } else {
       notify('Disputa cerrada', 'Has rechazado la reclamación. LocalShop intervendrá como mediador.', 'cancel');

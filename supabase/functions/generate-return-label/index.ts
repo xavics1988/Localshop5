@@ -35,7 +35,7 @@ serve(async (req: Request) => {
 
     if (!returnReq) throw new UserFacingError('Devolución no encontrada', 404);
     if (returnReq.type !== 'error_tara') throw new UserFacingError('Solo se generan etiquetas para error/tara');
-    if (returnReq.status !== 'acordado') throw new UserFacingError('La devolución debe estar en estado acordado');
+    if (returnReq.status !== 'esperando_recepcion') throw new UserFacingError('La devolución debe estar en estado esperando_recepcion');
     if (returnReq.return_label_url) throw new UserFacingError('Esta devolución ya tiene etiqueta generada');
 
     // Obtener el pedido con dirección de entrega (= origen del retorno)
