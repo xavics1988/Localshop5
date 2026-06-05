@@ -42,7 +42,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const LOCALSHOP_FEE_CENTS = 399;
+const LOCALSHOP_FEE_RATE = 0.10;
 
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -53,8 +53,9 @@ serve(async (req: Request) => {
     // Si hay cabecera pero el token es inválido lanza AuthError (evita suplantación).
     const authenticatedUserId = await tryGetAuth(req);
 
-    const { amount, storeId, metadata, paymentMethodId } = await req.json() as {
+    const { amount, subtotal, storeId, metadata, paymentMethodId } = await req.json() as {
       amount: number;
+      subtotal?: number;
       storeId?: string;
       metadata?: Record<string, string>;
       paymentMethodId?: string;
@@ -124,7 +125,9 @@ serve(async (req: Request) => {
     if (stripeConnectAccountId) {
       // on_behalf_of: el fee de Stripe sale del vendedor, no de LocalShop
       paymentIntentParams.on_behalf_of = stripeConnectAccountId;
-      paymentIntentParams.application_fee_amount = LOCALSHOP_FEE_CENTS;
+      paymentIntentParams.application_fee_amount = subtotal
+        ? Math.round(subtotal * LOCALSHOP_FEE_RATE)
+        : Math.round(amount * LOCALSHOP_FEE_RATE / (1 + LOCALSHOP_FEE_RATE));
       paymentIntentParams.transfer_data = { destination: stripeConnectAccountId };
     }
 

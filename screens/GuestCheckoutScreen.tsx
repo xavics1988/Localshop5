@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStripe, useElements, CardElement } from '@stripe/react-stripe-js';
 import { DetailHeader } from '../components/Layout';
-import { useCart, useNotifications, LOCALSHOP_FEE, SHIPPING_FEE, FREE_SHIPPING_THRESHOLD } from '../AppContext';
+import { useCart, useNotifications, LOCALSHOP_FEE_RATE, SHIPPING_FEE, FREE_SHIPPING_THRESHOLD } from '../AppContext';
 import { SPANISH_PROVINCES } from './AuthScreens';
 import {
     sanitizeRaw, truncate, MAX_LENGTHS,
@@ -114,7 +114,8 @@ const GuestCheckoutScreen: React.FC = () => {
     const subtotal = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
     const freeShipping = subtotal >= FREE_SHIPPING_THRESHOLD;
     const shippingCost = freeShipping ? 0 : SHIPPING_FEE;
-    const total = subtotal + LOCALSHOP_FEE + shippingCost;
+    const localshopFee = parseFloat((subtotal * LOCALSHOP_FEE_RATE).toFixed(2));
+    const total = subtotal + localshopFee + shippingCost;
 
     const setField = (field: keyof GuestData) => (v: string) =>
         setGuestData(prev => ({ ...prev, [field]: v }));
@@ -167,6 +168,7 @@ const GuestCheckoutScreen: React.FC = () => {
                 },
                 body: JSON.stringify({
                     amount:   totalInCents,
+                    subtotal: Math.round(subtotal * 100),
                     // Si todos los items son de la misma tienda, pasar storeId para reparto automático
                     ...(new Set(cartItems.map(i => i.product.storeId)).size === 1
                         ? { storeId: cartItems[0].product.storeId }
@@ -281,7 +283,7 @@ const GuestCheckoutScreen: React.FC = () => {
                         <div className="py-2 border-b border-border-light/50">
                             <div className="flex justify-between items-center">
                                 <span className="text-sm font-bold text-text-light dark:text-text-dark">Gastos de gestión</span>
-                                <span className="text-sm font-bold text-text-light dark:text-text-dark">€{LOCALSHOP_FEE.toFixed(2)}</span>
+                                <span className="text-sm font-bold text-text-light dark:text-text-dark">€{localshopFee.toFixed(2)}</span>
                             </div>
                         </div>
                         <div className="flex justify-between items-center py-2 border-b border-border-light/50">
@@ -483,7 +485,7 @@ const GuestCheckoutScreen: React.FC = () => {
                             <span className="text-sm font-bold text-text-light dark:text-text-dark">Gestión LocalShop</span>
                             <span className="text-[10px] text-text-subtle-light">Comisión de intermediación</span>
                         </div>
-                        <span className="text-sm font-bold text-text-light dark:text-text-dark">€{LOCALSHOP_FEE.toFixed(2)}</span>
+                        <span className="text-sm font-bold text-text-light dark:text-text-dark">€{localshopFee.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between items-center border-b border-border-light/50 pb-3">
                         <div className="flex flex-col">

@@ -15,7 +15,7 @@ import {
     validateProductField, validatePrice
 } from '../utils/validation';
 import { Product, Order, OrderStatus, Store, OrderItem, BankAccount, Review, PaymentCard, OrderEvent, Invoice, ReturnRequest, ReturnMessage, DevolucionTipo } from '../types';
-import { useProducts, useCart, useFavorites, useFollowedStores, useNotifications, useOrders, useReviews, useUser, useStores, LOCALSHOP_PLATFORM_ACCOUNT, LOCALSHOP_COMPANY_ACCOUNT, LOCALSHOP_FEE, LOCALSHOP_FEE_BASE, LOCALSHOP_FEE_IVA, SHIPPING_FEE, FREE_SHIPPING_THRESHOLD, getCollaboratorSubscription } from '../AppContext';
+import { useProducts, useCart, useFavorites, useFollowedStores, useNotifications, useOrders, useReviews, useUser, useStores, LOCALSHOP_PLATFORM_ACCOUNT, LOCALSHOP_COMPANY_ACCOUNT, LOCALSHOP_FEE_RATE, SHIPPING_FEE, FREE_SHIPPING_THRESHOLD, getCollaboratorSubscription } from '../AppContext';
 import { StoreCard, ProductCard } from '../components/Card';
 import { GoogleGenAI } from "@google/genai";
 import { removeBackground } from '@imgly/background-removal';
@@ -1094,7 +1094,8 @@ export const CartScreen: React.FC = () => {
           .reduce((total, s) => total + (s >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE), 0)
         : subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
     const freeShipping = shippingCost === 0;
-    const grandTotal = subtotal + LOCALSHOP_FEE + shippingCost;
+    const localshopFee = parseFloat((subtotal * LOCALSHOP_FEE_RATE).toFixed(2));
+    const grandTotal = subtotal + localshopFee + shippingCost;
     const isAuthenticated = !!user.id;
 
     return (
@@ -1144,7 +1145,7 @@ export const CartScreen: React.FC = () => {
                             <div className="py-1.5 border-b border-border-light/50">
                                 <div className="flex justify-between items-center">
                                     <span className="text-sm font-bold text-text-light dark:text-text-dark">Gastos de gestión</span>
-                                    <span className="text-sm font-bold text-text-light dark:text-text-dark">€{LOCALSHOP_FEE.toFixed(2)}</span>
+                                    <span className="text-sm font-bold text-text-light dark:text-text-dark">€{localshopFee.toFixed(2)}</span>
                                 </div>
                             </div>
                             <div className="flex justify-between items-center py-1.5 border-b border-border-light/50">
@@ -2827,10 +2828,11 @@ export const PaymentScreen: React.FC = () => {
     const savedCard    = paymentMethods.find(pm => pm.stripePaymentMethodId) ?? paymentMethods[0] ?? null;
     const hasSavedCard = !!savedCard;
 
+    const localshopFee = parseFloat((subtotal * LOCALSHOP_FEE_RATE).toFixed(2));
     const referralDiscount = useReferral
-        ? Math.min(subtotal + LOCALSHOP_FEE + shippingCost, user.referralBalance || 0)
+        ? Math.min(subtotal + localshopFee + shippingCost, user.referralBalance || 0)
         : 0;
-    const finalTotal = Math.max(0, subtotal + LOCALSHOP_FEE + shippingCost - referralDiscount);
+    const finalTotal = Math.max(0, subtotal + localshopFee + shippingCost - referralDiscount);
 
     const cardElementOptions = {
         style: {
@@ -2863,6 +2865,7 @@ export const PaymentScreen: React.FC = () => {
                 },
                 body: JSON.stringify({
                     amount:   Math.round(finalTotal * 100),
+                    subtotal: Math.round(subtotal * 100),
                     userId:   user.id,
                     // Si todos los items son de la misma tienda, pasar storeId para reparto automático
                     ...(new Set(cartItems.map((i: any) => i.product.storeId)).size === 1
@@ -2980,7 +2983,7 @@ export const PaymentScreen: React.FC = () => {
                     customerName:          user.name,
                     items:                 [...cartItems],
                     total:                 finalTotal,
-                    shippingFee:           LOCALSHOP_FEE,
+                    shippingFee:           localshopFee,
                     customerDeliveryFee:   shippingCost,
                     stripePaymentIntentId: paymentIntent?.id,
                     shippingAddress,
@@ -2990,7 +2993,7 @@ export const PaymentScreen: React.FC = () => {
                     customerName:          user.name,
                     items:                 [...cartItems],
                     total:                 finalTotal,
-                    shippingFee:           LOCALSHOP_FEE,
+                    shippingFee:           localshopFee,
                     customerDeliveryFee:   shippingCost,
                     stripePaymentIntentId: paymentIntent?.id,
                     shippingAddress,
@@ -3039,7 +3042,7 @@ export const PaymentScreen: React.FC = () => {
                     <div className="py-2 border-b border-border-light/50">
                         <div className="flex justify-between items-center">
                             <span className="text-sm font-bold text-text-light dark:text-text-dark">Gastos de gestión</span>
-                            <span className="text-sm font-bold text-text-light dark:text-text-dark">€{LOCALSHOP_FEE.toFixed(2)}</span>
+                            <span className="text-sm font-bold text-text-light dark:text-text-dark">€{localshopFee.toFixed(2)}</span>
                         </div>
                     </div>
                     <div className="flex justify-between items-center py-2 border-b border-border-light/50">

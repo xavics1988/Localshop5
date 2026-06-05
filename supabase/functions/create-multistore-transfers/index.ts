@@ -99,7 +99,7 @@ serve(async (req: Request) => {
         continue;
       }
 
-      const transferAmount = Math.round(((sub.subtotal ?? 0) + (sub.shipping_fee ?? 0)) * 100);
+      const transferAmount = Math.round(((sub.subtotal ?? 0) * 0.90 + (sub.shipping_fee ?? 0)) * 100);
 
       try {
         const transfer = await stripe.transfers.create({

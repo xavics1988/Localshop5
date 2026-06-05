@@ -37,9 +37,13 @@ export const LOCALSHOP_COMPANY_ACCOUNT: PlatformAccount = {
 
 // ── Modelo de negocio ────────────────────────────────────────────────────────
 export const IVA_RATE                  = 0.21;  // 21 % IVA España
-export const LOCALSHOP_FEE             = 3.99;  // € comisión LocalShop (IVA incluido)
-export const LOCALSHOP_FEE_BASE        = parseFloat((LOCALSHOP_FEE / (1 + IVA_RATE)).toFixed(2)); // 3.30 base imponible
-export const LOCALSHOP_FEE_IVA         = parseFloat((LOCALSHOP_FEE - LOCALSHOP_FEE_BASE).toFixed(2)); // 0.69 IVA repercutido
+export const LOCALSHOP_FEE_RATE        = 0.10;  // 10% comisión LocalShop sobre el subtotal del producto
+export function calcLocalshopFee(subtotal: number): { fee_total: number; fee_base: number; fee_iva: number } {
+  const fee_total = parseFloat((subtotal * LOCALSHOP_FEE_RATE).toFixed(2));
+  const fee_base  = parseFloat((fee_total / (1 + IVA_RATE)).toFixed(2));
+  const fee_iva   = parseFloat((fee_total - fee_base).toFixed(2));
+  return { fee_total, fee_base, fee_iva };
+}
 export const SHIPPING_FEE              = 4.50;  // € gastos de envío cobrados al cliente si subtotal < FREE_SHIPPING_THRESHOLD
 export const FREE_SHIPPING_THRESHOLD   = 70;    // € — por encima el colaborador gestiona el envío (gratis para el cliente)
 export const SUBSCRIPTION_MONTHLY_FEE       = 7.99;  // € /mes tarifa estándar (IVA incluido)
@@ -830,6 +834,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const isFirstPurchase = orders.filter(o => o.customerId === user.id).length === 0;
 
+    const productSubtotal = newOrder.items.reduce((s, i) => s + i.product.price * i.quantity, 0);
     const { error } = await supabase.rpc('place_order', {
       p_order_id:               newOrder.id,
       p_customer_id:            user.id,
@@ -839,7 +844,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       p_destination_iban:       LOCALSHOP_PLATFORM_ACCOUNT.iban,
       p_referred_by:            user.referredBy ?? null,
       p_is_first_purchase:      isFirstPurchase,
-      p_shipping_fee:           LOCALSHOP_FEE,
+      p_shipping_fee:           calcLocalshopFee(productSubtotal).fee_total,
       p_customer_delivery_fee:  newOrder.customerDeliveryFee ?? 0,
       p_shipping_name:          newOrder.shippingAddress?.name    ?? null,
       p_shipping_street:        newOrder.shippingAddress?.street  ?? null,
@@ -908,6 +913,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       shipping_fee:    s.shippingFee,
     }));
 
+    const multiStoreSubtotal = subOrders.reduce((s, so) => s + so.subtotal, 0);
     const { error } = await supabase.rpc('place_multi_store_order', {
       p_order_id:              newOrder.id,
       p_customer_id:           user.id,
@@ -916,7 +922,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       p_total:                 newOrder.total,
       p_destination_iban:      LOCALSHOP_PLATFORM_ACCOUNT.iban,
       p_sub_orders:            subOrdersPayload,
-      p_localshop_fee:         LOCALSHOP_FEE,
+      p_localshop_fee:         calcLocalshopFee(multiStoreSubtotal).fee_total,
       p_customer_delivery_fee: newOrder.customerDeliveryFee ?? 0,
       p_referred_by:           user.referredBy ?? null,
       p_is_first_purchase:     isFirstPurchase,
@@ -1134,7 +1140,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     // El cliente paga el envío de retorno directamente en la empresa de transporte (fuera de la app).
     // El reembolso se emite cuando el colaborador confirma que recibió el artículo.
     const desistimientoRefund = Math.max(
-      order.total - LOCALSHOP_FEE - (order.customerDeliveryFee ?? 0),
+      order.total - (order.shippingFee ?? 0) - (order.customerDeliveryFee ?? 0),
       0,
     );
 
