@@ -1094,8 +1094,7 @@ export const CartScreen: React.FC = () => {
           .reduce((total, s) => total + (s >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE), 0)
         : subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
     const freeShipping = shippingCost === 0;
-    const localshopFee = parseFloat((subtotal * LOCALSHOP_FEE_RATE).toFixed(2));
-    const grandTotal = subtotal + localshopFee + shippingCost;
+    const grandTotal = subtotal + shippingCost;
     const isAuthenticated = !!user.id;
 
     return (
@@ -1141,12 +1140,6 @@ export const CartScreen: React.FC = () => {
                             <div className="flex justify-between items-center py-1.5 border-b border-border-light/50">
                                 <span className="text-sm font-bold text-text-light dark:text-text-dark">Subtotal</span>
                                 <span className="text-sm font-bold text-text-light dark:text-text-dark">€{subtotal.toFixed(2)}</span>
-                            </div>
-                            <div className="py-1.5 border-b border-border-light/50">
-                                <div className="flex justify-between items-center">
-                                    <span className="text-sm font-bold text-text-light dark:text-text-dark">Gastos de gestión</span>
-                                    <span className="text-sm font-bold text-text-light dark:text-text-dark">€{localshopFee.toFixed(2)}</span>
-                                </div>
                             </div>
                             <div className="flex justify-between items-center py-1.5 border-b border-border-light/50">
                                 <div className="flex flex-col">
@@ -2830,9 +2823,9 @@ export const PaymentScreen: React.FC = () => {
 
     const localshopFee = parseFloat((subtotal * LOCALSHOP_FEE_RATE).toFixed(2));
     const referralDiscount = useReferral
-        ? Math.min(subtotal + localshopFee + shippingCost, user.referralBalance || 0)
+        ? Math.min(subtotal + shippingCost, user.referralBalance || 0)
         : 0;
-    const finalTotal = Math.max(0, subtotal + localshopFee + shippingCost - referralDiscount);
+    const finalTotal = Math.max(0, subtotal + shippingCost - referralDiscount);
 
     const cardElementOptions = {
         style: {
@@ -3038,12 +3031,6 @@ export const PaymentScreen: React.FC = () => {
                     <div className="flex justify-between items-center py-2 border-b border-border-light/50">
                         <span className="text-sm font-bold text-text-light dark:text-text-dark">Subtotal</span>
                         <span className="text-sm font-bold text-text-light dark:text-text-dark">€{subtotal.toFixed(2)}</span>
-                    </div>
-                    <div className="py-2 border-b border-border-light/50">
-                        <div className="flex justify-between items-center">
-                            <span className="text-sm font-bold text-text-light dark:text-text-dark">Gastos de gestión</span>
-                            <span className="text-sm font-bold text-text-light dark:text-text-dark">€{localshopFee.toFixed(2)}</span>
-                        </div>
                     </div>
                     <div className="flex justify-between items-center py-2 border-b border-border-light/50">
                         <div className="flex flex-col">

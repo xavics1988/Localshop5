@@ -1143,7 +1143,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     // El cliente paga el envío de retorno directamente en la empresa de transporte (fuera de la app).
     // El reembolso se emite cuando el colaborador confirma que recibió el artículo.
     const desistimientoRefund = Math.max(
-      order.total - (order.shippingFee ?? 0) - (order.customerDeliveryFee ?? 0),
+      order.total - (order.customerDeliveryFee ?? 0),
       0,
     );
 
