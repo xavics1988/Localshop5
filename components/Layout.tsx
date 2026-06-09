@@ -56,7 +56,7 @@ export const Logo: React.FC<{ className?: string; showText?: boolean }> = ({ cla
 
         {showText && (
             <span className="font-black text-lg tracking-tighter text-[#C29B88]">
-                Local<span className="opacity-70">Shop</span>
+                Clou<span className="opacity-70">ey</span>
             </span>
         )}
     </div>

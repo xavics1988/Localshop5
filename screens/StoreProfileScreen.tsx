@@ -58,7 +58,7 @@ const StoreProfileScreen: React.FC = () => {
     const handleShare = async () => {
         if (!store) return;
         const shareData = {
-            title: `Descubre ${store.name} en LocalShop`,
+            title: `Descubre ${store.name} en Clouey`,
             text: `Mira los increíbles artículos locales de ${store.name}.`,
             url: window.location.href,
         };

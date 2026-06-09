@@ -42,7 +42,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const LOCALSHOP_FEE_RATE = 0.10;
+const CLOUEY_FEE_RATE = 0.10;
 
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -123,11 +123,11 @@ serve(async (req: Request) => {
     };
 
     if (stripeConnectAccountId) {
-      // on_behalf_of: el fee de Stripe sale del vendedor, no de LocalShop
+      // on_behalf_of: el fee de Stripe sale del vendedor, no de Clouey
       paymentIntentParams.on_behalf_of = stripeConnectAccountId;
       paymentIntentParams.application_fee_amount = subtotal
-        ? Math.round(subtotal * LOCALSHOP_FEE_RATE)
-        : Math.round(amount * LOCALSHOP_FEE_RATE / (1 + LOCALSHOP_FEE_RATE));
+        ? Math.round(subtotal * CLOUEY_FEE_RATE)
+        : Math.round(amount * CLOUEY_FEE_RATE / (1 + CLOUEY_FEE_RATE));
       paymentIntentParams.transfer_data = { destination: stripeConnectAccountId };
     }
 

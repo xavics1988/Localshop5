@@ -147,7 +147,7 @@ export const OnboardingScreen: React.FC = () => {
                     </div>
                 </div>
                 <div className="flex-shrink-0 bg-background-light dark:bg-background-dark px-4 pb-4">
-                    <h1 className="tracking-tight text-3xl font-bold text-center pb-3 pt-6 text-text-light dark:text-white">LocalShop</h1>
+                    <h1 className="tracking-tight text-3xl font-bold text-center pb-3 pt-6 text-text-light dark:text-white">Clouey</h1>
                     <p className="text-base font-normal leading-normal pb-3 pt-1 text-center text-text-light dark:text-gray-300">
                         ¡Vende como siempre, llega donde nunca!
                     </p>
@@ -327,7 +327,7 @@ export const SignUpScreen: React.FC = () => {
             // Email confirmation disabled — user is already logged in
             notify(
                 isCollab ? '¡Bienvenido Partner!' : '¡Cuenta creada!',
-                'Ya puedes empezar a usar LocalShop.',
+                'Ya puedes empezar a usar Clouey.',
                 isCollab ? 'storefront' : 'person'
             );
             navigate('/');
@@ -902,7 +902,7 @@ export const LoginScreen: React.FC = () => {
                         </div>
                         <header className="space-y-2">
                             <h2 className="text-2xl font-bold text-text-light dark:text-text-dark">Nueva contraseña</h2>
-                            <p className="text-sm text-text-subtle-light">Crea una clave segura para proteger tu cuenta de LocalShop.</p>
+                            <p className="text-sm text-text-subtle-light">Crea una clave segura para proteger tu cuenta de Clouey.</p>
                         </header>
                         <form onSubmit={handlePasswordReset} className="space-y-6 text-left">
                             <div className="space-y-1">
@@ -1057,7 +1057,7 @@ export const OAuthCompleteProfileScreen: React.FC = () => {
             }
 
             notify(
-                isCollab ? '¡Bienvenido Partner!' : '¡Bienvenido a LocalShop!',
+                isCollab ? '¡Bienvenido Partner!' : '¡Bienvenido a Clouey!',
                 'Ya puedes empezar a usar la app.',
                 isCollab ? 'storefront' : 'person'
             );
@@ -1087,7 +1087,7 @@ export const OAuthCompleteProfileScreen: React.FC = () => {
             <div className="flex-1 px-4 py-6 max-w-md mx-auto w-full">
                 {step === 1 && (
                     <div>
-                        <p className="text-text-subtle-light dark:text-text-subtle-dark text-sm mb-6">¿Cómo vas a usar LocalShop?</p>
+                        <p className="text-text-subtle-light dark:text-text-subtle-dark text-sm mb-6">¿Cómo vas a usar Clouey?</p>
                         <div className="flex flex-col gap-4">
                             <button
                                 onClick={() => handleSelectRole('cliente')}
@@ -1205,7 +1205,7 @@ export const OAuthCompleteProfileScreen: React.FC = () => {
                             disabled={isLoading}
                             className="w-full h-14 bg-primary text-white font-black uppercase tracking-widest rounded-2xl shadow-xl active:scale-95 transition-all mt-2 disabled:opacity-60"
                         >
-                            {isLoading ? 'Guardando...' : 'Entrar a LocalShop'}
+                            {isLoading ? 'Guardando...' : 'Entrar a Clouey'}
                         </button>
                     </div>
                 )}

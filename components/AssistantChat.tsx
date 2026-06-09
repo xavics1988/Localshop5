@@ -19,7 +19,7 @@ export const AssistantChat: React.FC<{ isOpen: boolean; onClose: () => void }> =
     const [messages, setMessages] = useState<Message[]>([
         {
             id: '1',
-            text: '¡Hola! Soy tu Asistente de Estilo y Soporte de LocalShop. ✨ ¿En qué puedo ayudarte hoy? Puedo ayudarte a encontrar el look perfecto o resolver dudas sobre tus pedidos.',
+            text: '¡Hola! Soy tu Asistente de Estilo y Soporte de Clouey. ✨ ¿En qué puedo ayudarte hoy? Puedo ayudarte a encontrar el look perfecto o resolver dudas sobre tus pedidos.',
             sender: 'ai',
             timestamp: new Date()
         }
@@ -130,7 +130,7 @@ export const AssistantChat: React.FC<{ isOpen: boolean; onClose: () => void }> =
                             <Icon name="send" filled />
                         </button>
                     </div>
-                    <p className="text-[9px] text-center mt-3 text-text-subtle-light font-black uppercase tracking-widest opacity-60">IA de Soporte LocalShop v1.0</p>
+                    <p className="text-[9px] text-center mt-3 text-text-subtle-light font-black uppercase tracking-widest opacity-60">IA de Soporte Clouey v1.0</p>
                 </div>
             </div>
         </div>

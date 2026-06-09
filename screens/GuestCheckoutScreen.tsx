@@ -333,7 +333,7 @@ const GuestCheckoutScreen: React.FC = () => {
                             />
                         </div>
                         <p className="text-[10px] text-text-subtle-light leading-relaxed">
-                            Tus datos de pago se cifran y procesan de forma segura por Stripe. LocalShop nunca almacena tu número de tarjeta.
+                            Tus datos de pago se cifran y procesan de forma segura por Stripe. Clouey nunca almacena tu número de tarjeta.
                         </p>
                     </div>
 

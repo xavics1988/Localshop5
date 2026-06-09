@@ -1,6 +1,6 @@
 {
-  "name": "LocalShop",
-  "short_name": "LocalShop",
+  "name": "Clouey",
+  "short_name": "Clouey",
   "description": "Vende como siempre, llega donde nunca",
   "start_url": "/",
   "display": "standalone",

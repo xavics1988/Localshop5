@@ -24,22 +24,22 @@ export { CLOTHING_CATEGORIES };
 export const LOCALSHOP_PLATFORM_ACCOUNT: PlatformAccount = {
   holder:   import.meta.env.VITE_PLATFORM_HOLDER || "LOCAL SHOP GLOBAL S.L.",
   iban:     import.meta.env.VITE_PLATFORM_IBAN   || "ES00 0000 0000 0000 0000 0000",
-  bankName: import.meta.env.VITE_PLATFORM_BANK   || "Banco Central LocalShop"
+  bankName: import.meta.env.VITE_PLATFORM_BANK   || "Banco Central Clouey"
 };
 
-// ── Cuenta propia de LocalShop para comisiones (envío + suscripciones) ──────
+// ── Cuenta propia de Clouey para comisiones (envío + suscripciones) ──────────
 // ⚠️  Cuando tengas el IBAN real de empresa, añádelo en .env.local con VITE_COMPANY_IBAN
 export const LOCALSHOP_COMPANY_ACCOUNT: PlatformAccount = {
   holder:   import.meta.env.VITE_COMPANY_HOLDER || "LOCAL SHOP GLOBAL S.L.",
   iban:     import.meta.env.VITE_COMPANY_IBAN   || "PENDIENTE — configura VITE_COMPANY_IBAN en .env.local",
-  bankName: import.meta.env.VITE_COMPANY_BANK   || "Cuenta Empresa LocalShop",
+  bankName: import.meta.env.VITE_COMPANY_BANK   || "Cuenta Empresa Clouey",
 };
 
 // ── Modelo de negocio ────────────────────────────────────────────────────────
 export const IVA_RATE                  = 0.21;  // 21 % IVA España
-export const LOCALSHOP_FEE_RATE        = 0.10;  // 10% comisión LocalShop sobre el subtotal del producto
-export function calcLocalshopFee(subtotal: number): { fee_total: number; fee_base: number; fee_iva: number } {
-  const fee_total = parseFloat((subtotal * LOCALSHOP_FEE_RATE).toFixed(2));
+export const CLOUEY_FEE_RATE        = 0.10;  // 10% comisión Clouey sobre el subtotal del producto
+export function calcCloueyFee(subtotal: number): { fee_total: number; fee_base: number; fee_iva: number } {
+  const fee_total = parseFloat((subtotal * CLOUEY_FEE_RATE).toFixed(2));
   const fee_base  = parseFloat((fee_total / (1 + IVA_RATE)).toFixed(2));
   const fee_iva   = parseFloat((fee_total - fee_base).toFixed(2));
   return { fee_total, fee_base, fee_iva };
@@ -844,7 +844,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       p_destination_iban:       LOCALSHOP_PLATFORM_ACCOUNT.iban,
       p_referred_by:            user.referredBy ?? null,
       p_is_first_purchase:      isFirstPurchase,
-      p_shipping_fee:           calcLocalshopFee(productSubtotal).fee_total,
+      p_shipping_fee:           calcCloueyFee(productSubtotal).fee_total,
       p_customer_delivery_fee:  newOrder.customerDeliveryFee ?? 0,
       p_shipping_name:          newOrder.shippingAddress?.name    ?? null,
       p_shipping_street:        newOrder.shippingAddress?.street  ?? null,
@@ -922,7 +922,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       p_total:                 newOrder.total,
       p_destination_iban:      LOCALSHOP_PLATFORM_ACCOUNT.iban,
       p_sub_orders:            subOrdersPayload,
-      p_localshop_fee:         calcLocalshopFee(multiStoreSubtotal).fee_total,
+      p_localshop_fee:         calcCloueyFee(multiStoreSubtotal).fee_total,
       p_customer_delivery_fee: newOrder.customerDeliveryFee ?? 0,
       p_referred_by:           user.referredBy ?? null,
       p_is_first_purchase:     isFirstPurchase,
@@ -1238,7 +1238,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setReturnRequests(prev => prev.map(r => r.id === returnId ? { ...r, status: 'esperando_recepcion' as any } : r));
       }
     } else {
-      notify('Disputa cerrada', 'Has rechazado la reclamación. LocalShop intervendrá como mediador.', 'cancel');
+      notify('Disputa cerrada', 'Has rechazado la reclamación. Clouey intervendrá como mediador.', 'cancel');
       // Notificar al admin para iniciar mediación
       supabase.functions.invoke('notify-mediation', { body: { returnId } })
         .catch(e => console.error('[notify-mediation]', e));

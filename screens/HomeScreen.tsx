@@ -122,7 +122,7 @@ const HomeScreen: React.FC = () => {
                     <span className="text-xs text-text-light/70 dark:text-text-dark/70 font-medium leading-tight max-w-[200px]">{tagline}</span>
                 </div>
                 <div className="flex-1 text-center">
-                    <h1 className="text-text-light dark:text-text-dark text-lg font-bold sm:hidden">LocalShop</h1>
+                    <h1 className="text-text-light dark:text-text-dark text-lg font-bold sm:hidden">Clouey</h1>
                 </div>
                 <div className="flex w-24 items-center justify-end">
                     <Link to="/" className="p-0 flex items-center justify-center h-10 w-10 text-text-light dark:text-text-dark" aria-label="Buscar productos">

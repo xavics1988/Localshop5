@@ -68,7 +68,7 @@ const ProductDetailScreen: React.FC = () => {
         if (!product) return;
         const shareData = {
             title: `Mira este artículo: ${product.name}`,
-            text: `He encontrado este artículo en ${product.storeName} a través de LocalShop.`,
+            text: `He encontrado este artículo en ${product.storeName} a través de Clouey.`,
             url: window.location.href,
         };
 

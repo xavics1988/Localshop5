@@ -1,4 +1,4 @@
-// Service Worker — LocalShop Web Push Notifications
+// Service Worker — Clouey Web Push Notifications
 // Debe estar en la raíz del scope (/public) para interceptar todos los push events.
 
 self.addEventListener('install', () => {

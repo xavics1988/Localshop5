@@ -15,7 +15,7 @@ import {
     validateProductField, validatePrice
 } from '../utils/validation';
 import { Product, Order, OrderStatus, Store, OrderItem, BankAccount, Review, PaymentCard, OrderEvent, Invoice, ReturnRequest, ReturnMessage, DevolucionTipo } from '../types';
-import { useProducts, useCart, useFavorites, useFollowedStores, useNotifications, useOrders, useReviews, useUser, useStores, LOCALSHOP_PLATFORM_ACCOUNT, LOCALSHOP_COMPANY_ACCOUNT, LOCALSHOP_FEE_RATE, SHIPPING_FEE, FREE_SHIPPING_THRESHOLD, getCollaboratorSubscription } from '../AppContext';
+import { useProducts, useCart, useFavorites, useFollowedStores, useNotifications, useOrders, useReviews, useUser, useStores, LOCALSHOP_PLATFORM_ACCOUNT, LOCALSHOP_COMPANY_ACCOUNT, CLOUEY_FEE_RATE, SHIPPING_FEE, FREE_SHIPPING_THRESHOLD, getCollaboratorSubscription } from '../AppContext';
 import { StoreCard, ProductCard } from '../components/Card';
 import { GoogleGenAI } from "@google/genai";
 import { removeBackground } from '@imgly/background-removal';
@@ -124,7 +124,7 @@ export const ManageCatalogScreen: React.FC = () => {
                     </h2>
                     <p className="text-sm text-text-subtle-light dark:text-text-subtle-dark max-w-sm leading-relaxed mb-10">
                         {isTrialExpired
-                            ? 'Tu período de prueba ha finalizado. Activa tu suscripción para seguir gestionando tu catálogo y vendiendo en LocalShop.'
+                            ? 'Tu período de prueba ha finalizado. Activa tu suscripción para seguir gestionando tu catálogo y vendiendo en Clouey.'
                             : 'Antes de gestionar tu catálogo necesitas conectar tu cuenta bancaria a través de Stripe para poder recibir tus cobros.'}
                     </p>
                     <button
@@ -647,7 +647,7 @@ export const HelpScreen: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'faq' | 'support'>('faq');
 
     const WHATSAPP_PHONE_NUMBER = "";
-    const SUPPORT_EMAIL = "soporte@localshop.es";
+    const SUPPORT_EMAIL = "soporte@clouey.com";
 
     const faqs = isCollab ? [
         {
@@ -655,11 +655,11 @@ export const HelpScreen: React.FC = () => {
             a: "El proceso es ágil: tras registrarte, puedes subir tu escaparate digital en cuestión de minutos a través de la app o la web."
         },
         {
-            q: "¿Cómo gestiona LocalShop los cobros y qué comisiones se aplican?",
+            q: "¿Cómo gestiona Clouey los cobros y qué comisiones se aplican?",
             a: "La plataforma cuenta con un sistema automatizado que gestiona íntegramente el catálogo, los pedidos y los pagos. El modelo de ingresos se divide en dos vías principales:\n\n• Suscripción para tiendas: Cada comercio colaborador abona una cuota mensual de 2,49 € por el uso de la plataforma.\n\n• Comisión por venta: Por cada artículo vendido, el sistema aplica automáticamente una comisión de 2,99 € por unidad.\n\n• Gestión de pagos: La aplicación procesa los pagos de forma automática, permitiendo que el consumidor compre o reserve artículos sin necesidad de intermediarios manuales."
         },
         {
-            q: "¿LocalShop gestiona mi inventario?",
+            q: "¿Clouey gestiona mi inventario?",
             a: "No, la plataforma funciona de forma descentralizada. No hay stock centralizado; tú sigues vendiendo como siempre, pero con visibilidad global."
         },
         {
@@ -668,7 +668,7 @@ export const HelpScreen: React.FC = () => {
         }
     ] : [
         {
-            q: "¿Qué es LocalShop?",
+            q: "¿Qué es Clouey?",
             a: "Es una plataforma digital que conecta a los consumidores con el comercio local de moda y complementos, permitiendo comprar artículos de tiendas auténticas de forma online."
         },
         {
@@ -698,7 +698,7 @@ export const HelpScreen: React.FC = () => {
             notify('Atención al Cliente', 'El servicio de WhatsApp estará disponible próximamente.', 'info');
             return;
         }
-        const message = encodeURIComponent("Hola LocalShop, necesito ayuda con...");
+        const message = encodeURIComponent("Hola Clouey, necesito ayuda con...");
         window.open(`https://wa.me/${WHATSAPP_PHONE_NUMBER}?text=${message}`, '_blank');
     };
 
@@ -791,18 +791,18 @@ export const HelpScreen: React.FC = () => {
                         <div className="bg-white dark:bg-accent-dark border border-border-light dark:border-border-dark p-6 rounded-[32px] shadow-sm">
                             <h4 className="text-xs font-black uppercase tracking-widest text-text-subtle-light mb-4 text-center">Síguenos para más novedades</h4>
                             <div className="flex justify-center gap-8 py-2">
-                                <a href="https://instagram.com/localshop" target="_blank" className="flex flex-col items-center gap-1 group">
+                                <a href="https://instagram.com/clouey" target="_blank" className="flex flex-col items-center gap-1 group">
                                     <div className="size-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary group-active:scale-90 transition-transform overflow-hidden shadow-sm border border-primary/20">
                                         <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" /></svg>
                                     </div>
                                 </a>
-                                <a href="https://tiktok.com/@localshop" target="_blank" className="flex flex-col items-center gap-1 group">
+                                <a href="https://tiktok.com/@clouey" target="_blank" className="flex flex-col items-center gap-1 group">
                                     <div className="size-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary group-active:scale-90 transition-transform overflow-hidden shadow-sm border border-primary/20">
                                         <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.17-2.86-.6-4.12-1.31a6.43 6.43 0 0 1-1.55-1.11v7.14c-.01 1.2-.24 2.41-.69 3.53a7.48 7.48 0 0 1-5.11 4.79c-1.2.32-2.45.39-3.68.21a7.41 7.41 0 0 1-5.39-4.01c-.46-1.12-.68-2.32-.69-3.53-.01-1.21.23-2.43.69-3.55a7.48 7.48 0 0 1 5.1-4.79c.96-.26 1.95-.35 2.94-.25v4.21c-.72-.08-1.45.02-2.12.3a3.17 3.17 0 0 0-1.89 2.56c-.05.51-.01 1.03.11 1.53.18.57.54 1.08 1.01 1.46.47.38 1.05.61 1.65.67.6.06 1.21-.04 1.77-.28a3.17 3.17 0 0 0 1.62-2.07c.13-.51.18-1.04.14-1.57V.02z" /></svg>
                                     </div>
                                     <span className="text-[10px] font-black uppercase tracking-widest text-text-subtle-light">TikTok</span>
                                 </a>
-                                <a href="https://facebook.com/localshop" target="_blank" className="size-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary active:scale-90 transition-transform overflow-hidden shadow-sm border border-primary/20">
+                                <a href="https://facebook.com/clouey" target="_blank" className="size-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary active:scale-90 transition-transform overflow-hidden shadow-sm border border-primary/20">
                                     <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg>
                                 </a>
                             </div>
@@ -1218,8 +1218,8 @@ const ReferralCard: React.FC = () => {
         if (navigator.share) {
             try {
                 await navigator.share({
-                    title: 'Únete a LocalShop',
-                    text: `¡Únete a LocalShop con mi código ${user.referralCode} y ahorra en tu primera compra!`,
+                    title: 'Únete a Clouey',
+                    text: `¡Únete a Clouey con mi código ${user.referralCode} y ahorra en tu primera compra!`,
                     url: window.location.origin,
                 });
             } catch (err) {
@@ -1575,16 +1575,16 @@ export const ProfileScreen: React.FC = () => {
 
                 <div className="pt-10 pb-4 text-center">
                     <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-text-subtle-light dark:text-text-subtle-dark mb-6">
-                        Comunidad LocalShop
+                        Comunidad Clouey
                     </h3>
                     <div className="flex justify-center items-center gap-6">
-                        <a href="https://instagram.com/localshop" target="_blank" className="size-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary active:scale-90 transition-transform overflow-hidden shadow-sm border border-primary/20">
+                        <a href="https://instagram.com/clouey" target="_blank" className="size-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary active:scale-90 transition-transform overflow-hidden shadow-sm border border-primary/20">
                             <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" /></svg>
                         </a>
-                        <a href="https://facebook.com/localshop" target="_blank" className="size-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary active:scale-90 transition-transform overflow-hidden shadow-sm border border-primary/20">
+                        <a href="https://facebook.com/clouey" target="_blank" className="size-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary active:scale-90 transition-transform overflow-hidden shadow-sm border border-primary/20">
                             <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg>
                         </a>
-                        <a href="https://tiktok.com/@localshop" target="_blank" className="size-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary active:scale-90 transition-transform overflow-hidden shadow-sm border border-primary/20">
+                        <a href="https://tiktok.com/@clouey" target="_blank" className="size-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary active:scale-90 transition-transform overflow-hidden shadow-sm border border-primary/20">
                             <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.17-2.86-.6-4.12-1.31a6.43 6.43 0 0 1-1.55-1.11v7.14c-.01 1.2-.24 2.41-.69 3.53a7.48 7.48 0 0 1-5.11 4.79c-1.2.32-2.45.39-3.68.21a7.41 7.41 0 0 1-5.39-4.01c-.46-1.12-.68-2.32-.69-3.53-.01-1.21.23-2.43.69-3.55a7.48 7.48 0 0 1 5.1-4.79c.96-.26 1.95-.35 2.94-.25v4.21c-.72-.08-1.45.02-2.12.3a3.17 3.17 0 0 0-1.89 2.56c-.05.51-.01 1.03.11 1.53.18.57.54 1.08 1.01 1.46.47.38 1.05.61 1.65.67.6.06 1.21-.04 1.77-.28a3.17 3.17 0 0 0 1.62-2.07c.13-.51.18-1.04.14-1.57V.02z" /></svg>
                         </a>
                         <div className="size-14 bg-white dark:bg-accent-dark rounded-full flex items-center justify-center shadow-lg border border-border-light dark:border-border-dark overflow-hidden p-2">
@@ -1766,7 +1766,7 @@ const InvoiceModal: React.FC<{ invoice: Invoice; onClose: () => void }> = ({ inv
                         {invoice.feeBase != null && !isCollab && (
                             <>
                                 <div className="flex justify-between text-[11px] text-text-subtle-light">
-                                    <span>Comisión LocalShop (base)</span>
+                                    <span>Comisión Clouey (base)</span>
                                     <span className="font-bold">€{invoice.feeBase.toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between text-[11px] text-text-subtle-light">
@@ -2821,7 +2821,7 @@ export const PaymentScreen: React.FC = () => {
     const savedCard    = paymentMethods.find(pm => pm.stripePaymentMethodId) ?? paymentMethods[0] ?? null;
     const hasSavedCard = !!savedCard;
 
-    const localshopFee = parseFloat((subtotal * LOCALSHOP_FEE_RATE).toFixed(2));
+    const cloueyFee = parseFloat((subtotal * CLOUEY_FEE_RATE).toFixed(2));
     const referralDiscount = useReferral
         ? Math.min(subtotal + shippingCost, user.referralBalance || 0)
         : 0;
@@ -2976,7 +2976,7 @@ export const PaymentScreen: React.FC = () => {
                     customerName:          user.name,
                     items:                 [...cartItems],
                     total:                 finalTotal,
-                    shippingFee:           localshopFee,
+                    shippingFee:           cloueyFee,
                     customerDeliveryFee:   shippingCost,
                     stripePaymentIntentId: paymentIntent?.id,
                     shippingAddress,
@@ -2986,7 +2986,7 @@ export const PaymentScreen: React.FC = () => {
                     customerName:          user.name,
                     items:                 [...cartItems],
                     total:                 finalTotal,
-                    shippingFee:           localshopFee,
+                    shippingFee:           cloueyFee,
                     customerDeliveryFee:   shippingCost,
                     stripePaymentIntentId: paymentIntent?.id,
                     shippingAddress,
@@ -3319,7 +3319,7 @@ export const PaymentMethodsScreen: React.FC = () => {
                         <div className="space-y-1">
                             <h4 className="font-black text-sm text-primary">Pagos seguros con Stripe</h4>
                             <p className="text-xs text-text-subtle-light leading-relaxed">
-                                Tus tarjetas se guardan automáticamente de forma segura cuando realizas un pago. LocalShop nunca almacena tus datos de tarjeta — todo está gestionado por Stripe.
+                                Tus tarjetas se guardan automáticamente de forma segura cuando realizas un pago. Clouey nunca almacena tus datos de tarjeta — todo está gestionado por Stripe.
                             </p>
                         </div>
                     </div>
@@ -4065,7 +4065,7 @@ export const PublishScreen: React.FC = () => {
                         Suscripción Inactiva
                     </h2>
                     <p className="text-sm text-text-subtle-light dark:text-text-subtle-dark max-w-sm leading-relaxed mb-10">
-                        Tu período de prueba ha finalizado. Para seguir publicando artículos y vender en LocalShop, activa tu suscripción mensual.
+                        Tu período de prueba ha finalizado. Para seguir publicando artículos y vender en Clouey, activa tu suscripción mensual.
                     </p>
                     <div className="w-full max-w-sm space-y-4">
                         <button
@@ -4144,7 +4144,7 @@ export const PublishScreen: React.FC = () => {
                         )}
 
                         <p className="text-xs text-text-subtle-light font-bold">
-                            Stripe gestiona tus datos bancarios de forma segura. LocalShop nunca almacena tu IBAN.
+                            Stripe gestiona tus datos bancarios de forma segura. Clouey nunca almacena tu IBAN.
                         </p>
                     </div>
 
@@ -4332,9 +4332,9 @@ New background: warm terracotta studio (#8B5535), smooth gradient lighter toward
                 });
 
                 if (imageFromAI) {
-                    notify('IA LocalShop', 'Foto optimizada con fondo de estudio.', 'auto_awesome');
+                    notify('IA Clouey', 'Foto optimizada con fondo de estudio.', 'auto_awesome');
                 } else {
-                    notify('IA LocalShop', 'Campos completados. El fondo no se pudo generar esta vez, inténtalo de nuevo.', 'info');
+                    notify('IA Clouey', 'Campos completados. El fondo no se pudo generar esta vez, inténtalo de nuevo.', 'info');
                 }
             } catch (error: any) {
                 console.error("AI Error", error);
