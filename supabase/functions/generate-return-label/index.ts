@@ -105,9 +105,9 @@ serve(async (req: Request) => {
           'Content-Type':  'application/json',
         },
         body: JSON.stringify({
-          from:    'LocalShop <noreply@localshop.es>',
+          from:    'Clouey <noreply@clouey.com>',
           to:      [profile.email],
-          subject: 'Tu etiqueta de devolución — LocalShop',
+          subject: 'Tu etiqueta de devolución — Clouey',
           html: `
             <h2>Devolución aceptada — etiqueta prepagada</h2>
             <p>El colaborador ha aceptado la devolución. Hemos generado tu etiqueta de devolución prepagada.</p>
@@ -121,7 +121,7 @@ serve(async (req: Request) => {
             ${labelSection}
             <p>Número de seguimiento: <strong>${parcel.tracking_number}</strong></p>
             <br/>
-            <p>El equipo de LocalShop</p>
+            <p>El equipo de Clouey</p>
           `,
         }),
       }).catch(e => console.error('[generate-return-label] email error:', e));

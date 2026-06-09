@@ -86,7 +86,7 @@ serve(async (req: Request) => {
 
     if (RESEND_API_KEY) {
       const html = `
-        <h2 style="color:#d97706">⚠️ Mediación requerida — LocalShop</h2>
+        <h2 style="color:#d97706">⚠️ Mediación requerida — Clouey</h2>
         <table style="border-collapse:collapse;width:100%;font-family:sans-serif;font-size:14px">
           <tr><td style="padding:6px 12px;font-weight:bold">Mediación ID</td><td>${mediation.id}</td></tr>
           <tr style="background:#f9fafb"><td style="padding:6px 12px;font-weight:bold">Pedido ID</td><td>${mediation.order_id}</td></tr>
@@ -108,7 +108,7 @@ serve(async (req: Request) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          from:    'LocalShop <noreply@localshop.es>',
+          from:    'Clouey <noreply@clouey.com>',
           to:      [ADMIN_EMAIL],
           subject: `⚠️ Mediación requerida — Pedido ${mediation.order_id}`,
           html,
