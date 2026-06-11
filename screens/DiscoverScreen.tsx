@@ -331,17 +331,17 @@ const DiscoverScreen: React.FC = () => {
             </div>
 
             <div className="sticky top-16 z-50 bg-white/95 dark:bg-background-dark/95 backdrop-blur-md pt-6 shadow-sm pb-2">
-                <div className="grid grid-cols-2 sm:flex gap-2 sm:gap-3 px-4 mb-2 sm:overflow-x-auto sm:[-ms-scrollbar-style:none] sm:[scrollbar-width:none] sm:[&::-webkit-scrollbar]:hidden">
+                <div className="flex gap-2 px-4 mb-2 overflow-x-auto [-ms-scrollbar-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     {(['Todos', 'Mujer', 'Hombre', 'Niños'] as const).map(g => (
                         <button
                             key={g}
                             onClick={() => handleFilterSelect('gender', g)}
-                            className={`flex h-11 sm:shrink-0 items-center justify-center rounded-xl px-4 text-sm font-bold uppercase tracking-tight transition-colors ${selectedFilters.gender === g ? 'bg-primary text-white shadow-md' : 'bg-primary/20 text-text-light'}`}
+                            className={`flex h-9 shrink-0 items-center justify-center rounded-xl px-4 text-xs font-bold uppercase tracking-tight transition-colors ${selectedFilters.gender === g ? 'bg-primary text-white shadow-md' : 'bg-primary/20 text-text-light'}`}
                         >
                             {g}
                         </button>
                     ))}
-                    <button onClick={() => setActiveFilter('Filtros')} className={`col-span-2 sm:col-auto flex h-11 sm:shrink-0 items-center justify-center gap-x-2 rounded-xl px-4 text-sm font-bold uppercase tracking-tight transition-colors ${selectedFilters.size !== 'Todas' || selectedFilters.color !== 'Todos' || selectedFilters.minPrice > 0 || selectedFilters.maxPrice < 200 ? 'bg-primary text-white' : 'bg-primary/20 text-text-light'}`}>
+                    <button onClick={() => setActiveFilter('Filtros')} className={`flex h-9 shrink-0 items-center justify-center gap-x-1.5 rounded-xl px-4 text-xs font-bold uppercase tracking-tight transition-colors ${selectedFilters.size !== 'Todas' || selectedFilters.color !== 'Todos' || selectedFilters.minPrice > 0 || selectedFilters.maxPrice < 200 ? 'bg-primary text-white' : 'bg-primary/20 text-text-light'}`}>
                         <Icon name="search" className="text-lg" />
                         {selectedFilters.size !== 'Todas' ? selectedFilters.size : selectedFilters.color !== 'Todos' ? selectedFilters.color : (selectedFilters.minPrice > 0 || selectedFilters.maxPrice < 200) ? `${selectedFilters.minPrice}€-${selectedFilters.maxPrice >= 200 ? '+200' : selectedFilters.maxPrice}€` : 'Filtros'}
                         <Icon name="expand_more" className="text-lg" />
