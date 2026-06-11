@@ -4,7 +4,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clouey</title>
+    <title>Clouey | Tu Marketplace Local de Confianza</title>
+    <meta name="description" content="Clouey conecta compradores con tiendas locales de confianza. Descubre productos cerca de ti, apoya el comercio de tu barrio y recibe rápido.">
+
+    <!-- Open Graph / Social Sharing -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Clouey">
+    <meta property="og:url" content="https://www.clouey.com/">
+    <meta property="og:title" content="Clouey | Tu Marketplace Local de Confianza">
+    <meta property="og:description" content="Clouey conecta compradores con tiendas locales de confianza. Descubre productos cerca de ti, apoya el comercio de tu barrio y recibe rápido.">
+    <meta property="og:image" content="https://www.clouey.com/icon-192.png">
+    <meta property="og:image:width" content="192">
+    <meta property="og:image:height" content="192">
+    <meta property="og:locale" content="es_ES">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Clouey | Tu Marketplace Local de Confianza">
+    <meta name="twitter:description" content="Clouey conecta compradores con tiendas locales de confianza. Descubre productos cerca de ti, apoya el comercio de tu barrio y recibe rápido.">
+    <meta name="twitter:image" content="https://www.clouey.com/icon-192.png">
+
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://www.clouey.com/">
+
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="/icon-96.png">
+    <link rel="apple-touch-icon" href="/icon-192.png">
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#c29b88">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -116,6 +141,19 @@
         }
     </script>
     <script type="module" src="/index.tsx"></script>
+
+    <!-- Structured Data: Organization (Google Knowledge Panel + logo) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Clouey",
+      "url": "https://www.clouey.com",
+      "logo": "https://www.clouey.com/icon-192.png",
+      "description": "Clouey conecta compradores con tiendas locales de confianza. Descubre productos cerca de ti, apoya el comercio de tu barrio y recibe rápido.",
+      "sameAs": []
+    }
+    </script>
 </head>
 <body>
     <div id="root"></div>
