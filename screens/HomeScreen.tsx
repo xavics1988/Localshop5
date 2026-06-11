@@ -117,14 +117,14 @@ const HomeScreen: React.FC = () => {
         <div>
             {/* Header */}
             <div className="sticky top-0 z-10 flex items-center bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-sm p-4 pb-2 justify-between">
-                <div className="flex shrink-0 items-center gap-3">
-                    <Logo className="h-9" />
-                    <span className="text-xs text-text-light/70 dark:text-text-dark/70 font-medium leading-tight max-w-[200px]">{tagline}</span>
+                <div className="flex items-center gap-2 shrink-0">
+                    <Logo className="h-9 shrink-0" />
+                    <span className="text-xs text-text-light/70 dark:text-text-dark/70 font-medium leading-tight max-w-[95px] sm:max-w-[200px]">{tagline}</span>
                 </div>
-                <div className="flex-1 text-center">
+                <div className="flex-1 text-center min-w-0 overflow-hidden">
                     <h1 className="text-text-light dark:text-text-dark text-lg font-bold sm:hidden">Clouey</h1>
                 </div>
-                <div className="flex w-24 items-center justify-end">
+                <div className="flex shrink-0 w-20 items-center justify-end">
                     <Link to="/" className="p-0 flex items-center justify-center h-10 w-10 text-text-light dark:text-text-dark" aria-label="Buscar productos">
                         <Icon name="search" className="text-2xl" />
                     </Link>

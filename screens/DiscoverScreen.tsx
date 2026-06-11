@@ -313,14 +313,14 @@ const DiscoverScreen: React.FC = () => {
     return (
         <div className="bg-white dark:bg-background-dark min-h-screen">
             <div className="flex items-center justify-between px-4 h-16 border-b border-border-light dark:border-border-dark sticky top-0 z-[100] bg-white/95 dark:bg-background-dark/95 backdrop-blur-md">
-                <div className="flex-1 flex justify-start items-center gap-3">
-                    <Logo className="h-10" />
-                    <div className="flex items-center gap-2.5">
-                        <div className="w-px h-6 bg-primary/40 rounded-full" />
-                        <span className="text-[11px] italic font-semibold text-primary whitespace-nowrap tracking-wide">{tagline}</span>
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <Logo className="h-10 shrink-0" />
+                    <div className="flex items-center gap-1.5 min-w-0">
+                        <div className="w-px h-6 bg-primary/40 rounded-full shrink-0" />
+                        <span className="text-[11px] italic font-semibold text-primary tracking-wide leading-tight max-w-[130px] sm:max-w-xs">{tagline}</span>
                     </div>
                 </div>
-                <div className="flex-1 flex justify-end items-center gap-1">
+                <div className="flex shrink-0 justify-end items-center gap-1">
                     <Link to="/cart" className="flex size-10 items-center justify-center text-text-light dark:text-text-dark active:scale-90 transition-transform">
                         <Icon name="shopping_cart" className="text-2xl" />
                     </Link>
@@ -331,17 +331,17 @@ const DiscoverScreen: React.FC = () => {
             </div>
 
             <div className="sticky top-16 z-50 bg-white/95 dark:bg-background-dark/95 backdrop-blur-md pt-6 shadow-sm pb-2">
-                <div className="flex gap-3 px-4 mb-2 overflow-x-auto [-ms-scrollbar-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="grid grid-cols-2 sm:flex gap-2 sm:gap-3 px-4 mb-2 sm:overflow-x-auto sm:[-ms-scrollbar-style:none] sm:[scrollbar-width:none] sm:[&::-webkit-scrollbar]:hidden">
                     {(['Todos', 'Mujer', 'Hombre', 'Niños'] as const).map(g => (
                         <button
                             key={g}
                             onClick={() => handleFilterSelect('gender', g)}
-                            className={`flex h-11 shrink-0 items-center justify-center rounded-xl px-4 text-sm font-bold uppercase tracking-tight transition-colors ${selectedFilters.gender === g ? 'bg-primary text-white shadow-md' : 'bg-primary/20 text-text-light'}`}
+                            className={`flex h-11 sm:shrink-0 items-center justify-center rounded-xl px-4 text-sm font-bold uppercase tracking-tight transition-colors ${selectedFilters.gender === g ? 'bg-primary text-white shadow-md' : 'bg-primary/20 text-text-light'}`}
                         >
                             {g}
                         </button>
                     ))}
-                    <button onClick={() => setActiveFilter('Filtros')} className={`flex h-11 shrink-0 items-center justify-center gap-x-2 rounded-xl px-4 text-sm font-bold uppercase tracking-tight transition-colors ${selectedFilters.size !== 'Todas' || selectedFilters.color !== 'Todos' || selectedFilters.minPrice > 0 || selectedFilters.maxPrice < 200 ? 'bg-primary text-white' : 'bg-primary/20 text-text-light'}`}>
+                    <button onClick={() => setActiveFilter('Filtros')} className={`col-span-2 sm:col-auto flex h-11 sm:shrink-0 items-center justify-center gap-x-2 rounded-xl px-4 text-sm font-bold uppercase tracking-tight transition-colors ${selectedFilters.size !== 'Todas' || selectedFilters.color !== 'Todos' || selectedFilters.minPrice > 0 || selectedFilters.maxPrice < 200 ? 'bg-primary text-white' : 'bg-primary/20 text-text-light'}`}>
                         <Icon name="search" className="text-lg" />
                         {selectedFilters.size !== 'Todas' ? selectedFilters.size : selectedFilters.color !== 'Todos' ? selectedFilters.color : (selectedFilters.minPrice > 0 || selectedFilters.maxPrice < 200) ? `${selectedFilters.minPrice}€-${selectedFilters.maxPrice >= 200 ? '+200' : selectedFilters.maxPrice}€` : 'Filtros'}
                         <Icon name="expand_more" className="text-lg" />
